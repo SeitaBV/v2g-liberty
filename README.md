@@ -44,7 +44,7 @@ flexmeasures-home-assistant:
   wallbox_register_set_control_value_remote: !secret wallbox_register_set_control_value_remote
 ```
 
-In `/config/configuration.yaml` add the following Modbus sensor to store a clean signal of your car's state of charge, and a free text input to store charging schedules:
+In `/config/configuration.yaml` add the following Modbus sensor to get a signal of your car's state of charge, and some input fields to store a clean SoC signal, a selected charging strategy and charging schedules:
 
 ```yaml
 

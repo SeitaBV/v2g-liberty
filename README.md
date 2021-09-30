@@ -1,8 +1,8 @@
 # FlexMeasures / Home Assistant / Wallbox Quasar integration
 
-FlexMeasures integration for a Wallbox Quasar connected to Home Assistant using AppDaemon.
-
-This integration lets you add smart charge control to your Wallbox Quasar. Optimize the upcoming hours with an eye on energy prices, your solar generation or the CO2 content of the grid. (For now: only energy prices, the rest is to come)
+This integration lets you add smart charge control to your Wallbox Quasar.
+Optimize the upcoming hours with an eye on energy prices, your solar generation or the CO₂ content of the grid.
+(For now: only energy prices, the rest is to come.)
 
 In practice, you can do the following via your Home Assistant, you can 
 
@@ -10,6 +10,12 @@ In practice, you can do the following via your Home Assistant, you can
 - In automatic mode, FlexMeasures is periodically asked to generate schedules, which Home Assistant translates into set points which it sends to the Wallbox Quasar via modbus.
 - Set targets (e.g. be charged 100% at 7am tomorrow) which prompts FlexMeasures to update its schedules.
 
+This integration is a Python app and uses:
+
+- FlexMeasures for optimizing charging schedules.
+- Home Assistant for automating local control over your Wallbox Quasar.
+- The AppDaemon plugin for Home Assistant for running the Python app.
+- A Modbus specification for communicating with the Wallbox Quasar (currently not publicly available). 
 
 # Installation
 

@@ -18,7 +18,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
         self.configure_client()
         self.authenticate_with_fm()
-        self.listen_state(self.update_charging_strategy, "input_select.charging_strategy", attribute="all")
+        self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.post_udi_event, "input_number.car_state_of_charge", attribute="all")
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="state")
         self.scheduling_timer_handles = []
@@ -204,13 +204,13 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             auto_close=True,
         )
 
-    def update_charging_strategy(self, entity, attribute, old, new, kwargs):
+    def update_charge_mode(self, entity, attribute, old, new, kwargs):
         # todo: better remember previous setpoints and convert back to those
-        if new["state"] == "Automatisch":
+        if new["state"] == "Automatic":
             self.log("Setting up Charge Point to accept setpoints by remote (in W).")
             self.set_control("remote")
             self.set_setpoint_type("power_by_phase")
-        elif old["state"] == "Automatisch":
+        elif old["state"] == "Automatic":
             self.log("Setting up Charge Point to accept setpoints by user (in A).")
             self.set_setpoint_type("current")
             self.set_control("user")

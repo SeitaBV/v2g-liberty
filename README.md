@@ -6,7 +6,7 @@ This integration lets you add smart charge control to your Wallbox Quasar. Optim
 
 In practice, you can do the following via your Home Assistant, you can 
 
-- Switch the charging strategy between user and automatic
+- Switch the charge mode between user and automatic
 - In automatic mode, FlexMeasures is periodically asked to generate schedules, which Home Assistant translates into set points which it sends to the Wallbox Quasar via modbus.
 - Set targets (e.g. be charged 100% at 7am tomorrow) which prompts FlexMeasures to update its schedules.
 
@@ -53,7 +53,7 @@ flexmeasures-home-assistant:
   wallbox_register_set_control_value_remote: !secret wallbox_register_set_control_value_remote
 ```
 
-In `/config/configuration.yaml` add the following Modbus sensor to get a signal of your car's state of charge, and some input fields to store a clean SoC signal, a selected charging strategy and charging schedules:
+In `/config/configuration.yaml` add the following Modbus sensor to get a signal of your car's state of charge, and some input fields to store a clean SoC signal, a selected charge mode and charging schedules:
 
 ```yaml
 
@@ -81,8 +81,8 @@ input_number:
     step: 1
     unit_of_measurement: %
 input_select:
-  charging_strategy:
-    name: Charging strategy
+  charge_mode:
+    name: Charge mode
     icon: mdi:battery-charging-medium
     options:
       - Automatic

@@ -19,7 +19,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         self.configure_client()
         self.authenticate_with_fm()
         self.listen_state(self.update_charging_strategy, "input_select.charging_strategy", attribute="all")
-        self.listen_state(self.post_udi_event, "input_number.leaf_state_of_charge", attribute="all")
+        self.listen_state(self.post_udi_event, "input_number.car_state_of_charge", attribute="all")
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="state")
         self.scheduling_timer_handles = []
         self.log("Done setting up")
@@ -148,7 +148,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         This function is meant to be used as callback for self.listen_state on an SOC measuring entity.
         For example:
 
-            self.listen_state(self.post_udi_event, "input_number.leaf_state_of_charge", attribute="all")
+            self.listen_state(self.post_udi_event, "input_number.car_state_of_charge", attribute="all")
 
         """
         if self.args.get("reschedule_on_soc_changes_only", True) and new["last_changed"] != new["last_updated"]:

@@ -1,6 +1,15 @@
-# FlexMeasures / Home Assistant integration
+# FlexMeasures / Home Assistant / Wallbox Quasar integration
 
-FlexMeasures integration for Home Assistant using AppDaemon.
+FlexMeasures integration for a Wallbox Quasar connected to Home Assistant using AppDaemon.
+
+This integration lets you add smart charge control to your Wallbox Quasar. Optimize the upcoming hours with an eye on energy prices, your solar generation or the CO2 content of the grid. (For now: only energy prices, the rest is to come)
+
+In practice, you can do the following via your Home Assistant, you can 
+
+- Switch the charging strategy between user and automatic
+- In automatic mode, FlexMeasures is periodically asked to generate schedules, which Home Assistant translates into set points which it sends to the Wallbox Quasar via modbus.
+- Set targets (e.g. be charged 100% at 7am tomorrow) which prompts FlexMeasures to update its schedules.
+
 
 # Installation
 
@@ -56,7 +65,7 @@ modbus:
     host: !secret wallbox_host
     port: !secret wallbox_port
     sensors:
-      - name: state_of_charge_leaf
+      - name: charger_connected_car_state_of_charge
         address: !secret wallbox_register_get_state_of_charge
         input_type: holding
         data_type: int16
@@ -64,8 +73,8 @@ modbus:
         unit_of_measurement: "%"
         slave: 1
 input_number:
-  leaf_state_of_charge:
-    name: Leaf State of Charge
+  car_state_of_charge:
+    name: Car State of Charge
     icon: mdi:battery-medium
     min: 0
     max: 100
@@ -98,21 +107,21 @@ In `/config/automations.yaml` add:
     \ of charge, we also store the datetime of a (correct) change, as another input number."
   trigger:
   - platform: state
-    entity_id: sensor.state_of_charge_leaf
+    entity_id: sensor.charger_connected_car_state_of_charge
   condition:
   - condition: numeric_state
-    entity_id: sensor.state_of_charge_leaf
+    entity_id: sensor.charger_connected_car_state_of_charge
     above: '1'
   - condition: not
     conditions:
     - condition: state
-      entity_id: sensor.state_of_charge_leaf
+      entity_id: sensor.charger_connected_car_state_of_charge
       state: unavailable
   action:
   - service: input_number.set_value
     target:
-      entity_id: input_number.leaf_state_of_charge
+      entity_id: input_number.car_state_of_charge
     data:
-      value: '{{states(''sensor.state_of_charge_leaf'')}}'
+      value: '{{states(''sensor.charger_connected_car_state_of_charge'')}}'
   mode: single
 ```

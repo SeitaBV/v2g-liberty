@@ -63,28 +63,28 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         self.set_power_setpoint(charge_rate)
 
     def set_power_setpoint(self, charge_rate: int):
-        register = self.args("wallbox_register_set_power_setpoint")
+        register = self.args["wallbox_register_set_power_setpoint"]
         res = self.client.write_single_register(register, charge_rate)
         if not res is True:
             self.log(f"Failed to set charge rate to {charge_rate}. Charge Point responded with: {res}")
 
     def set_control(self, user_or_remote: str):
-        register = self.args("wallbox_register_set_control")
+        register = self.args["wallbox_register_set_control"]
         if user_or_remote == "user":
-            res = self.client.write_single_register(register, self.args("wallbox_register_set_control_value_user"))
+            res = self.client.write_single_register(register, self.args["wallbox_register_set_control_value_user"])
         elif user_or_remote == "remote":
-            res = self.client.write_single_register(register, self.args("wallbox_register_set_control_value_remote"))
+            res = self.client.write_single_register(register, self.args["wallbox_register_set_control_value_remote"])
         else:
             raise ValueError(f"unknown option for user_or_remote: {user_or_remote}")
         if not res is True:
             self.log(f"Failed to set control to {user_or_remote}. Charge Point responded with: {res}")
 
     def set_setpoint_type(self, current_or_power_by_phase: str):
-        register = self.args("wallbox_register_set_setpoint_type")
+        register = self.args["wallbox_register_set_setpoint_type"]
         if current_or_power_by_phase == "current":
-            res = self.client.write_single_register(register, self.args("wallbox_register_set_setpoint_type_value_current"))
+            res = self.client.write_single_register(register, self.args["wallbox_register_set_setpoint_type_value_current"])
         elif current_or_power_by_phase == "power_by_phase":
-            res = self.client.write_single_register(register, self.args("wallbox_register_set_setpoint_type_value_power_by_phase"))
+            res = self.client.write_single_register(register, self.args["wallbox_register_set_setpoint_type_value_power_by_phase"])
         else:
             raise ValueError(f"unknown option for current_or_power_by_phase: {current_or_power_by_phase}")
         if not res is True:

@@ -85,13 +85,13 @@ modbus:
         unit_of_measurement: "%"
         slave: 1
 input_number:
-  car_state_of_charge:
+  car_state_of_charge_wh:
     name: Car State of Charge
     icon: mdi:battery-medium
     min: 0
-    max: 100
+    max: 62000
     step: 1
-    unit_of_measurement: %
+    unit_of_measurement: Wh
 input_select:
   charge_mode:
     name: Charge mode
@@ -132,8 +132,8 @@ In `/config/automations.yaml` add:
   action:
   - service: input_number.set_value
     target:
-      entity_id: input_number.car_state_of_charge
+      entity_id: input_number.car_state_of_charge_wh
     data:
-      value: '{{states(''sensor.charger_connected_car_state_of_charge'')}}'
+      value: '{{states(''sensor.charger_connected_car_state_of_charge * 620'')}}'
   mode: single
 ```

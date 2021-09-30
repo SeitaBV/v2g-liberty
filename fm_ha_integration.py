@@ -86,7 +86,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         elif current_or_power_by_phase == "power_by_phase":
             res = self.client.write_single_register(register, self.args("wallbox_register_set_setpoint_type_value_power_by_phase"))
         else:
-            raise ValueError(f"unknown option for user_or_remote: {current_or_power_by_phase}")
+            raise ValueError(f"unknown option for current_or_power_by_phase: {current_or_power_by_phase}")
         if not res is True:
             self.log(f"Failed to set setpoint type to {current_or_power_by_phase}. Charge Point responded with: {res}")
 

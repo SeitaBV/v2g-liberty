@@ -13,6 +13,8 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
     fm_token: str
     udi_event_id: int
     scheduling_timer_handles: List[AsyncGenerator]
+    previous_control_value: str
+    previous_setpoint_type: str
 
     def initialize(self):
         self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
@@ -70,6 +72,17 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
 
     def set_control(self, user_or_remote: str):
         register = self.args["wallbox_register_set_control"]
+        
+        # Remember previous control mode
+        previous_control_value = self.client.read_holding_registers(register)
+        if previous_control_value == self.args["wallbox_register_set_control_value_user"]:
+            self.previous_control = "user"
+        elif previous_control_value == self.args["wallbox_register_set_control_value_remote"]:
+            self.previous_control = "remote"
+        else:
+            raise ValueError(f"unknown previous control value: {previous_control_value}")
+        
+        # Set new control mode
         if user_or_remote == "user":
             res = self.client.write_single_register(register, self.args["wallbox_register_set_control_value_user"])
         elif user_or_remote == "remote":
@@ -81,6 +94,17 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
 
     def set_setpoint_type(self, current_or_power_by_phase: str):
         register = self.args["wallbox_register_set_setpoint_type"]
+        
+        # Remember previous setpoint type
+        previous_setpoint_type_value = self.client.read_holding_registers(register)
+        if previous_setpoint_type_value == self.args["wallbox_register_set_setpoint_type_value_current"]:
+            self.previous_setpoint_type = "current"
+        elif previous_setpoint_type_value == self.args["wallbox_register_set_setpoint_type_value_power_by_phase"]:
+            self.previous_setpoint_type = "power_by_phase"
+        else:
+            raise ValueError(f"unknown previous setpoint type value: {previous_control_value}")
+        
+        # Set new setpoint type
         if current_or_power_by_phase == "current":
             res = self.client.write_single_register(register, self.args["wallbox_register_set_setpoint_type_value_current"])
         elif current_or_power_by_phase == "power_by_phase":
@@ -211,6 +235,9 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             self.set_control("remote")
             self.set_setpoint_type("power_by_phase")
         elif old["state"] == "Automatic":
-            self.log("Setting up Charge Point to accept setpoints by user (in A).")
-            self.set_setpoint_type("current")
-            self.set_control("user")
+            previous_setpoint_type = self.previous_setpoint_type
+            previous_control = self.previous_control
+            previous_setpoint_type_description = "in A" if previous_setpoint_type == "current" else "in W"
+            self.log(f"Setting up Charge Point to accept setpoints by {previous_control} ({previous_setpoint_type_description}).")
+            self.set_setpoint_type(previous_setpoint_type)
+            self.set_control(previous_control)

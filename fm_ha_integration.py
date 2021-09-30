@@ -77,7 +77,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         register = self.args["wallbox_register_set_control"]
         
         # Remember previous control mode
-        previous_control_value = self.client.read_holding_registers(register)
+        previous_control_value = self.client.read_holding_registers(register)[0]
         if previous_control_value == self.args["wallbox_register_set_control_value_user"]:
             self.previous_control = "user"
         elif previous_control_value == self.args["wallbox_register_set_control_value_remote"]:
@@ -99,7 +99,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         register = self.args["wallbox_register_set_setpoint_type"]
         
         # Remember previous setpoint type
-        previous_setpoint_type_value = self.client.read_holding_registers(register)
+        previous_setpoint_type_value = self.client.read_holding_registers(register)[0]
         if previous_setpoint_type_value == self.args["wallbox_register_set_setpoint_type_value_current"]:
             self.previous_setpoint_type = "current"
         elif previous_setpoint_type_value == self.args["wallbox_register_set_setpoint_type_value_power_by_phase"]:
@@ -187,7 +187,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             # A state update but not a state change
             # https://data.home-assistant.io/docs/states/
             return
-        soc = soc_entity["state"] / 1000  # to kWh
+        soc = float(soc_entity["state"]) / 1000  # to kWh
         soc_datetime = soc_entity["last_changed"]
         url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/postUdiEvent"
         udi_event_id = int(time.time())  # we use this as our UDI event id

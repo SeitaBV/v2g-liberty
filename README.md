@@ -60,6 +60,8 @@ flexmeasures-home-assistant:
   wallbox_register_set_control_value_remote: !secret wallbox_register_set_control_value_remote
 ```
 
+The Wallbox register settings are documented in the Quasar Modbus specification.
+
 In `/config/configuration.yaml` add the following Modbus sensor to get a signal of your car's state of charge, and some input fields to store a clean SoC signal, a selected charge mode and charging schedules:
 
 ```yaml

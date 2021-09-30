@@ -21,7 +21,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         self.configure_client()
         self.authenticate_with_fm()
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
-        self.listen_state(self.post_udi_event, "input_number.car_state_of_charge", attribute="all")
+        self.listen_state(self.post_udi_event, "input_number.car_state_of_charge_wh", attribute="all")
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="state")
         self.scheduling_timer_handles = []
         self.log("Done setting up")
@@ -166,20 +166,20 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         self.fm_token = res.json()["auth_token"]
 
     def post_udi_event(self, entity, attribute, old, new, kwargs, **fnc_kwargs):
-        """POST a UDI event upon a change in SOC state,
+        """POST a UDI event upon a change in SOC state (in Wh),
         and keep around the UDI event id for later retrieval of a device message.
 
         This function is meant to be used as callback for self.listen_state on an SOC measuring entity.
         For example:
 
-            self.listen_state(self.post_udi_event, "input_number.car_state_of_charge", attribute="all")
+            self.listen_state(self.post_udi_event, "input_number.car_state_of_charge_wh", attribute="all")
 
         """
         if self.args.get("reschedule_on_soc_changes_only", True) and new["last_changed"] != new["last_updated"]:
             # A state update but not a state change
             # https://data.home-assistant.io/docs/states/
             return
-        soc = new["state"]
+        soc = new["state"] / 1000  # to kWh
         soc_datetime = new["last_changed"]
         url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/postUdiEvent"
         udi_event_id = int(time.time())  # we use this as our UDI event id
@@ -189,7 +189,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             "type": "PostUdiEventRequest",
             "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
             "value": soc,
-            "unit": "kWh",  # todo: convert from % to kWh
+            "unit": "kWh",
             "datetime": soc_datetime
         }
         res = requests.post(

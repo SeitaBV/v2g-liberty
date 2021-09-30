@@ -20,6 +20,7 @@ This integration is a Python app and uses:
 # Installation
 
 The installation tutorial assumes you have already installed Home Assistant, including the AppDaemon 4 add-on.
+It also assumes you have a FlexMeasures server set up with a sensor for the Quasar (copy its entity address into the relevant Home Assistant setting), as well as a sensor and data for day-ahead prices.
 
 In Home Assistant, look for the AppDaemon configuration (`Supervisor -> AppDaemon 4 -> Configuration`) and add the following Python packages:
 

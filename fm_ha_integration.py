@@ -100,7 +100,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         udi_event_id = self.udi_event_id
         message = {
             "type": "GetDeviceMessageRequest",
-            "event": self.args["fm_ea"] + ":" + str(udi_event_id) + ":soc",
+            "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
         }
         res = requests.get(
             url,
@@ -163,7 +163,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
 
         message = {
             "type": "PostUdiEventRequest",
-            "event": self.args["fm_ea"] + ":" + str(udi_event_id) + ":soc",
+            "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
             "value": soc,
             "unit": "kWh",  # todo: convert from % to kWh
             "datetime": soc_datetime

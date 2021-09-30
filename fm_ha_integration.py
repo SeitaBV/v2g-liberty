@@ -168,22 +168,27 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             self.log(f"Authentication failed with response {res.json()}")
         self.fm_token = res.json()["auth_token"]
 
-    def post_udi_event(self, entity, attribute, old, new, kwargs, **fnc_kwargs):
-        """POST a UDI event upon a change in SOC state (in Wh),
-        and keep around the UDI event id for later retrieval of a device message.
+    def post_udi_event(self, *args, **fnc_kwargs):
+        """POST a UDI event and keep around the UDI event id for later retrieval of a device message.
 
-        This function is meant to be used as callback for self.listen_state on an SOC measuring entity.
+        This function is meant to be used as callback for self.listen_state on the following:
+        - SOC updates (use an SOC measuring entity)
+        - calendar updates
+        - charger state updates
+        
         For example:
 
             self.listen_state(self.post_udi_event, "input_number.car_state_of_charge_wh", attribute="all")
 
         """
-        if self.args.get("reschedule_on_soc_changes_only", True) and new["last_changed"] != new["last_updated"]:
+        soc_entity = self.get_state("input_number.car_state_of_charge_wh", attribute="all")
+
+        if self.args.get("reschedule_on_soc_changes_only", True) and soc_entity["last_changed"] != soc_entity["last_updated"]:
             # A state update but not a state change
             # https://data.home-assistant.io/docs/states/
             return
-        soc = new["state"] / 1000  # to kWh
-        soc_datetime = new["last_changed"]
+        soc = soc_entity["state"] / 1000  # to kWh
+        soc_datetime = soc_entity["last_changed"]
         url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/postUdiEvent"
         udi_event_id = int(time.time())  # we use this as our UDI event id
         self.log(f"Posting UDI event {udi_event_id} to {url}")
@@ -219,8 +224,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
         if res.status_code != 200:
-            self.handle_response_errors(message, res, "POST UDI event", self.post_udi_event, entity, attribute, old,
-                                        new, kwargs, **fnc_kwargs)
+            self.handle_response_errors(message, res, "POST UDI event", self.post_udi_event, *args, **fnc_kwargs)
             return
         self.udi_event_id = udi_event_id
         s = self.args["delay_for_initial_attempts_to_retrieve_device_message"]

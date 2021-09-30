@@ -1,4 +1,7 @@
+from datetime import datetime
 import json
+import pytz
+import re
 import requests
 import time
 from typing import AsyncGenerator, List
@@ -185,12 +188,30 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         udi_event_id = int(time.time())  # we use this as our UDI event id
         self.log(f"Posting UDI event {udi_event_id} to {url}")
 
+        # Retrieve target SOC
+        car_reservation = self.get_state(self.args["fm_car_reservation_calendar"], attribute="all")
+        if car_reservation is None:
+            # Set default target to 100% one week from now
+            target = self.args["fm_car_max_soc_in_kwh"]
+            target_datetime = (datetime.now(tz=pytz.utc) + timedelta(days=7)).isoformat()
+        else:
+            target = search_for_kwh_target(car_reservation["attributes"]["description"])
+            if target is None:
+                target = self.args["fm_car_max_soc_in_kwh"]
+            target_datetime = isodate.parse_datetime(car_reservation["attributes"]["start_time"].replace(" ", "T")).astimezone(pytz.timezone("Europe/Amsterdam")).isoformat()
+
         message = {
             "type": "PostUdiEventRequest",
-            "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
+            "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc-with-targets",  # todo: relay flow constraints with new UDI event type ":soc-with-target-and-flow-constraints"
             "value": soc,
             "unit": "kWh",
-            "datetime": soc_datetime
+            "datetime": soc_datetime,
+            "targets": [
+                {
+                    "value": target,
+                    "datetime": target_datetime,
+                }
+            ]
         }
         res = requests.post(
             url,
@@ -241,3 +262,16 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             self.log(f"Setting up Charge Point to accept setpoints by {previous_control} ({previous_setpoint_type_description}).")
             self.set_setpoint_type(previous_setpoint_type)
             self.set_control(previous_control)
+
+
+def search_for_kwh_target(description: Optional[str]) -> Optional[int]:
+    """Search description for the first occurrence of some (integer) number of kWh.
+
+    Forgives errors in incorrect capitalization of the unit and missing/double spaces.
+    """
+    if description is None:
+        return None
+    match = re.search("(?P<quantity>\d+) *kwh", description.lower())
+    if match is None:
+        return None
+    return int(match.group("quantity"))

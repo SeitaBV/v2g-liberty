@@ -1,0 +1,216 @@
+import json
+import requests
+import time
+from typing import AsyncGenerator, List
+
+import appdaemon.plugins.hass.hassapi as hass
+import isodate
+from pyModbusTCP.client import ModbusClient
+
+
+class FlexMeasuresWallboxQuasar(hass.Hass):
+    client: ModbusClient
+    fm_token: str
+    udi_event_id: int
+    scheduling_timer_handles: List[AsyncGenerator]
+
+    def initialize(self):
+        self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
+        self.configure_client()
+        self.authenticate_with_fm()
+        self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
+        self.listen_state(self.post_udi_event, "input_number.car_state_of_charge", attribute="all")
+        self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="state")
+        self.scheduling_timer_handles = []
+        self.log("Done setting up")
+
+    def schedule_charge_point(self, entity, attribute, old, new, kwargs):
+        """Send a new control signal (specifically, a charging rate) to the Charge Point,
+        and schedule the next moment to send a control signal.
+        """
+        schedule = json.loads(self.get_state("input_text.chargeschedule"))
+
+        self.log(schedule)
+
+        values = schedule["values"]
+        duration = isodate.parse_duration(schedule["duration"])
+        resolution = duration / len(values)
+        start = isodate.parse_datetime(schedule["start"])
+
+        # Cancel previous scheduling timers
+        for h in self.scheduling_timer_handles:
+            self.cancel_timer(h)
+
+        # Create new scheduling timers, to send a control signal for each value
+        handles = []
+        now = self.get_now()
+        for i, value in enumerate(values):
+            t = start + i * resolution
+            if t > now:
+                h = self.run_at(self.send_control_signal, t, charge_rate=value * 1000)  # convert from MW to kW
+                handles.append(h)
+            else:
+                self.log(f"Cannot time a charging scheduling in the past, specifically, at {t}")
+        self.scheduling_timer_handles = handles
+
+    def send_control_signal(self, kwargs: dict, *args, **fnc_kwargs):
+        """
+        The kwargs dict should contain a "charge_rate" key with a value in kW.
+        """
+        charge_rate = round(kwargs[
+                                "charge_rate"] * 1000)  # todo: convert total power to power per phase (but multiplying with 3**0.5 doesn't seem to work out exactly)
+        self.log(f"Sending control signal to Wallbox Quasar: set charge rate to {charge_rate / 1000} kW")
+        self.set_power_setpoint(charge_rate)
+
+    def set_power_setpoint(self, charge_rate: int):
+        register = self.args("wallbox_register_set_power_setpoint")
+        res = self.client.write_single_register(register, charge_rate)
+        if not res is True:
+            self.log(f"Failed to set charge rate to {charge_rate}. Charge Point responded with: {res}")
+
+    def set_control(self, user_or_remote: str):
+        register = self.args("wallbox_register_set_control")
+        if user_or_remote == "user":
+            res = self.client.write_single_register(register, self.args("wallbox_register_set_control_value_user"))
+        elif user_or_remote == "remote":
+            res = self.client.write_single_register(register, self.args("wallbox_register_set_control_value_remote"))
+        else:
+            raise ValueError(f"unknown option for user_or_remote: {user_or_remote}")
+        if not res is True:
+            self.log(f"Failed to set control to {user_or_remote}. Charge Point responded with: {res}")
+
+    def set_setpoint_type(self, current_or_power_by_phase: str):
+        register = self.args("wallbox_register_set_setpoint_type")
+        if current_or_power_by_phase == "current":
+            res = self.client.write_single_register(register, self.args("wallbox_register_set_setpoint_type_value_current"))
+        elif current_or_power_by_phase == "power_by_phase":
+            res = self.client.write_single_register(register, self.args("wallbox_register_set_setpoint_type_value_power_by_phase"))
+        else:
+            raise ValueError(f"unknown option for current_or_power_by_phase: {current_or_power_by_phase}")
+        if not res is True:
+            self.log(f"Failed to set setpoint type to {current_or_power_by_phase}. Charge Point responded with: {res}")
+
+    def get_device_message(self, kwargs, *args, **fnc_kwargs):
+        """GET a device message based on the most recent UDI event,
+        and store it as a charging schedule.
+
+        This function uses self.udi_event_id as the most recent UDI event.
+        """
+        url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/getDeviceMessage"
+        udi_event_id = self.udi_event_id
+        message = {
+            "type": "GetDeviceMessageRequest",
+            "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
+        }
+        res = requests.get(
+            url,
+            params=message,
+            headers={"Authorization": self.fm_token},
+        )
+        self.handle_response_errors(message, res, "GET device message", self.get_device_message, kwargs, *args,
+                                    **fnc_kwargs)
+        if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
+            s = self.args["delay_for_reattempts_to_retrieve_device_message"]
+            self.log("kwargs")
+            self.log(kwargs)
+            attempts_left = kwargs.get("attempts_left",
+                                       self.args["max_number_of_reattempts_to_retrieve_device_message"])
+            if attempts_left >= 1:
+                self.log(f"Reattempting to get device message in {s} seconds (attempts left: {attempts_left})")
+                self.run_in(self.get_device_message, delay=int(s), attempts_left=attempts_left - 1)
+            else:
+                self.log("Device message cannot be retrieved. Any previous charging schedule will keep being followed.")
+
+        schedule = res.json()
+        self.set_state("input_text.chargeschedule", state=schedule)
+
+    def authenticate_with_fm(self):
+        """Authenticate with the FlexMeasures server and store the returned auth token.
+
+        Hint: the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
+        """
+        self.log("Authenticating with FlexMeasures")
+        res = requests.post(
+            self.args["fm_api"] + "/requestAuthToken",
+            json=dict(
+                email=self.args["fm_user_email"],
+                password=self.args["fm_user_password"],
+            ),
+        )
+        if not res.status_code == 200:
+            self.log(f"Authentication failed with response {res.json()}")
+        self.fm_token = res.json()["auth_token"]
+
+    def post_udi_event(self, entity, attribute, old, new, kwargs, **fnc_kwargs):
+        """POST a UDI event upon a change in SOC state,
+        and keep around the UDI event id for later retrieval of a device message.
+
+        This function is meant to be used as callback for self.listen_state on an SOC measuring entity.
+        For example:
+
+            self.listen_state(self.post_udi_event, "input_number.car_state_of_charge", attribute="all")
+
+        """
+        if self.args.get("reschedule_on_soc_changes_only", True) and new["last_changed"] != new["last_updated"]:
+            # A state update but not a state change
+            # https://data.home-assistant.io/docs/states/
+            return
+        soc = new["state"]
+        soc_datetime = new["last_changed"]
+        url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/postUdiEvent"
+        udi_event_id = int(time.time())  # we use this as our UDI event id
+        self.log(f"Posting UDI event {udi_event_id} to {url}")
+
+        message = {
+            "type": "PostUdiEventRequest",
+            "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
+            "value": soc,
+            "unit": "kWh",  # todo: convert from % to kWh
+            "datetime": soc_datetime
+        }
+        res = requests.post(
+            url,
+            json=message,
+            headers={"Authorization": self.fm_token},
+        )
+        if res.status_code != 200:
+            self.handle_response_errors(message, res, "POST UDI event", self.post_udi_event, entity, attribute, old,
+                                        new, kwargs, **fnc_kwargs)
+            return
+        self.udi_event_id = udi_event_id
+        s = self.args["delay_for_initial_attempts_to_retrieve_device_message"]
+        self.log(f"Attempting to get device message in {s} seconds")
+        self.run_in(self.get_device_message, delay=int(s))
+
+    def handle_response_errors(self, message, res, description, fnc, *args, **fnc_kwargs):
+        if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
+            self.log(
+                f"Failed to {description} on authorization (possibly the token expired); attempting to reauthenticate once")
+            self.authenticate_with_fm()
+            fnc_kwargs["retry_auth_once"] = False
+            fnc(*args, **fnc_kwargs)
+        else:
+            self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
+
+    def configure_client(self):
+        # Configuration
+        host = self.args["wallbox_host"]
+        port = self.args["wallbox_port"]
+        self.log(f"Configuring Modbus client at {host}:{port}")
+        self.client = ModbusClient(
+            host=host,
+            port=port,
+            auto_open=True,
+            auto_close=True,
+        )
+
+    def update_charge_mode(self, entity, attribute, old, new, kwargs):
+        # todo: better remember previous setpoints and convert back to those
+        if new["state"] == "Automatic":
+            self.log("Setting up Charge Point to accept setpoints by remote (in W).")
+            self.set_control("remote")
+            self.set_setpoint_type("power_by_phase")
+        elif old["state"] == "Automatic":
+            self.log("Setting up Charge Point to accept setpoints by user (in A).")
+            self.set_setpoint_type("current")
+            self.set_control("user")

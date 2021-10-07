@@ -195,7 +195,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
 
         # Retrieve target SOC
         car_reservation = self.get_state(self.args["fm_car_reservation_calendar"], attribute="all")
-        if car_reservation is None:
+        if car_reservation is None or "description" not in car_reservation["attributes"]:
             # Set default target to 100% one week from now
             target = self.args["fm_car_max_soc_in_kwh"]
             target_datetime = (datetime.now(tz=pytz.utc) + timedelta(days=7)).isoformat()

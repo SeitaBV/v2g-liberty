@@ -25,7 +25,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         self.authenticate_with_fm()
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.post_udi_event, "input_number.car_state_of_charge_wh", attribute="all")
-        self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="state")
+        self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="events")
         self.scheduling_timer_handles = []
         self.log("Done setting up")
 
@@ -33,7 +33,8 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         """Send a new control signal (specifically, a charging rate) to the Charge Point,
         and schedule the next moment to send a control signal.
         """
-        schedule = json.loads(self.get_state("input_text.chargeschedule"))
+        schedule = self.get_state("input_text.chargeschedule", attribute="all")
+        schedule = schedule["attributes"]
 
         self.log(schedule)
 
@@ -149,7 +150,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
                 self.log("Device message cannot be retrieved. Any previous charging schedule will keep being followed.")
 
         schedule = res.json()
-        self.set_state("input_text.chargeschedule", state=schedule)
+        self.set_state("input_text.chargeschedule", state="ChargeScheduleAvailable", attributes=schedule)
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.

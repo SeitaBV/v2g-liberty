@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import pytz
 import re
@@ -214,6 +214,12 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             return
         soc = float(soc_entity["state"]) / 1000  # to kWh
         soc_datetime = soc_entity["last_changed"]
+
+        # Snap to sensor resolution
+        soc_datetime = isodate.parse_datetime(soc_datetime)
+        resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
+        soc_datetime = time_round(soc_datetime, resolution).isoformat()
+
         url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/postUdiEvent"
         udi_event_id = int(time.time())  # we use this as our UDI event id
         self.log(f"Posting UDI event {udi_event_id} to {url}")
@@ -223,12 +229,13 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         if car_reservation is None or "description" not in car_reservation["attributes"]:
             # Set default target to 100% one week from now
             target = self.args["fm_car_max_soc_in_kwh"]
-            target_datetime = (datetime.now(tz=pytz.utc) + timedelta(days=7)).isoformat()
+            target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
         else:
             target = search_for_kwh_target(car_reservation["attributes"]["description"])
             if target is None:
                 target = self.args["fm_car_max_soc_in_kwh"]
             target_datetime = isodate.parse_datetime(car_reservation["attributes"]["start_time"].replace(" ", "T")).astimezone(pytz.timezone("Europe/Amsterdam")).isoformat()
+            target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
 
         message = {
             "type": "PostUdiEventRequest",
@@ -304,3 +311,18 @@ def search_for_kwh_target(description: Optional[str]) -> Optional[int]:
     if match is None:
         return None
     return int(match.group("quantity"))
+
+
+def time_mod(time, delta, epoch=None):
+    """From https://stackoverflow.com/a/57877961/13775459"""
+    if epoch is None:
+        epoch = datetime(1970, 1, 1, tzinfo=time.tzinfo)
+    return (time - epoch) % delta
+
+
+def time_round(time, delta, epoch=None):
+    """From https://stackoverflow.com/a/57877961/13775459"""
+    mod = time_mod(time, delta, epoch)
+    if mod < (delta / 2):
+       return time - mod
+    return time + (delta - mod)

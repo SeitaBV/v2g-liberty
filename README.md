@@ -47,6 +47,7 @@ flexmeasures-home-assistant:
   fm_car_reservation_calendar: calendar.car_reservation
   fm_car_reservation_calendar_timezone: Europe/Amsterdam
   fm_quasar_entity_address: !secret fm_quasar_entity_address
+  fm_quasar_soc_event_resolution_in_minutes: 5
   reschedule_on_soc_changes_only: true
   max_number_of_reattempts_to_retrieve_device_message: 2
   delay_for_reattempts_to_retrieve_device_message: 60

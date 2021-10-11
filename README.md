@@ -54,6 +54,7 @@ flexmeasures-home-assistant:
   delay_for_initial_attempts_to_retrieve_device_message: 5
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
+  wallbox_current_power_ratio: 230  # in Volt
   wallbox_max_charging_current: 25  # in Amp
   wallbox_register_get_state_of_charge: !secret wallbox_register_get_state_of_charge
   wallbox_register_set_action: !secret wallbox_register_set_action

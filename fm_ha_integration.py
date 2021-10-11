@@ -93,37 +93,35 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             self.log(f"Not sending control signal. Expected charge mode 'Automatic' instead of charge mode '{mode}'.")
             return
 
-        charge_rate = round(kwargs[
-                                "charge_rate"] * 1000)  # todo: convert total power to power per phase (but multiplying with 3**0.5 doesn't seem to work out exactly)
+        charge_rate = round(kwargs["charge_rate"] * 1000)
         self.log(f"Sending control signal to Wallbox Quasar: set charge rate to {charge_rate / 1000} kW")
         self.set_power_setpoint(charge_rate)
 
     def set_power_setpoint(self, charge_rate: int):
-        register = self.args["wallbox_register_set_power_setpoint"]
-        res = self.client.write_single_register(register, charge_rate)
-        if res is not True:
-            self.log(f"Failed to set charge rate to {charge_rate}. Charge Point responded with: {res}")
+        ratio = self.args["wallbox_current_power_ratio"]
+        current = round(charge_rate / ratio)
+        set_current_setpoint(current)
 
-    def set_current_setpoint(self, charge_rate: int):
+    def set_current_setpoint(self, current: int):
         max_current = self.args["wallbox_max_charging_current"]
-        if charge_rate > max_current:
-            self.log(f"Requested charge rate {charge_rate}A too high. Changed charge rate to maximum: {max_current}A.")
-            charge_rate = max_current
+        if current > max_current:
+            self.log(f"Requested charge rate {current}A too high. Changed charge rate to maximum: {max_current}A.")
+            current = max_current
 
         # also check negative values
-        elif abs(charge_rate) > max_current:
+        elif abs(current) > max_current:
             self.log(
-                f"Requested discharge rate {charge_rate}A too high. Changed discharge rate to maximum: {max_current}A.")
-            charge_rate = -max_current
+                f"Requested discharge rate {current}A too high. Changed discharge rate to maximum: {max_current}A.")
+            current = -max_current
 
         self.set_setpoint_type("current")
 
         register = self.args["wallbox_register_set_current_setpoint"]
-        res = self.client.write_single_register(register, charge_rate)
+        res = self.client.write_single_register(register, current)
         if res is not True:
-            self.log(f"Failed to set current charge rate to {charge_rate}. Charge Point responded with: {res}")
+            self.log(f"Failed to set current charge rate to {current}A. Charge Point responded with: {res}")
         else:
-            self.log(f"Charge rate set to {charge_rate}A successfully.")
+            self.log(f"Charge rate set to {current}A successfully.")
 
     def set_charger_start_charging_on_ev_gun_connected(self, setting: str):
         if setting == "enable":
@@ -389,5 +387,5 @@ def time_round(time, delta, epoch=None):
     """From https://stackoverflow.com/a/57877961/13775459"""
     mod = time_mod(time, delta, epoch)
     if mod < (delta / 2):
-       return time - mod
+        return time - mod
     return time + (delta - mod)

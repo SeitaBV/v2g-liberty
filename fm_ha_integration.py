@@ -25,6 +25,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         self.authenticate_with_fm()
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.post_udi_event, "input_number.car_state_of_charge_wh", attribute="all")
+
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="events")
         self.scheduling_timer_handles = []
 
@@ -46,7 +47,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         
         if schedule["state"] == "DisconnectNow":
             self.log(f"DisconnectNow requested")
-            # Tell charger to stop charging and set control to user 
+            # Tell charger to stop charging and set control to user
             self.set_charger_action("stop")
             self.set_control("user")
             return
@@ -59,11 +60,13 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         duration = isodate.parse_duration(schedule["duration"])
         resolution = duration / len(values)
         start = isodate.parse_datetime(schedule["start"])
-        
+
         # Check against expected control signal resolution
         min_resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
         if resolution < min_resolution:
-            self.log(f"Stopped processing schedule, because the resolution ({resolution}) is below the set minimum ({min_resolution}).")
+            self.log(
+                f"Stopped processing schedule, because the resolution ({resolution}) is below the set minimum ({min_resolution})."
+            )
             return
 
         # Cancel previous scheduling timers
@@ -135,7 +138,9 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         register = self.args["wallbox_register_set_start_charging_on_ev_gun_connected"]
         res = self.client.write_single_register(register, value)
         if res is not True:
-            self.log(f"Failed to set 'start charging on EV-Gun connected' to {action}. Charge Point responded with: {res}")
+            self.log(
+                f"Failed to set 'start charging on EV-Gun connected' to {action}. Charge Point responded with: {res}"
+            )
         else:
             self.log(f"Set 'start charging on EV-Gun connected' to {action} succeeded")
 
@@ -157,7 +162,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
 
     def set_control(self, user_or_remote: str):
         register = self.args["wallbox_register_set_control"]
-        
+
         # Remember previous control mode
         previous_control_value = self.client.read_holding_registers(register)[0]
         if previous_control_value == self.args["wallbox_register_set_control_value_user"]:
@@ -166,7 +171,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             self.previous_control = "remote"
         else:
             raise ValueError(f"unknown previous control value: {previous_control_value}")
-        
+
         # Set new control mode
         if user_or_remote == "user":
             res = self.client.write_single_register(register, self.args["wallbox_register_set_control_value_user"])
@@ -179,7 +184,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
 
     def set_setpoint_type(self, current_or_power_by_phase: str):
         register = self.args["wallbox_register_set_setpoint_type"]
-        
+
         # Remember previous setpoint type
         previous_setpoint_type_value = self.client.read_holding_registers(register)[0]
         if previous_setpoint_type_value == self.args["wallbox_register_set_setpoint_type_value_current"]:
@@ -188,12 +193,18 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             self.previous_setpoint_type = "power_by_phase"
         else:
             raise ValueError(f"unknown previous setpoint type value: {previous_control_value}")
-        
+
         # Set new setpoint type
         if current_or_power_by_phase == "current":
-            res = self.client.write_single_register(register, self.args["wallbox_register_set_setpoint_type_value_current"])
+            res = self.client.write_single_register(
+                register,
+                self.args["wallbox_register_set_setpoint_type_value_current"]
+            )
         elif current_or_power_by_phase == "power_by_phase":
-            res = self.client.write_single_register(register, self.args["wallbox_register_set_setpoint_type_value_power_by_phase"])
+            res = self.client.write_single_register(
+                register, self.args[
+                "wallbox_register_set_setpoint_type_value_power_by_phase"]
+            )
         else:
             raise ValueError(f"unknown option for current_or_power_by_phase: {current_or_power_by_phase}")
         if not res is True:
@@ -257,7 +268,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         - SOC updates (use an SOC measuring entity)
         - calendar updates
         - charger state updates
-        
+
         For example:
 
             self.listen_state(self.post_udi_event, "input_number.car_state_of_charge_wh", attribute="all")
@@ -265,7 +276,9 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         """
         soc_entity = self.get_state("input_number.car_state_of_charge_wh", attribute="all")
 
-        if self.args.get("reschedule_on_soc_changes_only", True) and soc_entity["last_changed"] != soc_entity["last_updated"]:
+        if self.args.get(
+                "reschedule_on_soc_changes_only", True
+        ) and soc_entity["last_changed"] != soc_entity["last_updated"]:
             # A state update but not a state change
             # https://data.home-assistant.io/docs/states/
             return
@@ -291,7 +304,11 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             target = search_for_kwh_target(car_reservation["attributes"]["description"])
             if target is None:
                 target = self.args["fm_car_max_soc_in_kwh"]
-            target_datetime = isodate.parse_datetime(car_reservation["attributes"]["start_time"].replace(" ", "T")).astimezone(pytz.timezone("Europe/Amsterdam")).isoformat()
+            target_datetime = isodate.parse_datetime(
+                car_reservation["attributes"]["start_time"].replace(" ", "T")
+            ).astimezone(
+                pytz.timezone("Europe/Amsterdam")
+            ).isoformat()
             target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
 
         message = {
@@ -343,21 +360,26 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         )
 
     def update_charge_mode(self, entity, attribute, old, new, kwargs):
-        # todo: better remember previous setpoints and convert back to those
         if new["state"] == "Automatic":
-            self.log("Setting up Charge Point to accept setpoints by remote (in W).")
+            self.log("Charge mode set to 'Automatic'")
             self.set_control("remote")
             self.set_charger_start_charging_on_ev_gun_connected("disable")
             self.set_setpoint_type("power_by_phase")
         elif new["state"] == "Max boost now":
+            self.log("Charge mode set to 'Max boost now'")
+
+            # todo: check if connected, if not log/send error
             self.set_control("remote")
             self.set_charger_start_charging_on_ev_gun_connected("disable")
+
             # Prevent overloading of phase
             # If powerboost is available the charger will handle preventing overloading
             max_current = self.args["wallbox_max_charging_current"]
             self.set_current_setpoint(max_current)
             self.set_charger_action("start")
+
         elif new["state"] == "Off":
+            self.log("Charge mode set to 'Off'")
             self.set_charger_action("stop")
             self.set_charger_start_charging_on_ev_gun_connected("enable")
             self.set_control("user")

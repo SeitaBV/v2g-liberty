@@ -24,7 +24,10 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         self.configure_client()
         self.authenticate_with_fm()
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
+        
+        # When to ask FlexMeasures for a new charging schedule
         self.listen_state(self.post_udi_event, "input_number.car_state_of_charge_wh", attribute="all")
+        self.listen_state(self.post_udi_event, self.args["fm_car_reservation_calendar"], attribute="all")
 
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="events")
         self.scheduling_timer_handles = []

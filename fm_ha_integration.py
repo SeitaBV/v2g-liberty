@@ -76,6 +76,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         for i, value in enumerate(values):
             t = start + i * resolution
             if t > now:
+                self.log(f"Setting timer at {t}")
                 h = self.run_at(self.send_control_signal, t, charge_rate=value * 1000)  # convert from MW to kW
                 handles.append(h)
             else:

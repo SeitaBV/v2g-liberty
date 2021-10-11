@@ -87,6 +87,12 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         """
         The kwargs dict should contain a "charge_rate" key with a value in kW.
         """
+        # Check for automatic mode
+        mode = self.get_state("input_select.charge_mode")
+        if mode != "Automatic":
+            self.log(f"Not sending control signal. Expected charge mode 'Automatic' instead of charge mode '{mode}'.")
+            return
+
         charge_rate = round(kwargs[
                                 "charge_rate"] * 1000)  # todo: convert total power to power per phase (but multiplying with 3**0.5 doesn't seem to work out exactly)
         self.log(f"Sending control signal to Wallbox Quasar: set charge rate to {charge_rate / 1000} kW")

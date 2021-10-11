@@ -54,6 +54,9 @@ flexmeasures-home-assistant:
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
   wallbox_register_get_state_of_charge: !secret wallbox_register_get_state_of_charge
+  wallbox_register_set_action: !secret wallbox_register_set_action
+  wallbox_register_set_action_value_start_charging: !secret wallbox_register_set_action_value_start_charging
+  wallbox_register_set_action_value_stop_charging: !secret wallbox_register_set_action_value_stop_charging
   wallbox_register_set_power_setpoint: !secret wallbox_register_set_power_setpoint
   wallbox_register_set_control: !secret wallbox_register_set_control
   wallbox_register_set_setpoint_type: !secret wallbox_register_set_setpoint_type

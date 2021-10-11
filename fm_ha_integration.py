@@ -34,7 +34,15 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         and schedule the next moment to send a control signal.
         """
         schedule = self.get_state("input_text.chargeschedule", attribute="all")
-        schedule = schedule["attributes"]
+        
+        if schedule["state"] == "DisconnectNow":
+            self.log(f"DisconnectNow requested")
+            # Tell charger to stop charging and set control to user 
+            self.set_charger_action("stop")
+            self.set_control("user")
+            return
+        else:
+            schedule = schedule["attributes"]
 
         self.log(schedule)
 
@@ -73,6 +81,22 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         res = self.client.write_single_register(register, charge_rate)
         if res is not True:
             self.log(f"Failed to set charge rate to {charge_rate}. Charge Point responded with: {res}")
+
+    def set_charger_action(self, action: str):
+        if action == "start":
+            value = self.args["wallbox_register_set_action_value_start_charging"]
+        elif action == "stop":
+            value = self.args["wallbox_register_set_action_value_stop_charging"]
+        else:
+            raise ValueError(f"Unknown option for action '{action}'")
+
+        # Set action to start/stop charging
+        register = self.args["wallbox_register_set_action"]
+        res = self.client.write_single_register(register, value)
+        if res is not True:
+            self.log(f"Failed to set action to {action}. Charge Point responded with: {res}")
+        else:
+            self.log(f"Charger {action} succeeded")
 
     def set_control(self, user_or_remote: str):
         register = self.args["wallbox_register_set_control"]

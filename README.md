@@ -54,10 +54,12 @@ flexmeasures-home-assistant:
   delay_for_initial_attempts_to_retrieve_device_message: 5
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
+  wallbox_max_charging_current: 25  # in Amp
   wallbox_register_get_state_of_charge: !secret wallbox_register_get_state_of_charge
   wallbox_register_set_action: !secret wallbox_register_set_action
   wallbox_register_set_action_value_start_charging: !secret wallbox_register_set_action_value_start_charging
   wallbox_register_set_action_value_stop_charging: !secret wallbox_register_set_action_value_stop_charging
+  wallbox_register_set_current_setpoint: !secret wallbox_register_set_current_setpoint
   wallbox_register_set_power_setpoint: !secret wallbox_register_set_power_setpoint
   wallbox_register_set_control: !secret wallbox_register_set_control
   wallbox_register_set_setpoint_type: !secret wallbox_register_set_setpoint_type
@@ -65,6 +67,8 @@ flexmeasures-home-assistant:
   wallbox_register_set_setpoint_type_value_power_by_phase: !secret wallbox_register_set_setpoint_type_value_power_by_phase
   wallbox_register_set_control_value_user: !secret wallbox_register_set_control_value_user
   wallbox_register_set_control_value_remote: !secret wallbox_register_set_control_value_remote
+  wallbox_register_set_start_on_connected_value_start_disabled: !secret wallbox_register_set_start_on_connected_value_start_disabled
+  wallbox_register_set_start_on_connected_value_start_enabled: !secret wallbox_register_set_start_on_connected_value_start_enabled
 ```
 
 The Wallbox register settings are documented in the Quasar Modbus specification.

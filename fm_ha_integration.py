@@ -27,6 +27,15 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         self.listen_state(self.post_udi_event, "input_number.car_state_of_charge_wh", attribute="all")
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="events")
         self.scheduling_timer_handles = []
+
+        # To keep the charging process reliable it is needed for now to keep control within this app
+        # So setting control = remote (= from this app and not from Wallbox app/Charger)
+        # Only exception is the charge_mode Off.
+        self.set_control("remote")
+
+        # For the same reason it is needed to set the "start charging on GUN-connected" to disable
+        self.set_charger_start_charging_on_ev_gun_connected("disable")
+
         self.log("Done setting up")
 
     def schedule_charge_point(self, entity, attribute, old, new, kwargs):
@@ -81,6 +90,43 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         res = self.client.write_single_register(register, charge_rate)
         if res is not True:
             self.log(f"Failed to set charge rate to {charge_rate}. Charge Point responded with: {res}")
+
+    def set_current_setpoint(self, charge_rate: int):
+        max_current = self.args["wallbox_max_charging_current"]
+        if charge_rate > max_current:
+            self.log(f"Requested charge rate {charge_rate}A too high. Changed charge rate to maximum: {max_current}A.")
+            charge_rate = max_current
+
+        # also check negative values
+        elif abs(charge_rate) > max_current:
+            self.log(
+                f"Requested discharge rate {charge_rate}A too high. Changed discharge rate to maximum: {max_current}A.")
+            charge_rate = -max_current
+
+        self.set_setpoint_type("current")
+
+        register = self.args["wallbox_register_set_current_setpoint"]
+        res = self.client.write_single_register(register, charge_rate)
+        if res is not True:
+            self.log(f"Failed to set current charge rate to {charge_rate}. Charge Point responded with: {res}")
+        else:
+            self.log(f"Charge rate set to {charge_rate}A successfully.")
+
+    def set_charger_start_charging_on_ev_gun_connected(self, setting: str):
+        if setting == "enable":
+            value = self.args["wallbox_register_set_start_charging_on_ev_gun_connected_value_enabled"]
+        elif setting == "disable":
+            value = self.args["wallbox_register_set_start_charging_on_ev_gun_connected_value_disabled"]
+        else:
+            raise ValueError(f"Unknown setting for 'start charging on EV-Gun connected': {setting}")
+
+        # Set charge on EV-Gun connect to enable/disable
+        register = self.args["wallbox_register_set_start_charging_on_ev_gun_connected"]
+        res = self.client.write_single_register(register, value)
+        if res is not True:
+            self.log(f"Failed to set 'start charging on EV-Gun connected' to {action}. Charge Point responded with: {res}")
+        else:
+            self.log(f"Set 'start charging on EV-Gun connected' to {action} succeeded")
 
     def set_charger_action(self, action: str):
         if action == "start":
@@ -290,14 +336,20 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         if new["state"] == "Automatic":
             self.log("Setting up Charge Point to accept setpoints by remote (in W).")
             self.set_control("remote")
+            self.set_charger_start_charging_on_ev_gun_connected("disable")
             self.set_setpoint_type("power_by_phase")
-        elif old["state"] == "Automatic":
-            previous_setpoint_type = self.previous_setpoint_type
-            previous_control = self.previous_control
-            previous_setpoint_type_description = "in A" if previous_setpoint_type == "current" else "in W"
-            self.log(f"Setting up Charge Point to accept setpoints by {previous_control} ({previous_setpoint_type_description}).")
-            self.set_setpoint_type(previous_setpoint_type)
-            self.set_control(previous_control)
+        elif new["state"] == "Max boost now":
+            self.set_control("remote")
+            self.set_charger_start_charging_on_ev_gun_connected("disable")
+            # Prevent overloading of phase
+            # If powerboost is available the charger will handle preventing overloading
+            max_current = self.args["wallbox_max_charging_current"]
+            self.set_current_setpoint(max_current)
+            self.set_charger_action("start")
+        elif new["state"] == "Off":
+            self.set_charger_action("stop")
+            self.set_charger_start_charging_on_ev_gun_connected("enable")
+            self.set_control("user")
 
 
 def search_for_kwh_target(description: Optional[str]) -> Optional[int]:

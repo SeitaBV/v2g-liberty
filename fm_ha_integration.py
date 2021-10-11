@@ -59,6 +59,12 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         duration = isodate.parse_duration(schedule["duration"])
         resolution = duration / len(values)
         start = isodate.parse_datetime(schedule["start"])
+        
+        # Check against expected control signal resolution
+        min_resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
+        if resolution < min_resolution:
+            self.log(f"Stopped processing schedule, because the resolution ({resolution}) is below the set minimum ({min_resolution}).")
+            return
 
         # Cancel previous scheduling timers
         for h in self.scheduling_timer_handles:

@@ -277,6 +277,13 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             self.listen_state(self.post_udi_event, "input_number.car_state_of_charge_wh", attribute="all")
 
         """
+
+        # Check for automatic mode
+        mode = self.get_state("input_select.charge_mode")
+        if mode != "Automatic":
+            self.log(f"Not posting UDI event. Expected charge mode 'Automatic' instead of charge mode '{mode}'.")
+            return
+
         soc_entity = self.get_state("input_number.car_state_of_charge_wh", attribute="all")
 
         if self.args.get(

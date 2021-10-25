@@ -43,14 +43,24 @@ flexmeasures-home-assistant:
   fm_api_version: v2_0
   fm_user_email: !secret fm_user_email
   fm_user_password: !secret fm_user_password
+  fm_car_max_soc_in_kwh: 62
+  fm_car_reservation_calendar: calendar.car_reservation
+  fm_car_reservation_calendar_timezone: Europe/Amsterdam
   fm_quasar_entity_address: !secret fm_quasar_entity_address
+  fm_quasar_soc_event_resolution_in_minutes: 5
   reschedule_on_soc_changes_only: true
   max_number_of_reattempts_to_retrieve_device_message: 2
   delay_for_reattempts_to_retrieve_device_message: 60
   delay_for_initial_attempts_to_retrieve_device_message: 5
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
+  wallbox_current_power_ratio: 230  # in Volt
+  wallbox_max_charging_current: 25  # in Amp
   wallbox_register_get_state_of_charge: !secret wallbox_register_get_state_of_charge
+  wallbox_register_set_action: !secret wallbox_register_set_action
+  wallbox_register_set_action_value_start_charging: !secret wallbox_register_set_action_value_start_charging
+  wallbox_register_set_action_value_stop_charging: !secret wallbox_register_set_action_value_stop_charging
+  wallbox_register_set_current_setpoint: !secret wallbox_register_set_current_setpoint
   wallbox_register_set_power_setpoint: !secret wallbox_register_set_power_setpoint
   wallbox_register_set_control: !secret wallbox_register_set_control
   wallbox_register_set_setpoint_type: !secret wallbox_register_set_setpoint_type
@@ -58,6 +68,8 @@ flexmeasures-home-assistant:
   wallbox_register_set_setpoint_type_value_power_by_phase: !secret wallbox_register_set_setpoint_type_value_power_by_phase
   wallbox_register_set_control_value_user: !secret wallbox_register_set_control_value_user
   wallbox_register_set_control_value_remote: !secret wallbox_register_set_control_value_remote
+  wallbox_register_set_start_on_connected_value_start_disabled: !secret wallbox_register_set_start_on_connected_value_start_disabled
+  wallbox_register_set_start_on_connected_value_start_enabled: !secret wallbox_register_set_start_on_connected_value_start_enabled
 ```
 
 The Wallbox register settings are documented in the Quasar Modbus specification.
@@ -82,13 +94,13 @@ modbus:
         unit_of_measurement: "%"
         slave: 1
 input_number:
-  car_state_of_charge:
+  car_state_of_charge_wh:
     name: Car State of Charge
     icon: mdi:battery-medium
     min: 0
-    max: 100
+    max: 62000
     step: 1
-    unit_of_measurement: %
+    unit_of_measurement: Wh
 input_select:
   charge_mode:
     name: Charge mode
@@ -129,8 +141,8 @@ In `/config/automations.yaml` add:
   action:
   - service: input_number.set_value
     target:
-      entity_id: input_number.car_state_of_charge
+      entity_id: input_number.car_state_of_charge_wh
     data:
-      value: '{{states(''sensor.charger_connected_car_state_of_charge'')}}'
+      value: '{{states(''sensor.charger_connected_car_state_of_charge * 620'')}}'
   mode: single
 ```

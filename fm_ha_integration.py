@@ -317,7 +317,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
             target_datetime = isodate.parse_datetime(
                 car_reservation["attributes"]["start_time"].replace(" ", "T")
             ).astimezone(
-                pytz.timezone("Europe/Amsterdam")
+                pytz.timezone(self.args["fm_car_reservation_calendar_timezone"])
             ).isoformat()
             target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
 

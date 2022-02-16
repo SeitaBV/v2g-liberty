@@ -333,7 +333,8 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
                     "value": target,
                     "datetime": target_datetime,
                 }
-            ]
+            ],
+            "roundtrip_efficiency": self.args["wallbox_plus_car_roundtrip_efficiency"]
         }
         res = requests.post(
             url,

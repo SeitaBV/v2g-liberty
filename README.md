@@ -57,6 +57,7 @@ flexmeasures-home-assistant:
   wallbox_port: !secret wallbox_port
   wallbox_current_power_ratio: 230  # in Volt
   wallbox_max_charging_current: 25  # in Amp
+  wallbox_plus_car_roundtrip_efficiency: 0.85
   wallbox_register_get_state_of_charge: !secret wallbox_register_get_state_of_charge
   wallbox_register_set_action: !secret wallbox_register_set_action
   wallbox_register_set_action_value_start_charging: !secret wallbox_register_set_action_value_start_charging

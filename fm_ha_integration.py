@@ -224,6 +224,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         message = {
             "type": "GetDeviceMessageRequest",
             "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
+            "duration": self.args["fm_schedule_duration"],
         }
         res = requests.get(
             url,

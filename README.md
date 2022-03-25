@@ -48,6 +48,7 @@ flexmeasures-home-assistant:
   fm_car_reservation_calendar_timezone: Europe/Amsterdam
   fm_quasar_entity_address: !secret fm_quasar_entity_address
   fm_quasar_soc_event_resolution_in_minutes: 5
+  fm_schedule_duration: "PT12H"  # ISO 8601 period
   reschedule_on_soc_changes_only: true
   max_number_of_reattempts_to_retrieve_device_message: 2
   delay_for_reattempts_to_retrieve_device_message: 60
@@ -56,6 +57,7 @@ flexmeasures-home-assistant:
   wallbox_port: !secret wallbox_port
   wallbox_current_power_ratio: 230  # in Volt
   wallbox_max_charging_current: 25  # in Amp
+  wallbox_plus_car_roundtrip_efficiency: 0.85
   wallbox_register_get_state_of_charge: !secret wallbox_register_get_state_of_charge
   wallbox_register_set_action: !secret wallbox_register_set_action
   wallbox_register_set_action_value_start_charging: !secret wallbox_register_set_action_value_start_charging

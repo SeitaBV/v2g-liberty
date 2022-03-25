@@ -224,6 +224,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
         message = {
             "type": "GetDeviceMessageRequest",
             "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
+            "duration": self.args["fm_schedule_duration"],
         }
         res = requests.get(
             url,
@@ -332,16 +333,20 @@ class FlexMeasuresWallboxQuasar(hass.Hass):
                     "value": target,
                     "datetime": target_datetime,
                 }
-            ]
+            ],
+            "roundtrip_efficiency": self.args["wallbox_plus_car_roundtrip_efficiency"]
         }
+        self.log(message)
         res = requests.post(
             url,
             json=message,
             headers={"Authorization": self.fm_token},
         )
         if res.status_code != 200:
+            self.log(f"PostUdiEvent failed with response {res.json()}")
             self.handle_response_errors(message, res, "POST UDI event", self.post_udi_event, *args, **fnc_kwargs)
             return
+        self.log(f"Successfully posted UDI event. Result: {res.status_code}.")
         self.udi_event_id = udi_event_id
         s = self.args["delay_for_initial_attempts_to_retrieve_device_message"]
         self.log(f"Attempting to get device message in {s} seconds")

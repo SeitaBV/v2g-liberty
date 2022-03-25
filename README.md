@@ -36,45 +36,55 @@ In the same directory, add (or extend) `apps.yaml` with (replacing secrets as re
 
 ```yaml
 ---
-flexmeasures-home-assistant:
-  module: fm_ha_integration
-  class: FlexMeasuresWallboxQuasar
-  fm_api: https://seita.flexmeasures.io/api
+flexmeasures-client:
+  module: flexmeasures_client
+  class: FlexMeasuresClient
+  fm_api: https://flexmeasures.seita.nl/api
   fm_api_version: v2_0
   fm_user_email: !secret fm_user_email
   fm_user_password: !secret fm_user_password
+  fm_schedule_duration: "PT12H"
   fm_car_max_soc_in_kwh: 62
   fm_car_reservation_calendar: calendar.car_reservation
   fm_car_reservation_calendar_timezone: Europe/Amsterdam
   fm_quasar_entity_address: !secret fm_quasar_entity_address
   fm_quasar_soc_event_resolution_in_minutes: 5
+
+  reschedule_on_soc_changes_only: false # Whether to skip requesting a new schedule when the SOC has been updated, but hasn't changed
+  max_number_of_reattempts_to_retrieve_device_message: 4
+  delay_for_reattempts_to_retrieve_device_message: 30
+  delay_for_initial_attempt_to_retrieve_device_message: 5
+
+  # ToDo: dependent on temp. for now is fixed.
+  wallbox_plus_car_roundtrip_efficiency: 0.85
+
+
+wallbox-client:
+  module: wallbox_client
+  class: RegisterModule
+
+
+flexmeasures-home-assistant:
+  module: fm_ha_integration
+  class: FlexMeasuresWallboxQuasar
+  dependencies:
+    - flexmeasures-client
+    - wallbox-client
+  fm_car_reservation_calendar: calendar.car_reservation
+  fm_car_max_soc_in_kwh: 62
+  fm_quasar_soc_event_resolution_in_minutes: 5
   fm_schedule_duration: "PT12H"  # ISO 8601 period
-  reschedule_on_soc_changes_only: true
-  max_number_of_reattempts_to_retrieve_device_message: 2
-  delay_for_reattempts_to_retrieve_device_message: 60
-  delay_for_initial_attempts_to_retrieve_device_message: 5
+  wait_between_charger_write_actions: 5000  # allow for some processing time after changing a charger setting
+  timeout_charger_write_actions: 20000
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
+  wallbox_modbus_registers: !include /config/wallbox_modbus_registers.yaml
   wallbox_current_power_ratio: 230  # in Volt
   wallbox_max_charging_current: 25  # in Amp
-  wallbox_plus_car_roundtrip_efficiency: 0.85
-  wallbox_register_get_state_of_charge: !secret wallbox_register_get_state_of_charge
-  wallbox_register_set_action: !secret wallbox_register_set_action
-  wallbox_register_set_action_value_start_charging: !secret wallbox_register_set_action_value_start_charging
-  wallbox_register_set_action_value_stop_charging: !secret wallbox_register_set_action_value_stop_charging
-  wallbox_register_set_current_setpoint: !secret wallbox_register_set_current_setpoint
-  wallbox_register_set_power_setpoint: !secret wallbox_register_set_power_setpoint
-  wallbox_register_set_control: !secret wallbox_register_set_control
-  wallbox_register_set_setpoint_type: !secret wallbox_register_set_setpoint_type
-  wallbox_register_set_setpoint_type_value_current: !secret wallbox_register_set_setpoint_type_value_current
-  wallbox_register_set_setpoint_type_value_power_by_phase: !secret wallbox_register_set_setpoint_type_value_power_by_phase
-  wallbox_register_set_control_value_user: !secret wallbox_register_set_control_value_user
-  wallbox_register_set_control_value_remote: !secret wallbox_register_set_control_value_remote
-  wallbox_register_set_start_on_connected_value_start_disabled: !secret wallbox_register_set_start_on_connected_value_start_disabled
-  wallbox_register_set_start_on_connected_value_start_enabled: !secret wallbox_register_set_start_on_connected_value_start_enabled
+  wallbox_max_discharging_current: 25  # in Amp
 ```
 
-The Wallbox register settings are documented in the Quasar Modbus specification.
+The Wallbox Modbus registers are documented in the Quasar Modbus specification, which is not part of this repository.
 
 In `/config/configuration.yaml` add the following Modbus sensor to get a signal of your car's state of charge, and some input fields to store a clean SoC signal, a selected charge mode and charging schedules:
 

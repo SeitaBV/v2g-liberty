@@ -27,7 +27,7 @@ class WallboxModbusMixin:
         return client
 
     def get_charger_state(self):
-        register = self.args["wallbox_register_get_status"]
+        register = self.registers["get_status"]
         charger_state = -1
         # self.log(f"get_charger_state:: Charger state is {charger_state}.")
 
@@ -393,6 +393,7 @@ class WallboxModbusMixin:
     def log_errors(self):
         """Log all errors."""
         for i, register in enumerate(self.registers["error_registers"], 1):
+            # todo: catch situation where holding_registers() returns None..
             error_code = self.client.read_holding_registers(register)[0]
             self.log(f"Error code {i} is: {error_code}")
 

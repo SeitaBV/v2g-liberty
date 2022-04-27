@@ -1,10 +1,15 @@
-# FlexMeasures / Home Assistant / Wallbox Quasar integration
+# V2G Liberty: A HomeAssistant-based app to optimize the charging of your EV (using the Wallbox Quasar)
 
-This integration lets you add smart charge control to your Wallbox Quasar.
-Optimize the upcoming hours with an eye on energy prices, your solar generation or the CO₂ content of the grid.
-(For now: only energy prices, the rest is to come.)
+This integration lets you add smart charge control to your Wallbox Quasar. It implements a nice local app in [HomeAssistant](https://www.home-assistant.io/) and uses the smart EMS [FlexMeasures](https://flexmeasures.io) for optimized schedules.
 
-In practice, you can do the following via your Home Assistant, you can 
+The idea is to optimize the upcoming hours with an eye on energy prices, your solar generation or the CO₂ content of the grid
+(for now: only European energy prices, the rest is to come).
+
+![The V2G Liberty Dashboard](https://positive-design.nl/wp-content/uploads/2022/04/V2GL-1-1024x549.png)
+
+You can read more about the project and its vision [here](https://positive-design.nl/) and [here](https://seita.nl/project/v2ghome-living-lab/).
+
+In practice, you can do the following via V2G Liberty:
 
 - Switch the charge mode between user and automatic
 - In automatic mode, FlexMeasures is periodically asked to generate schedules, which Home Assistant translates into set points which it sends to the Wallbox Quasar via modbus.

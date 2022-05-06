@@ -163,3 +163,22 @@ In `/config/automations.yaml` add:
       value: '{{states(''sensor.charger_connected_car_state_of_charge * 620'')}}'
   mode: single
 ```
+
+In `/config/scripts.yaml` add:
+
+```yaml
+disconnectnow:
+  alias: DIsconnectNow
+  sequence:
+  - service: input_text.set_value
+    target:
+      entity_id: input_text.chargeschedule
+    data:
+      value: reset
+  - service: input_text.set_value
+    target:
+      entity_id: input_text.chargeschedule
+    data:
+      value: DisconnectNow
+  mode: single
+```

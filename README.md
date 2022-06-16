@@ -168,7 +168,7 @@ In `/config/scripts.yaml` add:
 
 ```yaml
 disconnectnow:
-  alias: DIsconnectNow
+  alias: DisconnectNow
   sequence:
   - service: input_text.set_value
     target:

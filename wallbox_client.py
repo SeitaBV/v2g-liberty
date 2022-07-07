@@ -27,7 +27,7 @@ class WallboxModbusMixin:
         return client
 
     def get_charger_state(self):
-        register = self.args["wallbox_register_get_status"]
+        register = self.registers["get_status"]
         charger_state = -1
         # self.log(f"get_charger_state:: Charger state is {charger_state}.")
 
@@ -123,7 +123,9 @@ class WallboxModbusMixin:
     def set_charger_control(self, take_or_give_control: str):
         """Set charger control (take control from the user or give control back to the user).
 
-        With user control, the charger will start charging automatically upon connection.
+        With giving user control:
+        + the user can use the app for controling the charger and
+        + the charger will start charging automatically upon connection.
 
         :param take_or_give_control: "take" remote control or "give" user control
         """
@@ -393,6 +395,7 @@ class WallboxModbusMixin:
     def log_errors(self):
         """Log all errors."""
         for i, register in enumerate(self.registers["error_registers"], 1):
+            # todo: catch situation where holding_registers() returns None..
             error_code = self.client.read_holding_registers(register)[0]
             self.log(f"Error code {i} is: {error_code}")
 

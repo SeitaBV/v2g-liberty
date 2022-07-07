@@ -123,7 +123,9 @@ class WallboxModbusMixin:
     def set_charger_control(self, take_or_give_control: str):
         """Set charger control (take control from the user or give control back to the user).
 
-        With user control, the charger will start charging automatically upon connection.
+        With giving user control:
+        + the user can use the app for controling the charger and
+        + the charger will start charging automatically upon connection.
 
         :param take_or_give_control: "take" remote control or "give" user control
         """

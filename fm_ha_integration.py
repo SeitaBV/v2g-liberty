@@ -105,9 +105,13 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
         self.get_app("flexmeasures-client").get_new_schedule()
 
     def cancel_charging_timers(self):
+        # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles
         for h in self.scheduling_timer_handles:
             self.cancel_timer(h)
-        return
+
+    def set_charging_timers(self, handles):
+        # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles
+        self.scheduling_timer_handles = handles
 
     def schedule_charge_point(self, entity, attribute, old, new, kwargs):
         """Process a schedule by setting timers to send new control signals to the Charge Point.
@@ -161,7 +165,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
                 self.log(
                     f"Cannot time a charging scheduling in the past, specifically, at {t}. Setting it immediately instead.")
                 self.send_control_signal(kwargs=dict(charge_rate=value * 1000))
-        self.scheduling_timer_handles = handles
+        self.set_charging_timers(handles)
         self.log(f"{len(handles)} charging timers set.")
 
         # Keep track of the expected SoC by adding each scheduled value to the current SoC

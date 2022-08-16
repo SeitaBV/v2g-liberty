@@ -53,6 +53,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
         self.scheduling_timer_handles = []
 
         if self.is_car_connected():
+            self.log("Car is connected. Trying to get a reliable SoC reading.")
             self.try_get_new_soc()
 
         # When to ask FlexMeasures for a new charging schedule is determined by the charge mode

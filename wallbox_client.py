@@ -178,7 +178,6 @@ class WallboxModbusMixin:
         register = self.registers["set_setpoint_type"]
 
         # Prevent unnecessary writing (and waiting for processing of) same setting
-        setting_in_charger = self.client.read_holding_registers(register)[0]
         if setting_in_charger == self.registers["setpoint_types"][setpoint_type]:
             # Setting in charger is already set to the desired setpoint type, no need to write.
             self.log(f"Charger already has setpoint type set to {setpoint_type}.")

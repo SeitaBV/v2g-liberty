@@ -229,12 +229,9 @@ class WallboxModbusMixin:
             self.log(f"Not setting charge_rate to '{charge_rate}': No car connected.")
             return
 
-        # Make sure that discharging does not occure below 20%
+        # Make sure that discharging does not occur below 20%
         if charge_rate < 0 and self.connected_car_soc <= 20:
-            self.log(
-                f"A discharge is attempted while the current SoC is below the" /
-                "minimum for discharging: 20%. Stopping discharging."
-            )
+            self.log(f"A discharge is attempted while the current SoC is below the minimum for discharging: 20%. Stopping discharging.")
             charge_rate = 0
 
         # Clip values to min/max charging current

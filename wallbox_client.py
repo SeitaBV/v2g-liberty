@@ -338,7 +338,7 @@ class WallboxModbusMixin:
         try:
             reported_soc = float(reported_soc)
             assert reported_soc > 0 and reported_soc <= 100
-        except (TypeError, AssertionError):
+        except (TypeError, AssertionError, ValueError):
             self.log(f"New SoC '{reported_soc}' ignored.")
             return False
         self.connected_car_soc = round(reported_soc, 0)

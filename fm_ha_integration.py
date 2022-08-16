@@ -24,10 +24,10 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
     connected_car_soc: int
     # Variable to store charger_state for comparison for change
     current_charger_state: int
-    in_boost_to_reach_min_soc: False
+    in_boost_to_reach_min_soc: bool
 
     # Ignore soc changes and charger_state changes.
-    try_get_new_soc_in_process: False
+    try_get_new_soc_in_process: bool
 
     def initialize(self):
         self.log("Initializing FlexMeasures integration for the Wallbox Quasar")

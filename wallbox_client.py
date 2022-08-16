@@ -47,6 +47,10 @@ class WallboxModbusMixin:
             charger_state = int(float(cs))
         return charger_state
 
+    def is_charger_in_error(self) -> bool:
+        """True if Charge Point returns an error state, False otherwise."""
+        return self.get_charger_state() in self.registers["error_state"]
+
     def is_car_connected(self) -> bool:
         """True if EVSE is connected to Charge Point, False otherwise."""
         return self.get_charger_state() in self.registers["connected_states"]
@@ -105,6 +109,9 @@ class WallboxModbusMixin:
                 self.log(f"Not performing charger action 'stop': currently not charging.")
                 return True
             value = self.registers["actions"]["stop_charging"]
+        elif action == "restart":
+            self.log(f"RESTARTING charger...")
+            value = self.registers["actions"]["restart_charger"]
         else:
             raise ValueError(f"Unknown option for action '{action}'")
 
@@ -342,6 +349,31 @@ class WallboxModbusMixin:
         self.log(f"New SoC processed, self.connected_car_soc is now set to: {reported_soc}%.")
         return True
 
+    def handle_charger_in_error(self):
+        # If charger remains in error state more than 7 minutes restart the charger.
+        # We wait 7 minutes as the charger might be return an error state up until 5 minutes afer a restart.
+        # The default charger_in_error_since is filled with the refrence date.
+        # At the registration of an error charger_in_error_since is set to now.
+        # This way we know "checking for error" is in progress if the charger_in_error_since is not equal to the reference date.
+
+        if not self.is_charger_in_error():
+            self.log("handle_charger_in_error, charger not in error_state anymore (due to restart?), cancel further error processing.")
+            self.charger_in_error_since = self.date_reference
+            return
+
+        if self.charger_in_error_since == self.date_reference:
+            self.log("handle_charger_in_error, new charger_error_state detected, check if error persists for next 7 minutes, then preform restart.")
+            self.charger_in_error_since = self.get_now()
+
+        if ((self.get_now() - self.charger_in_error_since).total_seconds() > 7*60):
+            self.log("handle_charger_in_error, check if error_state persists for next 7 minutes, then preform restart.")
+            self.charger_in_error_since = self.date_reference
+            self.set_charger_action("restart")
+        else:
+            self.log("handle_charger_in_error, recheck error_state in 30 seconds.")
+            self.run_in(handle_charger_in_error, 30)
+
+
     def handle_charger_state_change(self, entity, attribute, old, new, kwargs):
 
         # Ignore SoC state change when the app is in the process of getting a SoC reading
@@ -379,6 +411,7 @@ class WallboxModbusMixin:
         if new_charger_state == self.registers["error_state"]:
             self.log("Charger_state is: error. Charger can remain in this state up to 5 min. after reboot.")
             self.log_errors()
+            self.handle_charger_in_error()
             return
 
         # **** Handle disconnect:

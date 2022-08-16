@@ -26,6 +26,12 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
     current_charger_state: int
     in_boost_to_reach_min_soc: False
 
+    # To keep track of duration of charger in error state.
+    charger_in_error_since: datetime
+    #initially charger_in_error_since is set to this date reference.
+    #If charger_in_error_since is not equal to this date we know timeing has started.
+    date_reference: datetime
+
     # Ignore soc changes and charger_state changes.
     try_get_new_soc_in_process: False
 
@@ -38,6 +44,10 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
         self.connected_car_soc = 0
         # Force change event at initialisation
         self.current_charger_state = -1
+
+        # For checking how long the charger has been in error
+        self.date_reference = datetime(2000, 1, 1)
+        self.charger_in_error_since = self.date_reference
 
         self.client = self.configure_charger_client()
         self.log_errors()

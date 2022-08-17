@@ -245,7 +245,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
             # Maybe (but it is dangerous) do try_get_soc??
             return
 
-        if self.connected_car_soc <= 20 and not self.in_boost_to_reach_min_soc:
+        if self.connected_car_soc < 19 and not self.in_boost_to_reach_min_soc:
             # Intended for the situation where the car returns from a trip with a low battery.
             # We also do this if the chargemode = Off!
             # An SoC below 20% is considered "unhealthy" for the battery, this is why the battery should be charged to this minimum asap.

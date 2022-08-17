@@ -438,9 +438,17 @@ class WallboxModbusMixin:
         # So we need to start a charge with minimal power, try to read the SoC and asap stop the charge.
         # The side effects are possible soc changes and charger state changes.
         # When we observe such changes we ignore them while we are in the process of obtaining a SoC reading
+
         self.try_get_new_soc_in_process = True
-        self.set_power_setpoint(1)
-        self.set_charger_action("start")
+        is_currently_charging = self.is_charging()
+        # If currently charging then reading the SoC should be possible
+        # Then keep charging rate as is was, otherwise start charging with minimal
+        # power to be able to read the SoC.
+        if not is_currently_charging:
+            self.log(f"Reading SoC, starting charging so a SoC can be read.")
+            #Set minimal charging power 1 Watt
+            self.set_power_setpoint(1)
+            self.set_charger_action("start")
         register = self.registers["get_car_state_of_charge"]
 
         # The idea is the start will make the real SoC available.
@@ -475,8 +483,9 @@ class WallboxModbusMixin:
             self.log(
                 f"Read SoC from car (poked charger by starting minimal charge): '{reported_soc}', time before relevant SoC was retrieved: {total_time}seconds.")
 
-        self.set_charger_action("stop")
-        self.set_power_setpoint(0)
+        if not is_currently_charging:
+            self.set_charger_action("stop")
+            self.set_power_setpoint(0)
         self.try_get_new_soc_in_process = False
         self.process_soc(reported_soc)
 

@@ -66,7 +66,12 @@ class WallboxModbusMixin:
             return
 
         register = self.registers["set_charger_to_autostart_on_connect"]
-        setting_in_charger = self.client.read_holding_registers(register)[0]
+        setting_in_charger = self.client.read_holding_registers(register)
+        try:
+            setting_in_charger = setting_in_charger[0]
+        except TypeError:
+            self.log(f"Modbus read setpoint_type seems not iterable: {setting_in_charger}.")
+
         try:
             new_setting_to_charger = self.registers["autostart_on_connect_setting"][setting]
         except KeyError:
@@ -155,7 +160,12 @@ class WallboxModbusMixin:
         register = self.registers["set_control"]
 
         # Prevent unnecessary writing (and waiting for processing of) same setting
-        setting_in_charger = self.client.read_holding_registers(register)[0]
+        setting_in_charger = self.client.read_holding_registers(register)
+        try:
+            setting_in_charger = setting_in_charger[0]
+        except TypeError:
+            self.log(f"Modbus read setpoint_type seems not iterable: {setting_in_charger}.")
+
         if setting_in_charger == self.registers["user_control"] and setting == "enable":
             # Setting in charger is already "user control", no need to write.
             return
@@ -183,6 +193,12 @@ class WallboxModbusMixin:
             return
 
         register = self.registers["set_setpoint_type"]
+
+        setting_in_charger = self.client.read_holding_registers(register)
+        try:
+            setting_in_charger = setting_in_charger[0]
+        except TypeError:
+            self.log(f"Modbus read setpoint_type seems not iterable: {setting_in_charger}.")
 
         # Prevent unnecessary writing (and waiting for processing of) same setting
         if setting_in_charger == self.registers["setpoint_types"][setpoint_type]:
@@ -322,7 +338,7 @@ class WallboxModbusMixin:
         try:
             reported_soc = float(reported_soc)
             assert reported_soc > 0 and reported_soc <= 100
-        except (TypeError, AssertionError):
+        except (TypeError, AssertionError, ValueError):
             self.log(f"New SoC '{reported_soc}' ignored.")
             return False
         self.connected_car_soc = round(reported_soc, 0)
@@ -424,8 +440,11 @@ class WallboxModbusMixin:
     def log_errors(self):
         """Log all errors."""
         for i, register in enumerate(self.registers["error_registers"], 1):
-            # todo: catch situation where holding_registers() returns None..
-            error_code = self.client.read_holding_registers(register)[0]
+            error_code = self.client.read_holding_registers(register)
+            try:
+                error_code = error_code[0]
+            except TypeError:
+                self.log(f"Modbus read setpoint_type seems not iterable: {error_code}.")
             self.log(f"Error code {i} is: {error_code}")
 
     def try_get_new_soc(self):
@@ -456,17 +475,17 @@ class WallboxModbusMixin:
             # Keep the waiting time between reads short. Charging might trigger a SoC change and then we get conflicting actions.
             time.sleep(0.25)
             reported_soc = self.client.read_holding_registers(register)
-            if reported_soc == None:
+            if reported_soc == None or reported_soc == "unavailable":
                 reported_soc = 0
-                total_time += 0.25
-                continue
-
-            try:
-                reported_soc = reported_soc[0]
-            except TypeError:
-                self.log(f"Modbus read object seems not iterable: {reported_soc}.")
-            reported_soc = int(float(reported_soc))
+            else:
+                try:
+                    reported_soc = reported_soc[0]
+                    reported_soc = int(float(reported_soc))
+                except TypeError:
+                    self.log(f"Modbus read object seems not iterable or cannot covert to int: {reported_soc}.")
+                    reported_soc = 0
             total_time += 0.25
+
             # We need to stop at some point
             if total_time > 120:  # todo: refactor these to config settings
                 self.log(f"Reading SoC timed out. After {total_time} seconds still no relevant SoC was retrieved.")

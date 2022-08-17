@@ -24,7 +24,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
     connected_car_soc: int
     # Variable to store charger_state for comparison for change
     current_charger_state: int
-    in_boost_to_reach_min_soc: False
+    in_boost_to_reach_min_soc: bool
 
     # To keep track of duration of charger in error state.
     charger_in_error_since: datetime
@@ -33,7 +33,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
     date_reference: datetime
 
     # Ignore soc changes and charger_state changes.
-    try_get_new_soc_in_process: False
+    try_get_new_soc_in_process: bool
 
     def initialize(self):
         self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
@@ -63,6 +63,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
         self.scheduling_timer_handles = []
 
         if self.is_car_connected():
+            self.log("Car is connected. Trying to get a reliable SoC reading.")
             self.try_get_new_soc()
 
         # When to ask FlexMeasures for a new charging schedule is determined by the charge mode

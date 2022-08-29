@@ -204,9 +204,9 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
             self.set_charger_control("take")
             self.set_charger_action("stop")
 
-        if old_state != 'Off' and new_state == 'Off':
-            # New mode "Off" is handled by set_next_action
-            self.log("Stop charging (if in action) and give control based on chargemode = Off")
+        if old_state != 'Stop' and new_state == 'Stop':
+            # New mode "Stop" is handled by set_next_action
+            self.log("Stop charging (if in action) and give control based on chargemode = Stop")
             # Cancel previous scheduling timers
             self.cancel_charging_timers()
             self.set_power_setpoint(0)  # this will also stop the charger.
@@ -242,7 +242,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
 
         if self.connected_car_soc <= 20 and not self.in_boost_to_reach_min_soc:
             # Intended for the situation where the car returns from a trip with a low battery.
-            # We also do this if the chargemode = Off!
+            # We also do this if the chargemode = Stop!
             # An SoC below 20% is considered "unhealthy" for the battery, this is why the battery should be charged to this minimum asap.
 
             self.log("Starting max charge now and not requesting schedule based on SoC below minimum (20%).")
@@ -287,8 +287,8 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
                 self.log("Starting max charge now based on chargemode = Max boost now")
                 self.start_max_charge_now()
 
-        elif charge_mode == "Off":
-            self.log("ChargeMode = Off")
+        elif charge_mode == "Stop":
+            self.log("ChargeMode = Stop")
             self.set_power_setpoint(0)  # this will also stop the charger.
             self.set_charger_control("give")
 

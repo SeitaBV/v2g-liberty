@@ -22,7 +22,7 @@ class FMdata(hass.Hass):
         Normally the prices are avaialable around 13:30. But sometimes
         this is later, so we retry several time with a growing gap
         inbetween.
-        The retrieved data is written to the HA input_text.apex_prices
+        The retrieved data is written to the HA input_text.epex_prices
         (should be renamed to epex_prices), HA handles this to render
         this data in the UI (chart).
         """
@@ -78,7 +78,7 @@ class FMdata(hass.Hass):
         """ Communicate with FM server and check the results.
 
         Request prices from the server
-        Make prices available in HA by setting them in input_text.apex_prices
+        Make prices available in HA by setting them in input_text.epex_prices
         Notify user if there will be negative prices for next day
         """
 
@@ -127,7 +127,7 @@ class FMdata(hass.Hass):
         # nice to show this older data anayway, so process it.
 
         # Not so usefull checks??
-        # epex_entity = self.get_state("input_text.apex_prices", attribute='records')
+        # epex_entity = self.get_state("input_text.epex_prices", attribute='records')
         # if epex_entity != None:
         #     #There are records already no need to process data
         #     return
@@ -153,7 +153,7 @@ class FMdata(hass.Hass):
         new_state = "APEX prices collected at " + now.isoformat()
         result = {}
         result['records'] = epex_price_points
-        self.set_state("input_text.apex_prices", state=new_state, attributes=result)
+        self.set_state("input_text.epex_prices", state=new_state, attributes=result)
 
         # FM returns all the prices it has, sometimes it has not retreived new
         # prices yet, than it communicates the prices it does have.

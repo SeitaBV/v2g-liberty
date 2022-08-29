@@ -11,19 +11,27 @@ from wallbox_client import WallboxModbusMixin
 
 
 # ToDo:
-# Onder de 20% ook niet availabel..
-# Start tijden van post data kloppen niet.
+# When SoC is below 20% (forced charging is in place), this time period should also be regarded as unavailable.
+# Start times of Posting data seem incorrect, it is recommended to research them.
 
 class SetFMdata(hass.Hass, WallboxModbusMixin):
-    # I account and send results to FM hourly for intervals @ resolution, eg. 1/12th of an hour:
-    # + Charged power in kWh
-    # + Availability of car and charger for automatic charging (% of time)
+    """
+    App accounts and sends results to FM hourly for intervals @ resolution, eg. 1/12th of an hour:
+    + Charged power in kWh
+    + Availability of car and charger for automatic charging (% of time)
+    + SoC of the car battery
 
-    # We receive power changes at irregular intervals. Usuallly about 15 seconds apart but sometimes hours.
-    # We want to create power usages in regular intervals of eg. 1/12th of an hour.
-    # Power changes: |    |    |  |    |     |               | (called periods)
-    # Intervals:        |        |        |        |        |        |
+    App receives power changes at irregular intervals. Usuallly about 15 seconds apart but sometimes hours.
+    We want to create power usages in regular intervals of eg. 1/12th of an hour.
+    Power changes: |    |    |  |    |     |               | (called periods)
+    Intervals:        |        |        |        |        |        |
 
+    The availability is how much of the time of an interval (agian 1/12th of an hour or 5min)
+    the charger and car where available for automatic (dis-)charging.
+
+    The State of Charge is a % that is a momentary measure, no calculations are performed as
+    the SoC does notchange very often in an interval.
+    """
     # Access token for FM
     fm_token: str
 
@@ -36,9 +44,9 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     # Variables to help calculate avarage power over the last readings_resolution minutes
     current_power_since: datetime
     current_power: int
-    # Duration between two changes in power
-    power_period_duration: float
-    period_power_x_duration: float
+    # Duration between two changes in power in seconds
+    power_period_duration: int
+    period_power_x_duration: int
     # Holds the weighted_avagared power readings of the last hour untill sent to backend.
     power_readings: List[AsyncGenerator]
 

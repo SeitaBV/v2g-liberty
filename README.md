@@ -84,9 +84,8 @@ flexmeasures-home-assistant:
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
   wallbox_modbus_registers: !include /config/wallbox_modbus_registers.yaml
-  wallbox_current_power_ratio: 230  # in Volt
-  wallbox_max_charging_current: 25  # in Amp
-  wallbox_max_discharging_current: 25  # in Amp
+  wallbox_max_charging_power: 5750  # in W (e.g. 230 V * 25 A)
+  wallbox_max_discharging_power: 5750  # in W (e.g. 230 V * 25 A)
 ```
 
 The Wallbox Modbus registers are documented in the Quasar Modbus specification, which is not part of this repository.

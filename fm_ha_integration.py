@@ -82,6 +82,18 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
 
         self.log("Done setting up")
 
+    # FNC0816
+    # Timers live with the app, so that part should not be needed
+    # Test whether it still makes sense to stop the charger and give control back to the user
+    # def terminate(self):
+    #     """Stop charging/discharging and give charger control back to the user."""
+    #     self.log("Closing down the app. Stopping the charger and setting mode to user control. Bye!")
+    #     # todo: cancel timers?
+    #     self.set_power_setpoint(0)  # this will also stop the charger.
+    #     self.set_charger_control("give")
+    #     self.stop_app(self.name)  # todo: needed?
+    #     raise RuntimeError("")  # todo: needed?
+
     def handle_calendar_change(self, *args, **fnc_kwargs):
         self.log("Calendar update detected.")
         self.decide_whether_to_ask_for_new_schedule()

@@ -58,11 +58,11 @@ class FlexMeasuresClient(hass.Hass):
 
         Pass the UDI event id using kwargs["udi_event_id"]=<udi_event_id>.
         """
-        url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/getDeviceMessage"
         udi_event_id = kwargs["udi_event_id"]
+        url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/sensors/" + str(self.args["fm_quasar_sensor_id"]) + "/schedules/" + udi_event_id
         message = {
-            "type": "GetDeviceMessageRequest",
-            "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
+            # "type": "GetDeviceMessageRequest",
+            # "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
             "duration": self.args["fm_schedule_duration"],
         }
         res = requests.get(
@@ -70,11 +70,12 @@ class FlexMeasuresClient(hass.Hass):
             params=message,
             headers={"Authorization": self.fm_token},
         )
-        if res.status_code != 200:
-            self.log(f"GetDeviceMessage failed with response {res.json()}")
-            self.handle_response_errors(message, res, "GET device message", self.get_device_message, kwargs,
-                                        **fnc_kwargs)
-            return
+        self.log(f"Result code: {res.status_code}")
+        # if res.status_code != 200:
+        #     self.log(f"GetDeviceMessage failed with response {res.json()}")
+        #     self.handle_response_errors(message, res, "GET device message", self.get_device_message, kwargs,
+        #                                 **fnc_kwargs)
+        #     return
         self.log(f"GET device message success: retrieved {res.status_code}")
         if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
             s = self.args["delay_for_reattempts_to_retrieve_device_message"]
@@ -88,7 +89,9 @@ class FlexMeasuresClient(hass.Hass):
                 self.log("Device message cannot be retrieved. Any previous charging schedule will keep being followed.")
 
         schedule = res.json()
-        self.set_state("input_text.chargeschedule", state="ChargeScheduleAvailable", attributes=schedule)
+        self.log(f"Schedule {schedule}")
+        # To trigger state change we add the date to the state. State change is not triggered by attriibutes.
+        self.set_state("input_text.chargeschedule", state="ChargeScheduleAvailable" + datetime.now(tz=pytz.utc).isoformat(), attributes=schedule)
 
     def post_udi_event(self, *args, **fnc_kwargs):
         """POST a UDI event and return the UDI event id for later retrieval of a device message."""
@@ -103,7 +106,7 @@ class FlexMeasuresClient(hass.Hass):
         resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
         soc_datetime = time_round(soc_datetime, resolution).isoformat()
 
-        url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/postUdiEvent"
+        url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/sensors/" + str(self.args["fm_quasar_sensor_id"]) + "/schedules/trigger"
         udi_event_id = int(time.time())  # we use this as our UDI event id
         self.log(f"Posting UDI event {udi_event_id} to {url}")
 
@@ -125,19 +128,19 @@ class FlexMeasuresClient(hass.Hass):
             target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
 
         message = {
-            "type": "PostUdiEventRequest",
-            "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc-with-targets",
+            # "type": "PostUdiEventRequest",
+            # "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc-with-targets",
             # todo: relay flow constraints with new UDI event type ":soc-with-target-and-flow-constraints"
-            "value": soc_value,
-            "unit": "kWh",
-            "datetime": soc_datetime,
-            "targets": [
+            "soc-at-start": soc_value,
+            "soc-unit": "kWh",
+            "start": soc_datetime,
+            "soc-targets": [
                 {
                     "value": target,
                     "datetime": target_datetime,
                 }
             ],
-            "roundtrip_efficiency": self.args["wallbox_plus_car_roundtrip_efficiency"]
+            "roundtrip-efficiency": self.args["wallbox_plus_car_roundtrip_efficiency"]
         }
         self.log(message)
         res = requests.post(
@@ -153,6 +156,8 @@ class FlexMeasuresClient(hass.Hass):
         else:
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
         self.log(f"Successfully posted UDI event. Result: {res.status_code}.")
+        udi_event_id = res.json()["schedule"]
+        self.log(f"Uid_event_id: {udi_event_id}")
         return udi_event_id
 
     def handle_response_errors(self, message, res, description, fnc, **fnc_kwargs):

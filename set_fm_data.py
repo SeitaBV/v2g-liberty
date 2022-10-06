@@ -86,7 +86,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         self.record_availability(True)
 
         # SoC related
-        self.connected_car_soc = -1
+        self.connected_car_soc = None
         self.soc_readings = []
 
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
@@ -116,14 +116,14 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         if isinstance(reported_soc, str):
             if not reported_soc.isnumeric():
                 # Sometimes the charger returns "Unknown" or "Undefined" or "Unavailable"
-                # self.log("SoC set to -1")
-                self.connected_car_soc = -1
+                # self.log("SoC set to None")
+                self.connected_car_soc = None
                 return
             reported_soc = int(round(float(reported_soc), 0))
 
         if reported_soc == 0:
-            # self.log("SoC set to -1")
-            self.connected_car_soc = -1
+            # self.log("SoC set to None")
+            self.connected_car_soc = None
             return
 
         self.log(f"Processed reported SoC, self.connected_car_soc is now set to: {reported_soc}%.")
@@ -388,49 +388,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             # self.log("is_available: returning False")
             return False
 
-
-    # def get_soc(self):
-    #     soc = -1
-    #     # Sometimes the charger returns None for a while, for unknown reason.
-    #     # so keep reading until a propper reading is retrieved
-    #     while soc == -1:
-    #         s = self.get_state("input_number.car_state_of_charge")
-    #         self.log(f"Looping for SoC: {s}")
-    #         if isinstance(s, str):
-    #             if not s.isnumeric():
-    #                 #self.log(f"SoC is {s}, wait half a second and try again.")
-    #                 time.sleep(1/2)
-    #                 continue
-    #         soc = int(float(s))
-    #         self.log(f"Finished get_soc:: SoC is {soc}.")
-    #     return soc
-
-
-    # def get_charger_state(self):
-    #     charger_state = -1
-    #     # Sometimes the charger returns "Unknown" or "Undefined" or "Unavailable" for a while, so keep reading until a propper reading is retrieved
-    #     while charger_state == -1:
-    #         cs = self.get_state("sensor.charger_charger_state")
-    #         if isinstance(cs, str):
-    #             if not cs.isnumeric():
-    #                 #self.log(f"Chargerstate is {cs}, wait half a second and try again.")
-    #                 time.sleep(1/2)
-    #                 continue
-    #         charger_state = int(float(cs))
-    #         # self.log(f"get_charger_state:: Chargerstate is {charger_state}.")
-    #     return charger_state
-
-    # def is_car_connected(self):
-    #     charger_state = self.get_charger_state()
-    #
-    #     # Non_connected states are disconnected (or ready by Wallbox) or Error
-    #     connectedStates = [self.args["wallbox_register_get_status_connected_in_queue_by_power_boost"],
-    #                        self.args["wallbox_register_get_status_connected_waiting_for_car_demand"],
-    #                        self.args["wallbox_register_get_status_connected_paused_by_user"],
-    #                        self.args["wallbox_register_get_status_connected_charging"],
-    #                        self.args["wallbox_register_get_status_connected_discharging"]]
-    #     return charger_state in connectedStates
-    #
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.

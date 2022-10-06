@@ -105,9 +105,13 @@ class WallboxModbusMixin:
                 return True
             value = self.registers["actions"]["start_charging"]
         elif action == "stop":
-            if not self.is_charging():
-                self.log(f"Not performing charger action 'stop': currently not charging.")
-                return True
+            # AJO0806
+            # Maybe remove this, stop needs to be very reliable.
+            # We sometimes see the charger starting charging after reconnect without haven gotten the instruction to do so.
+            # To counter this we call "stop" from disconnect event.
+            #if not self.is_charging():
+            #    self.log(f"Not performing charger action 'stop': currently not charging.")
+            #    return True
             value = self.registers["actions"]["stop_charging"]
         elif action == "restart":
             self.log(f"RESTARTING charger...")

@@ -310,6 +310,7 @@ class WallboxModbusMixin:
 
         if res is not True:
             self.log(f"Failed to set charge power to {charge_rate} Watt. Charge Point responded with: {res}")
+            # If negative value result in false, check if gridcode is set correct in charger.
         else:
             self.log(f"Charge power set to {charge_rate} Watt successfully.")
 

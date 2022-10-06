@@ -12,40 +12,35 @@ import isodate
 
 class FMdata(hass.Hass):
     fm_token: str
-    attempts_today: int
-    max_attempts: int
+    first_try_time: str
+    second_try_time: str
 
     def initialize(self):
         """Daily get epex prices purely for display in the UI.
 
         Try to get EPEX price data from the FM server on a daily basis.
-        Normally the prices are avaialable around 13:30. But sometimes
-        this is later, so we retry several time with a growing gap
-        inbetween.
-        The retrieved data is written to the HA input_text.epex_prices
-        (should be renamed to epex_prices), HA handles this to render
-        this data in the UI (chart).
+        Normally the prices are avaialable around 14:35.
+        When this fails retry at 18:30. These times are related to the
+        attempts in the server for retrieving EPEX proce data.
+
+        The retrieved data is written to the HA input_text.epex_prices,
+        HA handles this to render the price data in the UI (chart).
         """
 
         self.log(f"get_fm_data, start setup")
 
-        # Counter for number of retries
-        self.attempts_today = 0
-
-        # Maximum number of retries per day
-        self.max_attempts = 12
+        self.first_try_time = "14:35:29"
+        self.second_try_time = "18:30:48"
 
         # Should normally be available just after 13:00 when data can be
         # retrieved from it's original source -Entsoe- but sometimes there
         # is a delay of several hours.
-        dailyKickoffTime = "14:00:41"
-        handle = self.run_daily(self.daily_kickoff, dailyKickoffTime)
+        handle = self.run_daily(self.daily_kickoff, self.first_try_time)
 
-        # At init also run this as (re-) start is not always around dailyKickoffTime
-        # TODO: Does this not sometimes start two threads parallel??
+        # At init also run this as (re-) start is not always around self.first_try_time
         self.get_epex_prices()
 
-        self.log(f"get_fm_data, done setting up: Start checking daily from {dailyKickoffTime} for new EPEX prices in FM.")
+        self.log(f"get_fm_data, done setting up: Start checking daily from {self.first_try_time} for new EPEX prices in FM.")
 
 
     def notify(self, log_text: str):
@@ -81,13 +76,7 @@ class FMdata(hass.Hass):
         Make prices available in HA by setting them in input_text.epex_prices
         Notify user if there will be negative prices for next day
         """
-
-        # A max_number of retries (with a growing time gap) is used as it seems
-        # unlikely the data will become available after this period.
-        if self.attempts_today > self.max_attempts:
-            self.notify(f"Failed to get EPEX prices for {str((self.get_now() + timedelta(days=+1)).date())} from FM. Attempted ({self.attempts_today}) times today, wait for retry till tomorrow.")
-            return
-        self.log(f"FMdata, get_epex_prices, attempt {self.attempts_today}.")
+        self.log(f"FMdata, get_epex_prices.")
 
         self.authenticate_with_fm()
         now = self.get_now()
@@ -108,36 +97,26 @@ class FMdata(hass.Hass):
         if res.status_code == 401:
             self.handle_response_errors(message, res, "get EPEX prices", self.get_epex_prices, *args, **kwargs)
             return
-        # Do not count authoristion errors int he attempts.
-        self.attempts_today += 1
-
-        # A bit prematurely calculate a delay in seconds in which to call
-        # this  function again incase something goes wrong.
-        # The delays total to 11h30m with max 12 attempts.
-        delay = (5 + self.attempts_today * 8) * 60
 
         if res.status_code != 200:
-            self.log(f"Get FM EPEX data failed with status_code: {res.status_code}, full response was {res.json()}. Retry in {delay} minutes.")
-            self.run_in(self.get_epex_prices, delay)
+            self.log(f"Get FM EPEX data failed with status_code: {res.status_code}.")
+
+            # Only retry once at second_try_time.
+            if self.now_is_between(self.first_try_time, self.second_try_time):
+                self.log(f"Retry at {self.second_try_time}.")
+                self.run_at(self.get_epex_prices, self.second_try_time)
+            else:
+                self.log(f"Retry tomorrow.")
+                self.notify("Getting EPEX price data failed, retry tomorrow.")
             return
 
         prices = res.json()
-
-        # We might get older data, but if the UI has no data yet it is still
-        # nice to show this older data anayway, so process it.
-
-        # Not so usefull checks??
-        # epex_entity = self.get_state("input_text.epex_prices", attribute='records')
-        # if epex_entity != None:
-        #     #There are records already no need to process data
-        #     return
-        # self.log("Eventhough prices are not new, there are currently no prices registered at all (due to restart?), so process data anyway.")
 
         # From FM format (€/MWh) to user desired format (€ct/kWh) 
         # = * 100/1000 = 1/10. Also include VAT
         VAT = float(self.args["VAT_NL"])
         conversion = 1/10 * VAT
-        # For NL electricity is a markup for sustainability 
+        # For NL electricity is a markup for transport and sustainability
         markup = float(self.args["markup_per_kWh_NL"])
         epex_price_points = []
         has_negative_prices = False

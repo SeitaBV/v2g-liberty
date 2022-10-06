@@ -68,6 +68,17 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
 
         # When to ask FlexMeasures for a new charging schedule is determined by the charge mode
         self.set_next_action()  # on initializing the app
+        if self.in_boost_to_reach_min_soc:
+
+            # FNC0816
+            # Test whether restarting the app executes boost mode when boost mode is needed (below 20% SoC)
+            # Executing self.set_next_action() once may not do it, and executing it twice may be needed (we are not sure why yet)
+
+            # if we went into boost mode, actually execute boost mode
+            self.log("actually execute boost mode")
+            # self.cancel_charging_timers()
+            # self.start_max_charge_now()
+            self.set_next_action()
 
         self.log("Done setting up")
 

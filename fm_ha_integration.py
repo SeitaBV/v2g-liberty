@@ -58,8 +58,8 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         self.listen_state(self.handle_calendar_change, self.args["fm_car_reservation_calendar"], attribute="all")
-
-        self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="events")
+        #Not firing??
+        self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")
         self.scheduling_timer_handles = []
 
         if self.is_car_connected():
@@ -153,6 +153,8 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
         If appropriate, also sends a new control signal right away.
         Finally, the expected SoC (given the schedule) is calculated and saved to input_text.soc_prognosis.
         """
+        self.log("Schedule_charge_point called, triggerd by change in input_text.chargeschedule.")
+        
         if not self.is_car_connected():
             self.log("Stopped processing schedule; car is not connected")
             return

@@ -268,27 +268,29 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
             # Maybe (but it is dangerous) do try_get_soc??
             return
 
-        if self.connected_car_soc < 19 and not self.in_boost_to_reach_min_soc:
-            # Intended for the situation where the car returns from a trip with a low battery.
-            # We also do this if the chargemode = Stop!
-            # An SoC below 20% is considered "unhealthy" for the battery, this is why the battery should be charged to this minimum asap.
-
-            self.log("Starting max charge now and not requesting schedule based on SoC below minimum (20%).")
-            # Cancel previous scheduling timers as they might have discharging instructions as well
-            self.cancel_charging_timers()
-            self.start_max_charge_now()
-            self.in_boost_to_reach_min_soc = True
-            return
-        elif self.connected_car_soc > 20 and self.in_boost_to_reach_min_soc:
-            self.log("Stopping max charge now, SoC above minimum (20%) again.")
-            self.in_boost_to_reach_min_soc = False
-            self.set_power_setpoint(0)
-
         charge_mode = self.get_state("input_select.charge_mode", attribute="state")
         self.log(f"Setting next action based on charge_mode '{charge_mode}'.")
 
         if charge_mode == "Automatic":
             self.set_charger_control("take")
+
+            # Chargemode = Off (Stop) must be really Off so only check low SoC in automatic.
+            if self.connected_car_soc < 19 and not self.in_boost_to_reach_min_soc:
+                # Intended for the situation where the car returns from a trip with a low battery.
+                # An SoC below 20% is considered "unhealthy" for the battery,
+                # this is why the battery should be charged to this minimum asap.
+
+                self.log("Starting max charge now and not requesting schedule based on SoC below minimum (20%).")
+                # Cancel previous scheduling timers as they might have discharging instructions as well
+                self.cancel_charging_timers()
+                self.start_max_charge_now()
+                self.in_boost_to_reach_min_soc = True
+                return
+            elif self.connected_car_soc > 20 and self.in_boost_to_reach_min_soc:
+                self.log("Stopping max charge now, SoC above minimum (20%) again.")
+                self.in_boost_to_reach_min_soc = False
+                self.set_power_setpoint(0)
+
             # Not checking for > max charge (97%) because we could also want to discharge based on schedule
 
             # Check for discharging below 30% done in the function for setting the (dis)charge_current.

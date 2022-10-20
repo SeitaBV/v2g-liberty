@@ -11,9 +11,17 @@ class WallboxModbusMixin:
     client: ModbusClient
     registers: dict
     NUM_MODBUS_PORTS = 65536
+    last_restart: int = 0
+
+    # A restart of the charger can take up to 5 minutes, so during this time do not request a restart again
+    minimum_seconds_between_restarts = 300
+    busy_getting_charger_state = False
 
     def configure_charger_client(self):
         """Configure the Wallbox Modbus client and return it."""
+        # Assume that a restart of this code is the same as last restart of the charger.
+        self.last_restart = self.get_now()
+        
         host = self.args["wallbox_host"]
         port = self.args["wallbox_port"]
         self.log(f"Configuring Modbus client at {host}:{port}")
@@ -26,17 +34,42 @@ class WallboxModbusMixin:
         self.registers = self.args["wallbox_modbus_registers"]
         return client
 
-    def get_charger_state(self):
+    def get_charger_state(self) -> int:
+        """Get state of the charger.
+
+        The variable busy_getting_charger_state is used to effectively lock up this function,
+        such that it can only run sequentially.
+        """
+        # FNC: hopefully not needed
+        # global busy_getting_charger_state
+
+        # Prevent this code running in parallel
+        if self.busy_getting_charger_state:
+            self.log(f"get_charger_state called while busy with getting a state, stopped processing request.")
+            return
+        self.busy_getting_charger_state = True
+
         register = self.registers["get_status"]
         charger_state = -1
         # self.log(f"get_charger_state:: Charger state is {charger_state}.")
 
         # Sometimes the charger returns None for a while, so keep reading until a proper reading is retrieved
+        # In rare cases this situation remains for longer. 
+        # If the max number of attempts has been reached it is most likely the charger is
+        # non-responsive in general and a restart (reboot) of the charger is the only way out.
+        max_attempts = 60
+        attempts = 0
         while charger_state == -1:
+            if attempts > max_attempts:
+                self.log(f"get_charger_state has reached max attempts ({attempts}) to read status from charger. Stopped reading and restarting charger.")
+                self.set_charger_action("restart")
+                self.busy_getting_charger_state = False
+                return
             cs = self.client.read_holding_registers(register)
-            if cs == None:
+            if cs is None:
                 self.log(f"Charger returned state = None, wait half a second and try again.")
                 time.sleep(1 / 2)
+                attempts += 1
                 continue
             cs = cs[0]
 
@@ -45,6 +78,7 @@ class WallboxModbusMixin:
                 time.sleep(1 / 2)
                 continue
             charger_state = int(float(cs))
+        self.busy_getting_charger_state = False
         return charger_state
 
     def is_charger_in_error(self) -> bool:
@@ -94,7 +128,10 @@ class WallboxModbusMixin:
         time.sleep(self.args["wait_between_charger_write_actions"] / 1000)
 
     def set_charger_action(self, action: str):
-        """Set action to start/stop charging."""
+        # FNC: hopefully not needed
+        # global last_restart
+
+        """Set action to start/stop charging or restart the charger"""
         if not self.is_car_connected():
             self.log(f"Not performing charger action '{action}': No car connected.")
             return False
@@ -105,17 +142,18 @@ class WallboxModbusMixin:
                 return True
             value = self.registers["actions"]["start_charging"]
         elif action == "stop":
-            # AJO0806
-            # Maybe remove this, stop needs to be very reliable.
+            # AJO 2022-10-08
+            # Stop needs to be very reliable, so we always perform this action, even if currently not charging.
             # We sometimes see the charger starting charging after reconnect without haven gotten the instruction to do so.
             # To counter this we call "stop" from disconnect event.
-            #if not self.is_charging():
-            #    self.log(f"Not performing charger action 'stop': currently not charging.")
-            #    return True
             value = self.registers["actions"]["stop_charging"]
         elif action == "restart":
+            if self.last_restart < self.get_now()-datetime.timedelta(seconds=self.minimum_seconds_between_restarts):
+                self.log(f"Not restarting charger, a restart has been requested already in the last {self.minimum_seconds_between_restarts} seconds.")
+                return
             self.log(f"RESTARTING charger...")
             value = self.registers["actions"]["restart_charger"]
+            self.last_restart = self.get_now()
         else:
             raise ValueError(f"Unknown option for action '{action}'")
 
@@ -422,6 +460,11 @@ class WallboxModbusMixin:
             # Send this to FM?
             # Cancel current scheduling timers
             self.cancel_charging_timers()
+
+            # AJO0806
+            # This might seem strange but sometimes the charger starts charging when
+            # reconnected even though it has not received an instruction to do so.
+            # self.set_action("stop")
             return
 
         # **** Handle connected:

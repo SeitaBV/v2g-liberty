@@ -143,19 +143,18 @@ class FMdata(hass.Hass):
         result['records'] = epex_price_points
         self.set_state("input_text.epex_prices", state=new_state, attributes=result)
 
-        # FM returns all the prices it has, sometimes it has not retreived new
+        # FM returns all the prices it has, sometimes it has not retrieved new
         # prices yet, than it communicates the prices it does have.
         date_latest_price = datetime.fromtimestamp(prices[-1].get('event_start')/1000).isoformat()
         date_tomorrow = (now + timedelta(days=1)).isoformat()
         if date_latest_price < date_tomorrow:
-            self.log(f"FM Epex prices seem not renewed yet, latest price at: {date_latest_price}, retry in {delay} minutes.")
-            self.run_in(self.get_epex_prices, delay)
+            self.log(f"FM EPEX prices seem not renewed yet, latest price at: {date_latest_price}, Retry at {self.second_try_time}.")
+            self.run_at(self.get_epex_prices, self.second_try_time)
         else:
             if has_negative_prices == True:
-                self.notify("Negative electricity prices for tomorrow. Consider"
-                " to check times in the app to optimising electricity usage.")
+                self.notify("Negative electricity prices for tomorrow. Consider to check times in the app to optimising electricity usage.")
             self.attempts_today = 0
-            self.log(f"FM Epex prices succesfully retrieved. Latest price at: {date_latest_price}.")
+            self.log(f"FM EPEX prices successfully retrieved. Latest price at: {date_latest_price}.")
         
         return
 

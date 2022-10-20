@@ -267,8 +267,8 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
 
         return
 
-    def log_result(self, res, endpoint: str):
-        """Log failed result for a given endpoint."""
+    def log_response(self, res, endpoint: str):
+        """Log failed response for a given endpoint."""
         try:
             self.log(f"{endpoint} failed ({res.status_code}) with JSON response {res.json()}")
         except json.decoder.JSONDecodeError:
@@ -301,7 +301,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             headers={"Authorization": self.fm_token},
         )
         if res.status_code != 200:
-            self.log_result(res, "PostSensorData for SoC")
+            self.log_response(res, "PostSensorData for SoC")
             return False
 
         return True
@@ -337,7 +337,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             headers={"Authorization": self.fm_token},
         )
         if res.status_code != 200:
-            self.log_result(res, "PostSensorData for Availability")
+            self.log_response(res, "PostSensorData for Availability")
             return False
         return True
 
@@ -372,7 +372,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             headers={"Authorization": self.fm_token},
         )
         if res.status_code != 200:
-            self.log_result(res, "PostSensorData for Power")
+            self.log_response(res, "PostSensorData for Power")
             return False
         return True
 
@@ -446,7 +446,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             ),
         )
         if not res.status_code == 200:
-            self.log_result(res, "requestAuthToken")
+            self.log_response(res, "requestAuthToken")
         self.fm_token = res.json()["auth_token"]
 
     def handle_response_errors(self, message, res, description, fnc, *args, **fnc_kwargs):

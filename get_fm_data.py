@@ -33,7 +33,7 @@ class FMdata(hass.Hass):
         self.second_try_time = "18:30:48"
 
         # Should normally be available just after 13:00 when data can be
-        # retrieved from it's original source -Entsoe- but sometimes there
+        # retrieved from its original source (ENTSO-E) but sometimes there
         # is a delay of several hours.
         handle = self.run_daily(self.daily_kickoff, self.first_try_time)
 
@@ -47,11 +47,14 @@ class FMdata(hass.Hass):
         """ Utility function to notify the user
 
         Sets a message in helper entity which is monitored by an automation
-        to notify user. This is more straight forward than the offcial
-        aapdaemon notify.
+        to notify user. This is more straight forward than the official
+        appdaemon notify.
 
-        TODO: Not sure why i called it log_text and not just message.
+        TODO: Not sure why I called it log_text and not just message.
         Same for naming of the input_text...
+        TODO: Use notify service of HA instead.
+        Maybe even extend that, see:
+        https://community.home-assistant.io/t/a-notify-function-that-does-more-then-just-1-notify/32483/21
         """
 
         self.set_textvalue("input_text.epex_log", log_text)

@@ -77,10 +77,10 @@ class FlexMeasuresClient(hass.Hass):
             params=message,
             headers={"Authorization": self.fm_token},
         )
-        self.log(f"Result code: {res.status_code}")
         if res.status_code != 200:
             self.log_failed_response(res, "GetDeviceMessage")
-        self.log(f"GET device message success: retrieved {res.status_code}")
+        else:
+            self.log(f"GET device message success: retrieved {res.status_code}")
         if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
             s = self.args["delay_for_reattempts_to_retrieve_device_message"]
             attempts_left = kwargs.get("attempts_left",

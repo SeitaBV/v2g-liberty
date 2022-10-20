@@ -68,8 +68,8 @@ class FMdata(hass.Hass):
         self.attempts_today = 0
         self.get_epex_prices()
 
-    def log_result(self, res, endpoint: str):
-        """Log failed result for a given endpoint."""
+    def log_failed_response(self, res, endpoint: str):
+        """Log failed response for a given endpoint."""
         try:
             self.log(f"{endpoint} failed ({res.status_code}) with JSON response {res.json()}")
         except json.decoder.JSONDecodeError:
@@ -105,7 +105,7 @@ class FMdata(hass.Hass):
             return
 
         if res.status_code != 200:
-            self.log_result(res, "Get FM EPEX data")
+            self.log_failed_response(res, "Get FM EPEX data")
 
             # Only retry once at second_try_time.
             if self.now_is_between(self.first_try_time, self.second_try_time):
@@ -170,7 +170,7 @@ class FMdata(hass.Hass):
             ),
         )
         if not res.status_code == 200:
-            self.log_result(res, "requestAuthToken")
+            self.log_failed_response(res, "requestAuthToken")
         self.fm_token = res.json()["auth_token"]
 
     def handle_response_errors(self, message, res, description, fnc, *args, **fnc_kwargs):

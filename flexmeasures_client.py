@@ -36,11 +36,11 @@ class FlexMeasuresClient(hass.Hass):
             ),
         )
         if not res.status_code == 200:
-            self.log_result(res, "requestAuthToken")
+            self.log_failed_response(res, "requestAuthToken")
         self.fm_token = res.json()["auth_token"]
 
-    def log_result(self, res, endpoint: str):
-        """Log failed result for a given endpoint."""
+    def log_failed_response(self, res, endpoint: str):
+        """Log failed response for a given endpoint."""
         try:
             self.log(f"{endpoint} failed ({res.status_code}) with JSON response {res.json()}")
         except json.decoder.JSONDecodeError:
@@ -79,10 +79,10 @@ class FlexMeasuresClient(hass.Hass):
         )
         self.log(f"Result code: {res.status_code}")
         if res.status_code != 200:
-            self.log_result(res, "GetDeviceMessage")
-        #     self.handle_response_errors(message, res, "GET device message", self.get_device_message, kwargs,
-        #                                 **fnc_kwargs)
-        #     return
+            self.log_failed_response(res, "GetDeviceMessage")
+            self.handle_response_errors(message, res, "GET device message", self.get_device_message, kwargs,
+                                        **fnc_kwargs)
+            return
         self.log(f"GET device message success: retrieved {res.status_code}")
         if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
             s = self.args["delay_for_reattempts_to_retrieve_device_message"]
@@ -156,7 +156,7 @@ class FlexMeasuresClient(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
         if res.status_code != 200:
-            self.log_result(res, "PostUdiEvent")
+            self.log_failed_response(res, "PostUdiEvent")
             self.handle_response_errors(message, res, "POST UDI event", self.post_udi_event, **fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
             return

@@ -70,9 +70,9 @@ class FMdata(hass.Hass):
 
     def log_result(self, res, endpoint: str):
         """Log failed result for a given endpoint."""
-        if hasattr(res, "json"):
+        try:
             self.log(f"{endpoint} failed with JSON response {res.json()}")
-        else:
+        except json.decoder.JSONDecodeError:
             self.log(f"{endpoint} failed with response {res}")
 
     def get_epex_prices(self, *args, **kwargs):

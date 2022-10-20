@@ -270,9 +270,9 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     def log_result(self, res, endpoint: str):
         """Log failed result for a given endpoint."""
         try:
-            self.log(f"{endpoint} failed with JSON response {res.json()}")
+            self.log(f"{endpoint} failed ({res.status_code}) with JSON response {res.json()}")
         except json.decoder.JSONDecodeError:
-            self.log(f"{endpoint} failed with response {res}")
+            self.log(f"{endpoint} failed ({res.status_code}) with response {res}")
 
     def post_soc_data(self, *args, **kwargs):
         self.log(f"post_soc_data called, soc readings so far: {self.soc_readings}")

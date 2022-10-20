@@ -74,9 +74,9 @@ class FMdata(hass.Hass):
     def log_result(self, res, endpoint: str):
         """Log failed result for a given endpoint."""
         try:
-            self.log(f"{endpoint} failed with JSON response {res.json()}")
+            self.log(f"{endpoint} failed ({res.status_code}) with JSON response {res.json()}")
         except json.decoder.JSONDecodeError:
-            self.log(f"{endpoint} failed with response {res}")
+            self.log(f"{endpoint} failed ({res.status_code}) with response {res}")
 
     def get_epex_prices(self, *args, **kwargs):
         """ Communicate with FM server and check the results.

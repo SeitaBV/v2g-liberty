@@ -80,9 +80,6 @@ class FlexMeasuresClient(hass.Hass):
         self.log(f"Result code: {res.status_code}")
         if res.status_code != 200:
             self.log_failed_response(res, "GetDeviceMessage")
-            self.handle_response_errors(message, res, "GET device message", self.get_device_message, kwargs,
-                                        **fnc_kwargs)
-            return
         self.log(f"GET device message success: retrieved {res.status_code}")
         if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
             s = self.args["delay_for_reattempts_to_retrieve_device_message"]
@@ -97,7 +94,7 @@ class FlexMeasuresClient(hass.Hass):
 
         schedule = res.json()
         self.log(f"Schedule {schedule}")
-        # To trigger state change we add the date to the state. State change is not triggered by attriibutes.
+        # To trigger state change we add the date to the state. State change is not triggered by attributes.
         self.set_state("input_text.chargeschedule", state="ChargeScheduleAvailable" + datetime.now(tz=pytz.utc).isoformat(), attributes=schedule)
 
     def post_udi_event(self, *args, **fnc_kwargs):

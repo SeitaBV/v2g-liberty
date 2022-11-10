@@ -448,16 +448,17 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             self.log_failed_response(res, "requestAuthToken")
         self.fm_token = res.json()["auth_token"]
 
-    def handle_response_errors(self, message, res, description, fnc, *args, **fnc_kwargs):
-        if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
-            self.log(
-                f"Failed to {description} on authorization (possibly the token expired); attempting to reauthenticate once")
-            self.authenticate_with_fm()
-            fnc_kwargs["retry_auth_once"] = False
-            fnc(*args, **fnc_kwargs)
-        else:
-            self.log(f"Failed to {description} (status {res.status_code}): {res} as response to {message}")
-            self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
+    # Not used??
+    # def handle_response_errors(self, message, res, description, fnc, *args, **fnc_kwargs):
+    #     if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
+    #         self.log(
+    #             f"Failed to {description} on authorization (possibly the token expired); attempting to reauthenticate once")
+    #         self.authenticate_with_fm()
+    #         fnc_kwargs["retry_auth_once"] = False
+    #         fnc(*args, **fnc_kwargs)
+    #     else:
+    #         self.log(f"Failed to {description} (status {res.status_code}): {res} as response to {message}")
+    #         self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
 
 
     def notify(self, log_text):

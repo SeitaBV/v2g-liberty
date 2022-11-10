@@ -58,8 +58,8 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         self.listen_state(self.handle_calendar_change, self.args["fm_car_reservation_calendar"], attribute="all")
-
-        self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="events")
+        #Not firing??
+        self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")
         self.scheduling_timer_handles = []
 
         if self.is_car_connected():
@@ -68,6 +68,17 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
 
         # When to ask FlexMeasures for a new charging schedule is determined by the charge mode
         self.set_next_action()  # on initializing the app
+        if self.in_boost_to_reach_min_soc:
+
+            # FNC0816
+            # Test whether restarting the app executes boost mode when boost mode is needed (below 20% SoC)
+            # Executing self.set_next_action() once may not do it, and executing it twice may be needed (we are not sure why yet)
+
+            # if we went into boost mode, actually execute boost mode
+            self.log("actually execute boost mode")
+            # self.cancel_charging_timers()
+            # self.start_max_charge_now()
+            self.set_next_action()
 
         self.log("Done setting up")
 
@@ -130,6 +141,8 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
         If appropriate, also sends a new control signal right away.
         Finally, the expected SoC (given the schedule) is calculated and saved to input_text.soc_prognosis.
         """
+        self.log("Schedule_charge_point called, triggerd by change in input_text.chargeschedule.")
+        
         if not self.is_car_connected():
             self.log("Stopped processing schedule; car is not connected")
             return
@@ -266,6 +279,24 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
 
         if charge_mode == "Automatic":
             self.set_charger_control("take")
+
+            # Chargemode = Off (Stop) must be really Off so only check low SoC in automatic.
+            if self.connected_car_soc < 19 and not self.in_boost_to_reach_min_soc:
+                # Intended for the situation where the car returns from a trip with a low battery.
+                # An SoC below 20% is considered "unhealthy" for the battery,
+                # this is why the battery should be charged to this minimum asap.
+
+                self.log("Starting max charge now and not requesting schedule based on SoC below minimum (20%).")
+                # Cancel previous scheduling timers as they might have discharging instructions as well
+                self.cancel_charging_timers()
+                self.start_max_charge_now()
+                self.in_boost_to_reach_min_soc = True
+                return
+            elif self.connected_car_soc > 20 and self.in_boost_to_reach_min_soc:
+                self.log("Stopping max charge now, SoC above minimum (20%) again.")
+                self.in_boost_to_reach_min_soc = False
+                self.set_power_setpoint(0)
+
             # Not checking for > max charge (97%) because we could also want to discharge based on schedule
 
             # Check for discharging below 30% done in the function for setting the (dis)charge_current.

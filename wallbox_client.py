@@ -40,8 +40,6 @@ class WallboxModbusMixin:
         The variable busy_getting_charger_state is used to effectively lock up this function,
         such that it can only run sequentially.
         """
-        # FNC: hopefully not needed
-        # global busy_getting_charger_state
 
         # Prevent this code running in parallel
         if self.busy_getting_charger_state:
@@ -128,8 +126,6 @@ class WallboxModbusMixin:
         time.sleep(self.args["wait_between_charger_write_actions"] / 1000)
 
     def set_charger_action(self, action: str):
-        # FNC: hopefully not needed
-        # global last_restart
 
         """Set action to start/stop charging or restart the charger"""
         if not self.is_car_connected():

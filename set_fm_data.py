@@ -131,15 +131,15 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         return
 
     def handle_charge_mode_change(self, entity, attribute, old, new, kwargs):
-        old = old['state']
-        new = new['state']
+        # old = old['state']
+        # new = new['state']
         # self.log(f"Charge_mode changed from '{ old }' to '{ new }'.")
         self.record_availability()
 
 
     def handle_charger_state_change(self, entity, attribute, old, new, kwargs):
-        old = old['state']
-        new = new['state']
+        old = old.get('state', 'unavailable')
+        new = new.get('state', 'unavailable')
         if old == "unavailable" or new == "unavailable":
             # Ignore state changes related to unavailable
             return

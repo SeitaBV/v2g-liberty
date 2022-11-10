@@ -222,7 +222,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
 
     def update_charge_mode(self, entity, attribute, old, new, kwargs):
         new_state = new["state"]
-        old_state = old["state"]
+        old_state = old.get("state")
         self.log(f"Charge mode has changed from '{old_state}' to '{new_state}'")
 
         # As the next statements might take control of charging we need to interrupt try_get_new_soc.

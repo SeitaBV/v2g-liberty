@@ -171,7 +171,7 @@ class FlexMeasuresClient(hass.Hass):
                 f"Failed to {description} on authorization (possibly the token expired); attempting to reauthenticate once")
             self.authenticate_with_fm()
             fnc_kwargs["retry_auth_once"] = False
-            fnc(*fnc, **fnc_kwargs)
+            fnc(**fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
         else:
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")

@@ -132,7 +132,9 @@ class WallboxModbusMixin:
         # global last_restart
 
         """Set action to start/stop charging or restart the charger"""
-        if not self.is_car_connected():
+
+        # Restart is called in problem situations and then is_connected is not reliable..
+        if not self.is_car_connected() and action != "restart":
             self.log(f"Not performing charger action '{action}': No car connected.")
             return False
 
@@ -151,7 +153,7 @@ class WallboxModbusMixin:
             if self.last_restart < self.get_now()-datetime.timedelta(seconds=self.minimum_seconds_between_restarts):
                 self.log(f"Not restarting charger, a restart has been requested already in the last {self.minimum_seconds_between_restarts} seconds.")
                 return
-            self.log(f"RESTARTING charger...")
+            self.log(f"Start RESTARTING charger...")
             value = self.registers["actions"]["restart_charger"]
             self.last_restart = self.get_now()
         else:

@@ -91,6 +91,7 @@ class FlexMeasuresClient(hass.Hass):
                             udi_event_id=udi_event_id)
             else:
                 self.log("Device message cannot be retrieved. Any previous charging schedule will keep being followed.")
+            return
 
         schedule = res.json()
         self.log(f"Schedule {schedule}")

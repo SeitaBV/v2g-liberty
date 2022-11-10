@@ -24,7 +24,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
     connected_car_soc: int
     # Variable to store charger_state for comparison for change
     current_charger_state: int
-    in_boost_to_reach_min_soc: False
+    in_boost_to_reach_min_soc: bool
 
     # To keep track of duration of charger in error state.
     charger_in_error_since: datetime
@@ -33,7 +33,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
     date_reference: datetime
 
     # Ignore soc changes and charger_state changes.
-    try_get_new_soc_in_process: False
+    try_get_new_soc_in_process: bool
 
     def initialize(self):
         self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
@@ -63,6 +63,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
         self.scheduling_timer_handles = []
 
         if self.is_car_connected():
+            self.log("Car is connected. Trying to get a reliable SoC reading.")
             self.try_get_new_soc()
 
         # When to ask FlexMeasures for a new charging schedule is determined by the charge mode
@@ -126,9 +127,13 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
         self.get_app("flexmeasures-client").get_new_schedule()
 
     def cancel_charging_timers(self):
+        # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles
         for h in self.scheduling_timer_handles:
             self.cancel_timer(h)
-        return
+
+    def set_charging_timers(self, handles):
+        # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles
+        self.scheduling_timer_handles = handles
 
     def schedule_charge_point(self, entity, attribute, old, new, kwargs):
         """Process a schedule by setting timers to send new control signals to the Charge Point.
@@ -184,7 +189,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
                 self.log(
                     f"Cannot time a charging scheduling in the past, specifically, at {t}. Setting it immediately instead.")
                 self.send_control_signal(kwargs=dict(charge_rate=value * 1000))
-        self.scheduling_timer_handles = handles
+        self.set_charging_timers(handles)
         self.log(f"{len(handles)} charging timers set.")
 
         # Keep track of the expected SoC by adding each scheduled value to the current SoC
@@ -252,6 +257,22 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
             self.log("SoC is 0, stopped setting next action.")
             # Maybe (but it is dangerous) do try_get_soc??
             return
+
+        if self.connected_car_soc < 19 and not self.in_boost_to_reach_min_soc:
+            # Intended for the situation where the car returns from a trip with a low battery.
+            # We also do this if the chargemode = Off!
+            # An SoC below 20% is considered "unhealthy" for the battery, this is why the battery should be charged to this minimum asap.
+
+            self.log("Starting max charge now and not requesting schedule based on SoC below minimum (20%).")
+            # Cancel previous scheduling timers as they might have discharging instructions as well
+            self.cancel_charging_timers()
+            self.start_max_charge_now()
+            self.in_boost_to_reach_min_soc = True
+            return
+        elif self.connected_car_soc > 20 and self.in_boost_to_reach_min_soc:
+            self.log("Stopping max charge now, SoC above minimum (20%) again.")
+            self.in_boost_to_reach_min_soc = False
+            self.set_power_setpoint(0)
 
         charge_mode = self.get_state("input_select.charge_mode", attribute="state")
         self.log(f"Setting next action based on charge_mode '{charge_mode}'.")

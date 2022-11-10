@@ -234,6 +234,7 @@ class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
             self.set_charger_control("take")
             self.set_charger_action("stop")
 
+        #TODO: check if old_state != 'Stop' is still needed.
         if old_state != 'Stop' and new_state == 'Stop':
             # New mode "Stop" is handled by set_next_action
             self.log("Stop charging (if in action) and give control based on chargemode = Stop")

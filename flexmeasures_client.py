@@ -61,8 +61,6 @@ class FlexMeasuresClient(hass.Hass):
         udi_event_id = kwargs["udi_event_id"]
         url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/sensors/" + str(self.args["fm_quasar_sensor_id"]) + "/schedules/" + udi_event_id
         message = {
-            # "type": "GetDeviceMessageRequest",
-            # "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc",
             "duration": self.args["fm_schedule_duration"],
         }
         res = requests.get(

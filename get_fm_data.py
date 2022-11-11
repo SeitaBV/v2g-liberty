@@ -77,6 +77,7 @@ class FMdata(hass.Hass):
 
         self.authenticate_with_fm()
         now = self.get_now()
+        # Getting prices since start of yesterday so that user can look back a little furter than just current window.
         startEPEX = str((now +timedelta(days=-1)).date())
 
         url = self.args["fm_data_api"] + self.args["fm_data_api_epex"]
@@ -138,7 +139,7 @@ class FMdata(hass.Hass):
             self.log(f"FM EPEX prices seem not renewed yet, latest price at: {date_latest_price}, Retry at {self.second_try_time}.")
             self.run_at(self.get_epex_prices, self.second_try_time)
         else:
-            if has_negative_prices == True:
+            if has_negative_prices:
                 self.notify_user("Negative electricity prices for tomorrow. Consider to check times in the app to optimising electricity usage.")
             self.attempts_today = 0
             self.log(f"FM EPEX prices successfully retrieved. Latest price at: {date_latest_price}.")

@@ -43,22 +43,10 @@ class FMdata(hass.Hass):
         self.log(f"get_fm_data, done setting up: Start checking daily from {self.first_try_time} for new EPEX prices in FM.")
 
 
-    def notify(self, log_text: str):
+    def notify_user(self, message: str):
         """ Utility function to notify the user
-
-        Sets a message in helper entity which is monitored by an automation
-        to notify user. This is more straight forward than the official
-        appdaemon notify.
-
-        TODO: Not sure why I called it log_text and not just message.
-        Same for naming of the input_text...
-        TODO: Use notify service of HA instead.
-        Maybe even extend that, see:
-        https://community.home-assistant.io/t/a-notify-function-that-does-more-then-just-1-notify/32483/21
         """
-
-        self.set_textvalue("input_text.epex_log", log_text)
-        return
+        self.notify(message, title="V2G Liberty")
 
 
     def daily_kickoff(self, *args):
@@ -116,7 +104,7 @@ class FMdata(hass.Hass):
                 self.run_at(self.get_epex_prices, self.second_try_time)
             else:
                 self.log(f"Retry tomorrow.")
-                self.notify("Getting EPEX price data failed, retry tomorrow.")
+                self.notify_user("Getting EPEX price data failed, retry tomorrow.")
             return
 
         prices = res.json()
@@ -152,7 +140,7 @@ class FMdata(hass.Hass):
             self.run_at(self.get_epex_prices, self.second_try_time)
         else:
             if has_negative_prices == True:
-                self.notify("Negative electricity prices for tomorrow. Consider to check times in the app to optimising electricity usage.")
+                self.notify_user("Negative electricity prices for tomorrow. Consider to check times in the app to optimising electricity usage.")
             self.attempts_today = 0
             self.log(f"FM EPEX prices successfully retrieved. Latest price at: {date_latest_price}.")
         

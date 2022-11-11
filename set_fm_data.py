@@ -55,7 +55,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     availability_duration_in_current_interval: int
     un_availability_duration_in_current_interval: int
     current_availability_since: datetime
-    availability_readings: List[AsyncGenerator]
+    availability_readings: List[float]
 
     # State of Charge (SoC) of connected car battery. If not connected set to -1.
     soc_readings: List[AsyncGenerator]

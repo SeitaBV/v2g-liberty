@@ -401,13 +401,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         self.fm_token = res.json()["auth_token"]
 
 
-    def notify(self, log_text):
-        # Sets a message in helper entity which is monitored by an automation to notify user.
-        self.set_textvalue("input_text.epex_log", log_text)
-        return
-
-
-
 def time_mod(time, delta, epoch=None):
     """From https://stackoverflow.com/a/57877961/13775459"""
     if epoch is None:

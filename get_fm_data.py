@@ -78,7 +78,6 @@ class FMdata(hass.Hass):
         self.authenticate_with_fm()
         now = self.get_now()
         startEPEX = str((now +timedelta(days=-1)).date())
-        #startEPEX = "2021-12-13"
 
         url = self.args["fm_data_api"] + self.args["fm_data_api_epex"]
         url_params = {

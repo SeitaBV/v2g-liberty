@@ -10,7 +10,7 @@ import appdaemon.plugins.hass.hassapi as hass
 import isodate
 
 
-class FMdata(hass.Hass):
+class data_importer(hass.Hass):
     fm_token: str
     first_try_time: str
     second_try_time: str
@@ -143,8 +143,6 @@ class FMdata(hass.Hass):
                 self.notify_user("Negative electricity prices for tomorrow. Consider to check times in the app to optimising electricity usage.")
             self.attempts_today = 0
             self.log(f"FM EPEX prices successfully retrieved. Latest price at: {date_latest_price}.")
-        
-        return
 
 
     def authenticate_with_fm(self):

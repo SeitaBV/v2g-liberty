@@ -48,7 +48,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     power_period_duration: int
     period_power_x_duration: int
     # Holds the weighted_averaged power readings of the last hour until sent to backend.
-    power_readings: List[AsyncGenerator]
+    power_readings: List[float]
 
     # Total seconds that charger and car have been available in the current hour.
     current_availability: bool

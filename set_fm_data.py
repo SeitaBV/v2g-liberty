@@ -65,10 +65,9 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     def initialize(self):
         self.readings_resolution = self.args["fm_chargepower_resolution_in_minutes"]
         self.client = self.configure_charger_client()
-        #hjhh
         local_now = self.get_now()
 
-        # Power related initialization
+        # Power related initialisation
         self.current_power_since = local_now
         self.current_power = 0
         self.power_period_duration = 0
@@ -141,17 +140,16 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         old = old['state']
         new = new['state']
         if old == "unavailable" or new == "unavailable":
-            # Ignore state changes related to unavailable
+            # Ignore state changes related to unavailable. These are not be of influence on availability of charger/car.
             return
-        # self.log(f"Charger_state changed from '{ old }' to '{ new }'.")
         self.record_availability()
 
 
     def record_availability(self, conclude_interval = False):
         # Called at chargemode_change and charger_status_change
         # Record (non_)availability durations of time in current interval.
-        # Use conclude_interval to conclude an interval (without chening the availablity)
-        # TODO: How to take an upcomming calendar item in to account?
+        # Use conclude_interval to conclude an interval (without changing the availability)
+        # TODO: How to take an upcoming calendar item into account?
 
         if self.current_availability != self.is_available() or conclude_interval:
             local_now = self.get_now()
@@ -176,7 +174,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         else:
             self.log("Availability not changed: do nothing")
             return
-        return
 
 
     def handle_charge_power_change(self, entity, attribute, old, new, kwargs):
@@ -235,8 +232,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         # Reset availability values
         self.availability_duration_in_current_interval = 0
         self.un_availability_duration_in_current_interval = 0
-
-        return
 
 
     def try_send_data(self, *args):
@@ -404,17 +399,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         if not res.status_code == 200:
             self.log_failed_response(res, "requestAuthToken")
         self.fm_token = res.json()["auth_token"]
-
-    def handle_response_errors(self, message, res, description, fnc, *args, **fnc_kwargs):
-        if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
-            self.log(
-                f"Failed to {description} on authorization (possibly the token expired); attempting to reauthenticate once")
-            self.authenticate_with_fm()
-            fnc_kwargs["retry_auth_once"] = False
-            fnc(*args, **fnc_kwargs)
-        else:
-            self.log(f"Failed to {description} (status {res.status_code}): {res} as response to {message}")
-            self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
 
 
     def notify(self, log_text):

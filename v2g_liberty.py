@@ -10,9 +10,9 @@ import isodate
 from wallbox_client import WallboxModbusMixin
 
 
-class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
+class v2g_liberty(hass.Hass, WallboxModbusMixin):
     """ This class manages the communication with the Wallbox Quasar charger and
-    the FlexMeasures platform (which delivers the charging schedules).
+    the FlexMeasures platform (which delivers the charging schedules). 
     """
 
     # Utility variables for preventing a frozen app. Call set_next_action at least every x seconds

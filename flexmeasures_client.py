@@ -56,7 +56,7 @@ class FlexMeasuresClient(hass.Hass):
         udi_event_id = self.trigger_schedule()
 
         # Set a timer to get the device message
-        s = self.args["delay_for_initial_attempt_to_retrieve_device_message"]
+        s = self.args["delay_for_initial_attempt_to_retrieve_schedule"]
         self.log(f"Attempting to get device message in {s} seconds")
         self.run_in(self.get_schedule, delay=int(s), udi_event_id=udi_event_id)
 
@@ -78,19 +78,19 @@ class FlexMeasuresClient(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
         if res.status_code != 200:
-            self.log_failed_response(res, "GetDeviceMessage")
+            self.log_failed_response(res, "getSchedule")
         else:
-            self.log(f"GET device message success: retrieved {res.status_code}")
+            self.log(f"GET schedule success: retrieved {res.status_code}")
         if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
-            s = self.args["delay_for_reattempts_to_retrieve_device_message"]
+            s = self.args["delay_for_reattempts_to_retrieve_schedule"]
             attempts_left = kwargs.get("attempts_left",
-                                       self.args["max_number_of_reattempts_to_retrieve_device_message"])
+                                       self.args["max_number_of_reattempts_to_retrieve_schedule"])
             if attempts_left >= 1:
-                self.log(f"Reattempting to get device message in {s} seconds (attempts left: {attempts_left})")
+                self.log(f"Reattempting to get schedule in {s} seconds (attempts left: {attempts_left})")
                 self.run_in(self.get_schedule, delay=int(s), attempts_left=attempts_left - 1,
                             udi_event_id=udi_event_id)
             else:
-                self.log("Device message cannot be retrieved. Any previous charging schedule will keep being followed.")
+                self.log("Schedule cannot be retrieved. Any previous charging schedule will keep being followed.")
             return
 
         schedule = res.json()

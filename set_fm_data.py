@@ -1,14 +1,11 @@
 from datetime import datetime, timedelta
-import time
 import json
 import math
-import re
 import requests
-from typing import AsyncGenerator, List, Optional
+from typing import List
 import appdaemon.plugins.hass.hassapi as hass
-
 from wallbox_client import WallboxModbusMixin
-
+from util_functions import time_mod, time_round, time_ceil
 
 # ToDo:
 # When SoC is below 20% (forced charging is in place), this time period should also be regarded as unavailable.
@@ -400,24 +397,3 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         if not res.status_code == 200:
             self.log_failed_response(res, "requestAuthToken")
         self.fm_token = res.json()["auth_token"]
-
-
-def time_mod(time, delta, epoch=None):
-    """From https://stackoverflow.com/a/57877961/13775459"""
-    if epoch is None:
-        epoch = datetime(1970, 1, 1, tzinfo=time.tzinfo)
-    return (time - epoch) % delta
-
-def time_round(time, delta, epoch=None):
-    """From https://stackoverflow.com/a/57877961/13775459"""
-    mod = time_mod(time, delta, epoch)
-    if mod < (delta / 2):
-       return time - mod
-    return time + (delta - mod)
-
-def time_ceil(time, delta, epoch=None):
-    """From https://stackoverflow.com/a/57877961/13775459"""
-    mod = time_mod(time, delta, epoch)
-    if mod:
-        return time + (delta - mod)
-    return time

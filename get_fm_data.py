@@ -77,7 +77,7 @@ class data_importer(hass.Hass):
 
         self.authenticate_with_fm()
         now = self.get_now()
-        # Getting prices since start of yesterday so that user can look back a little furter than just current window.
+        # Getting prices since start of yesterday so that user can look back a little further than just current window.
         startEPEX = str((now +timedelta(days=-1)).date())
 
         url = self.args["fm_data_api"] + self.args["fm_data_api_epex"]

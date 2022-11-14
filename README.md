@@ -71,7 +71,7 @@ wallbox-client:
 
 flexmeasures-home-assistant:
   module: v2g_liberty
-  class: FlexMeasuresWallboxQuasar
+  class: V2GLibertyApp
   dependencies:
     - flexmeasures-client
     - wallbox-client

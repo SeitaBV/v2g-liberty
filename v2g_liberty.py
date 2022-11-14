@@ -10,7 +10,7 @@ import isodate
 from wallbox_client import WallboxModbusMixin
 
 
-class FlexMeasuresWallboxQuasar(hass.Hass, WallboxModbusMixin):
+class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
     """ This class manages the communication with the Wallbox Quasar charger and
     the FlexMeasures platform (which delivers the charging schedules).
     """

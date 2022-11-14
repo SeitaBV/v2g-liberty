@@ -2,3 +2,4 @@ apps.yaml
 secrets.yaml
 wallbox_modbus_registers.yaml
 __pycache__/*
+.idea

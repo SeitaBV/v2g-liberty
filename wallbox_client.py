@@ -11,9 +11,17 @@ class WallboxModbusMixin:
     client: ModbusClient
     registers: dict
     NUM_MODBUS_PORTS = 65536
+    last_restart: int = 0
+
+    # A restart of the charger can take up to 5 minutes, so during this time do not request a restart again
+    minimum_seconds_between_restarts = 300
+    busy_getting_charger_state = False
 
     def configure_charger_client(self):
         """Configure the Wallbox Modbus client and return it."""
+        # Assume that a restart of this code is the same as last restart of the charger.
+        self.last_restart = self.get_now()
+        
         host = self.args["wallbox_host"]
         port = self.args["wallbox_port"]
         self.log(f"Configuring Modbus client at {host}:{port}")
@@ -26,17 +34,40 @@ class WallboxModbusMixin:
         self.registers = self.args["wallbox_modbus_registers"]
         return client
 
-    def get_charger_state(self):
+    def get_charger_state(self) -> int:
+        """Get state of the charger.
+
+        The variable busy_getting_charger_state is used to effectively lock up this function,
+        such that it can only run sequentially.
+        """
+
+        # Prevent this code running in parallel
+        if self.busy_getting_charger_state:
+            self.log(f"get_charger_state called while busy with getting a state, stopped processing request.")
+            return
+        self.busy_getting_charger_state = True
+
         register = self.registers["get_status"]
         charger_state = -1
         # self.log(f"get_charger_state:: Charger state is {charger_state}.")
 
         # Sometimes the charger returns None for a while, so keep reading until a proper reading is retrieved
+        # In rare cases this situation remains for longer. 
+        # If the max number of attempts has been reached it is most likely the charger is
+        # non-responsive in general and a restart (reboot) of the charger is the only way out.
+        max_attempts = 60
+        attempts = 0
         while charger_state == -1:
+            if attempts > max_attempts:
+                self.log(f"get_charger_state has reached max attempts ({attempts}) to read status from charger. Stopped reading and restarting charger.")
+                self.set_charger_action("restart")
+                self.busy_getting_charger_state = False
+                return
             cs = self.client.read_holding_registers(register)
-            if cs == None:
+            if cs is None:
                 self.log(f"Charger returned state = None, wait half a second and try again.")
                 time.sleep(1 / 2)
+                attempts += 1
                 continue
             cs = cs[0]
 
@@ -45,6 +76,7 @@ class WallboxModbusMixin:
                 time.sleep(1 / 2)
                 continue
             charger_state = int(float(cs))
+        self.busy_getting_charger_state = False
         return charger_state
 
     def is_charger_in_error(self) -> bool:
@@ -66,7 +98,12 @@ class WallboxModbusMixin:
             return
 
         register = self.registers["set_charger_to_autostart_on_connect"]
-        setting_in_charger = self.client.read_holding_registers(register)[0]
+        setting_in_charger = self.client.read_holding_registers(register)
+        try:
+            setting_in_charger = setting_in_charger[0]
+        except TypeError:
+            self.log(f"Modbus read setpoint_type seems not iterable: {setting_in_charger}.")
+
         try:
             new_setting_to_charger = self.registers["autostart_on_connect_setting"][setting]
         except KeyError:
@@ -89,7 +126,8 @@ class WallboxModbusMixin:
         time.sleep(self.args["wait_between_charger_write_actions"] / 1000)
 
     def set_charger_action(self, action: str):
-        """Set action to start/stop charging."""
+
+        """Set action to start/stop charging or restart the charger"""
         if not self.is_car_connected():
             self.log(f"Not performing charger action '{action}': No car connected.")
             return False
@@ -100,13 +138,18 @@ class WallboxModbusMixin:
                 return True
             value = self.registers["actions"]["start_charging"]
         elif action == "stop":
-            if not self.is_charging():
-                self.log(f"Not performing charger action 'stop': currently not charging.")
-                return True
+            # AJO 2022-10-08
+            # Stop needs to be very reliable, so we always perform this action, even if currently not charging.
+            # We sometimes see the charger starting charging after reconnect without haven gotten the instruction to do so.
+            # To counter this we call "stop" from disconnect event.
             value = self.registers["actions"]["stop_charging"]
         elif action == "restart":
+            if self.last_restart < self.get_now()-datetime.timedelta(seconds=self.minimum_seconds_between_restarts):
+                self.log(f"Not restarting charger, a restart has been requested already in the last {self.minimum_seconds_between_restarts} seconds.")
+                return
             self.log(f"RESTARTING charger...")
             value = self.registers["actions"]["restart_charger"]
+            self.last_restart = self.get_now()
         else:
             raise ValueError(f"Unknown option for action '{action}'")
 
@@ -155,7 +198,12 @@ class WallboxModbusMixin:
         register = self.registers["set_control"]
 
         # Prevent unnecessary writing (and waiting for processing of) same setting
-        setting_in_charger = self.client.read_holding_registers(register)[0]
+        setting_in_charger = self.client.read_holding_registers(register)
+        try:
+            setting_in_charger = setting_in_charger[0]
+        except TypeError:
+            self.log(f"Modbus read setpoint_type seems not iterable: {setting_in_charger}.")
+
         if setting_in_charger == self.registers["user_control"] and setting == "enable":
             # Setting in charger is already "user control", no need to write.
             return
@@ -184,8 +232,13 @@ class WallboxModbusMixin:
 
         register = self.registers["set_setpoint_type"]
 
+        setting_in_charger = self.client.read_holding_registers(register)
+        try:
+            setting_in_charger = setting_in_charger[0]
+        except TypeError:
+            self.log(f"Modbus read setpoint_type seems not iterable: {setting_in_charger}.")
+
         # Prevent unnecessary writing (and waiting for processing of) same setting
-        setting_in_charger = self.client.read_holding_registers(register)[0]
         if setting_in_charger == self.registers["setpoint_types"][setpoint_type]:
             # Setting in charger is already set to the desired setpoint type, no need to write.
             self.log(f"Charger already has setpoint type set to {setpoint_type}.")
@@ -237,12 +290,9 @@ class WallboxModbusMixin:
             self.log(f"Not setting charge_rate to '{charge_rate}': No car connected.")
             return
 
-        # Make sure that discharging does not occure below 20%
+        # Make sure that discharging does not occur below 20%
         if charge_rate < 0 and self.connected_car_soc <= 20:
-            self.log(
-                f"A discharge is attempted while the current SoC is below the" /
-                "minimum for discharging: 20%. Stopping discharging."
-            )
+            self.log(f"A discharge is attempted while the current SoC is below the minimum for discharging: 20%. Stopping discharging.")
             charge_rate = 0
 
         # Clip values to min/max charging current
@@ -298,6 +348,7 @@ class WallboxModbusMixin:
 
         if res is not True:
             self.log(f"Failed to set charge power to {charge_rate} Watt. Charge Point responded with: {res}")
+            # If negative value result in false, check if gridcode is set correct in charger.
         else:
             self.log(f"Charge power set to {charge_rate} Watt successfully.")
 
@@ -326,7 +377,7 @@ class WallboxModbusMixin:
         try:
             reported_soc = float(reported_soc)
             assert reported_soc > 0 and reported_soc <= 100
-        except (TypeError, AssertionError):
+        except (TypeError, AssertionError, ValueError):
             self.log(f"New SoC '{reported_soc}' ignored.")
             return False
         self.connected_car_soc = round(reported_soc, 0)
@@ -405,6 +456,11 @@ class WallboxModbusMixin:
             # Send this to FM?
             # Cancel current scheduling timers
             self.cancel_charging_timers()
+
+            # AJO0806
+            # This might seem strange but sometimes the charger starts charging when
+            # reconnected even though it has not received an instruction to do so.
+            # self.set_action("stop")
             return
 
         # **** Handle connected:
@@ -428,8 +484,11 @@ class WallboxModbusMixin:
     def log_errors(self):
         """Log all errors."""
         for i, register in enumerate(self.registers["error_registers"], 1):
-            # todo: catch situation where holding_registers() returns None..
-            error_code = self.client.read_holding_registers(register)[0]
+            error_code = self.client.read_holding_registers(register)
+            try:
+                error_code = error_code[0]
+            except TypeError:
+                self.log(f"Modbus read setpoint_type seems not iterable: {error_code}.")
             self.log(f"Error code {i} is: {error_code}")
 
     def try_get_new_soc(self):
@@ -438,9 +497,17 @@ class WallboxModbusMixin:
         # So we need to start a charge with minimal power, try to read the SoC and asap stop the charge.
         # The side effects are possible soc changes and charger state changes.
         # When we observe such changes we ignore them while we are in the process of obtaining a SoC reading
+
         self.try_get_new_soc_in_process = True
-        self.set_power_setpoint(1)
-        self.set_charger_action("start")
+        is_currently_charging = self.is_charging()
+        # If currently charging then reading the SoC should be possible
+        # Then keep charging rate as is was, otherwise start charging with minimal
+        # power to be able to read the SoC.
+        if not is_currently_charging:
+            self.log(f"Reading SoC, starting charging so a SoC can be read.")
+            #Set minimal charging power 1 Watt
+            self.set_power_setpoint(1)
+            self.set_charger_action("start")
         register = self.registers["get_car_state_of_charge"]
 
         # The idea is the start will make the real SoC available.
@@ -452,17 +519,17 @@ class WallboxModbusMixin:
             # Keep the waiting time between reads short. Charging might trigger a SoC change and then we get conflicting actions.
             time.sleep(0.25)
             reported_soc = self.client.read_holding_registers(register)
-            if reported_soc == None:
+            if reported_soc == None or reported_soc == "unavailable":
                 reported_soc = 0
-                total_time += 0.25
-                continue
-
-            try:
-                reported_soc = reported_soc[0]
-            except TypeError:
-                self.log(f"Modbus read object seems not iterable: {reported_soc}.")
-            reported_soc = int(float(reported_soc))
+            else:
+                try:
+                    reported_soc = reported_soc[0]
+                    reported_soc = int(float(reported_soc))
+                except TypeError:
+                    self.log(f"Modbus read object seems not iterable or cannot covert to int: {reported_soc}.")
+                    reported_soc = 0
             total_time += 0.25
+
             # We need to stop at some point
             if total_time > 120:  # todo: refactor these to config settings
                 self.log(f"Reading SoC timed out. After {total_time} seconds still no relevant SoC was retrieved.")
@@ -475,8 +542,9 @@ class WallboxModbusMixin:
             self.log(
                 f"Read SoC from car (poked charger by starting minimal charge): '{reported_soc}', time before relevant SoC was retrieved: {total_time}seconds.")
 
-        self.set_charger_action("stop")
-        self.set_power_setpoint(0)
+        if not is_currently_charging:
+            self.set_charger_action("stop")
+            self.set_power_setpoint(0)
         self.try_get_new_soc_in_process = False
         self.process_soc(reported_soc)
 

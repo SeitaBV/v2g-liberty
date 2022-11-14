@@ -4,7 +4,7 @@ import json
 import math
 import re
 import requests
-from typing import AsyncGenerator, List, Optional
+from typing import List
 import appdaemon.plugins.hass.hassapi as hass
 
 from wallbox_client import WallboxModbusMixin

@@ -35,7 +35,7 @@ python_packages:
   - pyModbusTCP
 ```
 
-In your Home Assistant file editor, go to `/config/appdaemon/apps/` and add `fm_ha_integration.py`.
+In your Home Assistant file editor, go to `/config/appdaemon/apps/` and add `v2g_liberty.py`.
 
 In the same directory, add (or extend) `apps.yaml` with (replacing secrets as required for your custom setting):
 
@@ -70,7 +70,7 @@ wallbox-client:
 
 
 flexmeasures-home-assistant:
-  module: fm_ha_integration
+  module: v2g_liberty
   class: FlexMeasuresWallboxQuasar
   dependencies:
     - flexmeasures-client

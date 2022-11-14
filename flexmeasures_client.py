@@ -5,6 +5,7 @@ import requests
 import time
 import isodate
 from typing import Optional
+from util_functions import time_mod, time_round
 
 import appdaemon.plugins.hass.hassapi as hass
 
@@ -189,20 +190,3 @@ def search_for_kwh_target(description: Optional[str]) -> Optional[int]:
     if match is None:
         return None
     return int(match.group("quantity"))
-
-
-# TODO AJO 2022-02-26: dit zou in util module moeten zitten...
-def time_mod(time, delta, epoch=None):
-    """From https://stackoverflow.com/a/57877961/13775459"""
-    if epoch is None:
-        epoch = datetime(1970, 1, 1, tzinfo=time.tzinfo)
-    return (time - epoch) % delta
-
-
-# TODO AJO 2022-02-26: dit zou in util module moeten zitten...
-def time_round(time, delta, epoch=None):
-    """From https://stackoverflow.com/a/57877961/13775459"""
-    mod = time_mod(time, delta, epoch)
-    if mod < (delta / 2):
-        return time - mod
-    return time + (delta - mod)

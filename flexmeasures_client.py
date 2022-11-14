@@ -36,7 +36,7 @@ class FlexMeasuresClient(hass.Hass):
             ),
         )
         if not res.status_code == 200:
-            self.log_failed_response(res, "requestAuthToken")
+            self.log_failed_response(res, url)
         self.fm_token = res.json()["auth_token"]
 
     def log_failed_response(self, res, endpoint: str):
@@ -78,7 +78,7 @@ class FlexMeasuresClient(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
         if res.status_code != 200:
-            self.log_failed_response(res, "getSchedule")
+            self.log_failed_response(res, url)
         else:
             self.log(f"GET schedule success: retrieved {res.status_code}")
         if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
@@ -134,9 +134,6 @@ class FlexMeasuresClient(hass.Hass):
             target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
 
         message = {
-            # "type": "PostUdiEventRequest",
-            # "event": self.args["fm_quasar_entity_address"] + ":" + str(udi_event_id) + ":soc-with-targets",
-            # todo: relay flow constraints with new UDI event type ":soc-with-target-and-flow-constraints"
             "soc-at-start": soc_value,
             "soc-unit": "kWh",
             "start": soc_datetime,
@@ -155,7 +152,7 @@ class FlexMeasuresClient(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
         if res.status_code != 200:
-            self.log_failed_response(res, "PostUdiEvent")
+            self.log_failed_response(res, url)
             self.handle_response_errors(message, res, "POST UDI event", self.trigger_schedule, **fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
             return

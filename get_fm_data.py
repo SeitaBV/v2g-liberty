@@ -10,7 +10,7 @@ import appdaemon.plugins.hass.hassapi as hass
 import isodate
 
 
-class data_importer(hass.Hass):
+class FlexMeasuresDataImporter(hass.Hass):
     fm_token: str
     first_try_time: str
     second_try_time: str

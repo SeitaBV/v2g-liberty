@@ -140,7 +140,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         old = old['state']
         new = new['state']
         if old == "unavailable" or new == "unavailable":
-            # Ignore state changes related to unavailable. These are not be of influence on availability of charger/car.
+            # Ignore state changes related to unavailable. They should not influence the availability of charger/car.
             return
         self.record_availability()
 

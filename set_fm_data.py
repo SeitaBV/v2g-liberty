@@ -88,6 +88,10 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
 
         self.listen_state(self.handle_charge_power_change, "sensor.charger_real_charging_power", attribute="all")
 
+        # SoC related
+        self.connected_car_soc = None
+        self.soc_readings = []
+
         # Availability related
         self.availability_duration_in_current_interval = 0
         self.un_availability_duration_in_current_interval = 0
@@ -95,10 +99,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         self.current_availability = self.is_available()
         self.current_availability_since = local_now
         self.record_availability(True)
-
-        # SoC related
-        self.connected_car_soc = None
-        self.soc_readings = []
 
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
         self.listen_state(self.handle_charge_mode_change, "input_select.charge_mode", attribute="all")
@@ -137,6 +137,8 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
 
         self.log(f"Processed reported SoC, self.connected_car_soc is now set to: {reported_soc}%.")
         self.connected_car_soc = reported_soc
+        self.record_availability()
+
 
     def handle_charge_mode_change(self, entity, attribute, old, new, kwargs):
         """ Handle changes in charger (car) state (eg automatic or not)"""
@@ -390,13 +392,16 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
 
 
     def is_available(self):
-        # Check if car and charger are available for automatic charging.
+        """ Check if car and charger are available for automatic charging. """
         # TODO:
         # How to take an upcoming calendar item in to account?
-        # When SoC is below 20% (forced charging is in place), this time period should also be regarded as unavailable.
 
         charge_mode = self.get_state("input_select.charge_mode")
-        if self.is_car_connected() and charge_mode == "Automatic":
+        # Forced charging in progress if SoC is below 20%
+        no_forced_charing_in_progress = False
+        if self.connected_car_soc >= 20:
+            no_forced_charing_in_progress = True
+        if self.is_car_connected() and charge_mode == "Automatic" and no_forced_charing_in_progress:
             return True
         else:
             return False

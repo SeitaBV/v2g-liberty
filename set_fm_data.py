@@ -398,10 +398,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
 
         charge_mode = self.get_state("input_select.charge_mode")
         # Forced charging in progress if SoC is below 20%
-        no_forced_charing_in_progress = False
-        if self.connected_car_soc >= 20:
-            no_forced_charing_in_progress = True
-        if self.is_car_connected() and charge_mode == "Automatic" and no_forced_charing_in_progress:
+        if self.is_car_connected() and charge_mode == "Automatic" and self.connected_car_soc >= 20:
             return True
         else:
             return False

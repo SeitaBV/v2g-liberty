@@ -30,7 +30,6 @@ setpoint_types:
 # (int16) unit W, min -7400, max 7400
 # Used when set_setpoint_type = power
 set_power_setpoint: 0x0104
-# Charger does not react to this setting?
 
 # AC Max Charging Current (Read/Write)
 # (int16) unit A, min -32, max 32

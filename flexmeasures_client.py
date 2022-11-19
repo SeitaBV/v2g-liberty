@@ -104,8 +104,8 @@ class FlexMeasuresClient(hass.Hass):
         )
         if res.status_code != 200:
             self.log_failed_response(res, "getSchedule")
-        else:
-            self.log(f"GET schedule success: retrieved {res.status_code}")
+        # else:
+        #     self.log(f"GET schedule success: retrieved {res.status_code}")
         if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
             attempts_left = kwargs.get("attempts_left", self.MAX_NUMBER_OF_REATTEMPTS)
             if attempts_left >= 1:

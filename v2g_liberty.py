@@ -170,8 +170,6 @@ class v2g_liberty(hass.Hass, WallboxModbusMixin):
             return
 
         schedule = schedule["attributes"]
-        self.log(schedule)
-
         values = schedule["values"]
         duration = isodate.parse_duration(schedule["duration"])
         resolution = duration / len(values)

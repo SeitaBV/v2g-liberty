@@ -127,9 +127,23 @@ class FlexMeasuresClient(hass.Hass):
             target = self.args["fm_car_max_soc_in_kwh"]
             target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
         else:
-            target = search_for_kwh_target(car_reservation["attributes"]["description"])
-            if target is None:
-                target = self.args["fm_car_max_soc_in_kwh"]
+            # Depending on the type of calendar the description or message contains the possible target.
+            text_to_search_in = car_reservation["attributes"]["message"] + " " + car_reservation["attributes"]["description"]
+
+            target_in_procent = search_for_kwh_target(text_to_search_in)
+            if target_in_procent is None:
+                target = self.CAR_MAX_SOC_IN_KWH
+            else:
+                if target_in_procent > 100:
+                    # Prevent accidental input larger than 100%
+                    target_in_procent = 100
+                elif target_in_procent < 30:
+                    # Prevent accidental input lower than 30%
+                    target_in_procent = 30
+
+                target = target_in_procent * self.CAR_MAX_SOC_IN_KWH / 100
+                self.log(f"Target SoC from calendar: {target} kWh.")
+
             target_datetime = isodate.parse_datetime(
                 car_reservation["attributes"]["start_time"].replace(" ", "T")).astimezone(
                 pytz.timezone("Europe/Amsterdam")).isoformat()
@@ -180,13 +194,14 @@ class FlexMeasuresClient(hass.Hass):
 
 # TODO AJO 2022-02-26: dit zou in fm_ha_module moeten zitten...
 def search_for_kwh_target(description: Optional[str]) -> Optional[int]:
-    """Search description for the first occurrence of some (integer) number of kWh.
+    """Search description for the first occurrence of some (integer) number of %.
 
     Forgives errors in incorrect capitalization of the unit and missing/double spaces.
     """
     if description is None:
         return None
-    match = re.search("(?P<quantity>\d+) *kwh", description.lower())
+    pattern = re.compile(r"(?P<quantity>\d+) *%")
+    match = pattern.search(description.lower())
     if match is None:
         return None
-    return int(match.group("quantity"))
+    return int(float(match.group("quantity")))

@@ -18,17 +18,19 @@ class FlexMeasuresClient(hass.Hass):
     - Reports on errors locally (input_boolean.error_schedule_cannot_be_retrieved)
     """
 
-    # Conatants
+    # Constants
     FM_API = str
     FM_API_VERSION = str
     FM_QUASAR_SENSOR_ID = str
-    FM_SCHEDUAL_DURATION = str
+    FM_SCHEDULE_DURATION = str
     FM_USER_EMAIL = str
     FM_USER_PASSWORD = str
+    MAX_NUMBER_OF_REATTEMPTS = str
+    DELAY_FOR_INITIAL_ATTEMPT = str
     DELAY_FOR_REATTEMPTS = str
     CAR_RESERVATION_CALENDAR = str
     CAR_MAX_SOC_IN_KWH = str
-    WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY =str
+    WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = str
     
     # Variables
     fm_token: str
@@ -37,7 +39,7 @@ class FlexMeasuresClient(hass.Hass):
         self.FM_API = self.args["fm_api"]
         self.FM_API_VERSION = self.args["fm_api_version"]
         self.FM_QUASAR_SENSOR_ID = str(self.args["fm_quasar_sensor_id"])
-        self.FM_SCHEDUAL_DURATION = self.args["fm_schedule_duration"]
+        self.FM_SCHEDULE_DURATION = self.args["fm_schedule_duration"]
         self.FM_USER_EMAIL = self.args["fm_user_email"]
         self.FM_USER_PASSWORD = self.args["fm_user_password"]
         self.DELAY_FOR_REATTEMPTS = self.args["delay_for_reattempts_to_retrieve_schedule"]
@@ -51,7 +53,8 @@ class FlexMeasuresClient(hass.Hass):
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.
 
-        Hint: the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
+        Hint:
+        the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
         """
         self.log("Authenticating with FlexMeasures")
         res = requests.post(
@@ -88,14 +91,14 @@ class FlexMeasuresClient(hass.Hass):
     def get_schedule(self, kwargs, **fnc_kwargs):
         """GET a schedule message that has been requested by trigger_schedule.
            The ID for this is UDI_event_id.
-           Then store the retreived schedula.
+           Then store the retrieved schedule.
 
         Pass the UDI event id using kwargs["udi_event_id"]=<udi_event_id>.
         """
         udi_event_id = kwargs["udi_event_id"]
         url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/" + udi_event_id
         message = {
-            "duration": self.FM_SCHEDUAL_DURATION,
+            "duration": self.FM_SCHEDULE_DURATION,
         }
         res = requests.get(
             url,
@@ -133,7 +136,7 @@ class FlexMeasuresClient(hass.Hass):
         soc_datetime = time_round(soc_datetime, resolution).isoformat()
         url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/trigger"
 
-        # TODO AJO 2022-02-26: dit zou in fm_ha_module moeten zitten...
+        # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
         # Retrieve target SOC
         car_reservation = self.get_state(self.CAR_RESERVATION_CALENDAR, attribute="all")
         self.log(f"Car_reservation: {car_reservation}")
@@ -178,7 +181,7 @@ class FlexMeasuresClient(hass.Hass):
             return
         else:
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
-        self.log(f"Successfully posted UDI event. Result: {res.status_code}.")
+        self.log(f"Successfully triggered schedule. Result: {res.status_code}.")
         udi_event_id = res.json()["schedule"]
         return udi_event_id
 
@@ -195,7 +198,7 @@ class FlexMeasuresClient(hass.Hass):
             self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
 
 
-# TODO AJO 2022-02-26: dit zou in fm_ha_module moeten zitten...
+# TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
 def search_for_kwh_target(description: Optional[str]) -> Optional[int]:
     """Search description for the first occurrence of some (integer) number of kWh.
 

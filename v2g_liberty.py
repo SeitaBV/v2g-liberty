@@ -10,7 +10,7 @@ import isodate
 from wallbox_client import WallboxModbusMixin
 
 
-class v2g_liberty(hass.Hass, WallboxModbusMixin):
+class V2Gliberty(hass.Hass, WallboxModbusMixin):
     """ This class manages the communication with the Wallbox Quasar charger and
     the FlexMeasures platform (which delivers the charging schedules). 
     """
@@ -114,12 +114,12 @@ class v2g_liberty(hass.Hass, WallboxModbusMixin):
         # Check whether we're in automatic mode
         mode = self.get_state("input_select.charge_mode")
         if mode != "Automatic":
-            self.log(f"Not posting UDI event. Charge mode is not 'Automatic' but '{mode}'.")
+            self.log(f"Not getting new schedule. Charge mode is not 'Automatic' but '{mode}'.")
             return
 
         # Check whether we're not in boost mode
         if self.in_boost_to_reach_min_soc:
-            self.log(f"Not posting UDI event. SoC below minimum, boosting to reach that first.")
+            self.log(f"Not getting new schedule. SoC below minimum, boosting to reach that first.")
             return
 
         # The HA entity that was used connected_car_soc_wh is deprecated

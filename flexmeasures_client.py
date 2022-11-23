@@ -75,14 +75,14 @@ class FlexMeasuresClient(hass.Hass):
         except json.decoder.JSONDecodeError:
             self.log(f"{endpoint} failed ({res.status_code}) with response {res}")
 
-    def get_new_schedule(self):
+    def get_new_schedule(self, current_soc_kwh):
         """Get a new schedule from FlexMeasures.
 
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
         """
 
         # Ask to compute a new schedule by posting flex constraints while triggering the scheduler
-        schedule_id = self.trigger_schedule()
+        schedule_id = self.trigger_schedule(current_soc_kwh=current_soc_kwh)
 
         # Set a timer to get the schedule a little later
         s = self.DELAY_FOR_INITIAL_ATTEMPT
@@ -133,12 +133,11 @@ class FlexMeasuresClient(hass.Hass):
         """
 
         # Prepare the SoC measurement to be sent along with the scheduling request
-        soc_entity = self.get_state("input_number.car_state_of_charge_wh", attribute="all")
-        soc_value = float(soc_entity["state"]) / 1000  # to kWh
-        soc_datetime = datetime.now(tz=pytz.utc)  # soc_entity["last_changed"]
+        current_soc_kwh = fnc_kwargs["current_soc_kwh"]
+        self.log(f"trigger_schedule called with current_soc_kwh: {current_soc_kwh} kWh.")
 
         # Snap to sensor resolution
-        # soc_datetime = isodate.parse_datetime(soc_datetime)
+        soc_datetime = datetime.now(tz=pytz.utc)
         resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
         soc_datetime = time_round(soc_datetime, resolution).isoformat()
 
@@ -164,7 +163,7 @@ class FlexMeasuresClient(hass.Hass):
             target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
 
         message = {
-            "soc-at-start": soc_value,
+            "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
             "start": soc_datetime,
             "soc-targets": [
@@ -183,7 +182,7 @@ class FlexMeasuresClient(hass.Hass):
         )
         if res.status_code != 200:
             self.log_failed_response(res, url)
-            self.handle_response_errors(message, res, url, self.trigger_schedule, **fnc_kwargs)
+            self.handle_response_errors(message, res, url, self.trigger_schedule, *args, **fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
             return
         else:

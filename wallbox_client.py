@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import adbase as ad
 import time
 import appdaemon.plugins.hass.hassapi as hass
@@ -381,7 +382,8 @@ class WallboxModbusMixin:
             self.log(f"New SoC '{reported_soc}' ignored.")
             return False
         self.connected_car_soc = round(reported_soc, 0)
-        self.log(f"New SoC processed, self.connected_car_soc is now set to: {reported_soc}%.")
+        self.connected_car_soc_kwh = round(reported_soc * float(self.args["fm_car_max_soc_in_kwh"]/100), 2)
+        self.log(f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%.")
         return True
 
     def handle_charger_in_error(self):

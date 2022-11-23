@@ -22,6 +22,8 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
 
     # A SoC of 0 means: unknown/car not connected.
     connected_car_soc: int
+    connected_car_soc_kwh: float
+
     # Variable to store charger_state for comparison for change
     current_charger_state: int
     in_boost_to_reach_min_soc: bool
@@ -42,6 +44,7 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         self.call_next_action_atleast_every = 15 * 60
         self.timer_handle_set_next_action = ""
         self.connected_car_soc = 0
+        self.connected_car_soc_kwh = 0
         # Force change event at initialisation
         self.current_charger_state = -1
 
@@ -107,24 +110,17 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
             self.log(f"Not posting UDI event. SoC below minimum, boosting to reach that first.")
             return
 
-        # Get the SoC in Wh
-        soc_entity = self.get_state("input_number.car_state_of_charge_wh", attribute="all")
+        # The HA entity that was used connected_car_soc_wh is deprecated
+        # so this code needs to be refactored (or removed)
 
-        # Check whether the most recent SOC update represents a state change
-        if self.args.get("reschedule_on_soc_changes_only", True) and soc_entity["last_changed"] != soc_entity[
-            "last_updated"]:
-            self.log(f"Not posting UDI event. SoC Wh state update but not a state change")
-            # A state update but not a state change
-            # https://data.home-assistant.io/docs/states/
-            return
-
-        # Prepare the SoC measurement to be sent along with the scheduling request
-        soc = float(soc_entity["state"]) / 1000  # to kWh
-        soc_datetime = datetime.now(tz=pytz.utc)  # soc_entity["last_changed"]
-
-        self.log("getting new schedule")
-        # Otherwise, ask for a new schedule
-        self.get_app("flexmeasures-client").get_new_schedule()
+        # # Check whether the most recent SOC update represents a state change
+        # if self.args.get("reschedule_on_soc_changes_only", True) and soc_entity["last_changed"] != soc_entity[
+        #     "last_updated"]:
+        #     self.log(f"Not posting UDI event. SoC Wh state update but not a state change")
+        #     # A state update but not a state change
+        #     # https://data.home-assistant.io/docs/states/
+        #     return
+        self.get_app("flexmeasures-client").get_new_schedule(self.connected_car_soc_kwh)
 
     def cancel_charging_timers(self):
         # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles

@@ -107,8 +107,7 @@ class FlexMeasuresClient(hass.Hass):
         )
         if res.status_code != 200:
             self.log_failed_response(res, "getSchedule")
-        # else:
-        #     self.log(f"GET schedule success: retrieved {res.status_code}")
+
         if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
             attempts_left = kwargs.get("attempts_left", self.MAX_NUMBER_OF_REATTEMPTS)
             if attempts_left >= 1:
@@ -186,16 +185,18 @@ class FlexMeasuresClient(hass.Hass):
             json=message,
             headers={"Authorization": self.fm_token},
         )
-        if res.status_code != 200:
+        udi_event_id = None
+        if res.status_code == 200:
+            udi_event_id = res.json()["schedule"]
+
+        if udi_event_id == None:
             self.log_failed_response(res, "Trigger_schedule")
-            # TODO: How to handle the fact it is called with current_soc_kwh
             self.handle_response_errors(message, res, "Trigger schedule", self.trigger_schedule, *args, **fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
             return
         else:
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
         self.log(f"Successfully triggered schedule. Result: {res.status_code}.")
-        udi_event_id = res.json()["schedule"]
         return udi_event_id
 
     def handle_response_errors(self, message, res, description, fnc, **fnc_kwargs):

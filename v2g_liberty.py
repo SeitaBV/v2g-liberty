@@ -308,17 +308,8 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
 
             if self.connected_car_soc >= 100:
                 self.log(f"Reset charge_mode to 'Automatic' because max_charge is reached.")
-                # This is a somewhat clumsy way to set the mode to automatic but HA does not support radio buttons,
-                # so the UI needed to be setup rather complicated. Setting the charge mode to automatic is not doing the job.
-                # Then the UI does not match the actual status.
-                # Further the set_state needs to re-apply the icon and friendly name for some odd reason. Otherwise, the icon changes to the default toggle...
-                res = self.set_state("input_boolean.chargemodeautomatic", state="on",
-                                     attributes={'friendly_name': 'ChargeModeAutomatic',
-                                                 'icon': 'mdi:battery-charging-80'})
                 # ToDo: Maybe do this after 20 minutes or so..
-
-                if not res is True:
-                    self.log(f"Failed to reset charge_mode to 'Automatic'. Home Assistant responded with: {res}")
+                self.set_chargemode_to_automatic()
             else:
                 self.log("Starting max charge now based on chargemode = Max boost now")
                 self.start_max_charge_now()
@@ -334,6 +325,17 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
             raise ValueError(f"Unknown option for set_next_action: {charge_mode}")
 
         return
+
+    def set_chargemode_to_automatic(self):
+        # This is a somewhat clumsy way to set the mode to automatic but HA does not support radio buttons,
+        # so the UI needed to be setup rather complicated. Setting the charge mode to automatic is not doing the job.
+        # Then the UI does not match the actual status.
+        # Further the set_state needs to re-apply the icon and friendly name for some odd reason. Otherwise, the icon changes to the default toggle...
+        res = self.set_state("input_boolean.chargemodeautomatic", state="on",
+                             attributes={'friendly_name': 'ChargeModeAutomatic',
+                                         'icon': 'mdi:battery-charging-80'})
+        if not res is True:
+            self.log(f"Failed to reset charge_mode to 'Automatic'. Home Assistant responded with: {res}")
 
 
 def convert_MW_to_percentage_points(values_in_MW, resolution, max_soc_in_kWh):

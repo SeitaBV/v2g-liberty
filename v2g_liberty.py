@@ -58,10 +58,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
+        self.listen_event(self.restart_charger, "RESTART_CHARGER")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         self.listen_state(self.handle_calendar_change, self.args["fm_car_reservation_calendar"], attribute="all")
-        #Not firing??
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")
         self.scheduling_timer_handles = []
 
@@ -85,17 +85,20 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         self.log("Done setting up")
 
-    # FNC0816
-    # Timers live with the app, so that part should not be needed
-    # Test whether it still makes sense to stop the charger and give control back to the user
-    # def terminate(self):
-    #     """Stop charging/discharging and give charger control back to the user."""
-    #     self.log("Closing down the app. Stopping the charger and setting mode to user control. Bye!")
-    #     # todo: cancel timers?
-    #     self.set_power_setpoint(0)  # this will also stop the charger.
-    #     self.set_charger_control("give")
-    #     self.stop_app(self.name)  # todo: needed?
-    #     raise RuntimeError("")  # todo: needed?
+    def restart_charger(self, *args, **kwargs):
+        """ Function te (forcefully) restart the charger.
+        Used when a crash is detected.
+        """
+        self.log("************* Restart of charger requested. *************")
+        self.set_charger_action("restart")
+        self.notify_user("Restart of charger initiated by user. Please check charger.")
+
+
+    #TODO: combine with same function in other modules??
+    def notify_user(self, message: str):
+        """ Utility function to send notifications to the user via HA.
+        """
+        self.notify(message, title="V2G Liberty")
 
     def handle_calendar_change(self, *args, **fnc_kwargs):
         self.log("Calendar update detected.")

@@ -68,8 +68,8 @@ class WallboxModbusMixin:
                 return
             cs = self.client.read_holding_registers(register)
             if cs is None:
-                self.log(f"Charger returned state = None, wait half a second and try again.")
-                time.sleep(1 / 2)
+                self.log(f"Charger returned state = None, wait 2 seconds and try again.")
+                time.sleep(2)
                 attempts += 1
                 continue
             cs = cs[0]
@@ -129,9 +129,6 @@ class WallboxModbusMixin:
         time.sleep(self.args["wait_between_charger_write_actions"] / 1000)
 
     def set_charger_action(self, action: str):
-        # FNC: hopefully not needed
-        # global last_restart
-
         """Set action to start/stop charging or restart the charger"""
 
         # Restart is called in problem situations and then is_connected is not reliable..
@@ -151,7 +148,7 @@ class WallboxModbusMixin:
             # To counter this we call "stop" from disconnect event.
             value = self.registers["actions"]["stop_charging"]
         elif action == "restart":
-            if self.last_restart < self.get_now()-datetime.timedelta(seconds=self.minimum_seconds_between_restarts):
+            if self.last_restart < (self.get_now() - timedelta(seconds=self.minimum_seconds_between_restarts)):
                 self.log(f"Not restarting charger, a restart has been requested already in the last {self.minimum_seconds_between_restarts} seconds.")
                 return
             self.log(f"Start RESTARTING charger...")

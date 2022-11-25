@@ -411,7 +411,7 @@ class WallboxModbusMixin:
             self.set_charger_action("restart")
         else:
             self.log("handle_charger_in_error, recheck error_state in 30 seconds.")
-            self.run_in(handle_charger_in_error, 30)
+            self.run_in(self.handle_charger_in_error, 30)
 
 
     def handle_charger_state_change(self, entity, attribute, old, new, kwargs):
@@ -431,7 +431,7 @@ class WallboxModbusMixin:
 
         if self.current_charger_state == new_charger_state:
             # Nothing has changed really. Update but not a change.
-            self.log(f"It now appears the Charger state has not changed at all.")
+            # self.log(f"It now appears the Charger state has not changed at all.")
             return
         self.log(f"Charger state changed from {self.current_charger_state} to {new_charger_state}.")
 
@@ -458,10 +458,14 @@ class WallboxModbusMixin:
         # Goes to this status when disconnected
         if new_charger_state == self.registers["disconnected_state"]:
             self.log("Charger state has changed to 'Disconnected'")
-            # Send this to FM?
             # Cancel current scheduling timers
             self.cancel_charging_timers()
 
+            # When the car disconnects we want a chargemode Max Boost Now to end.
+            mode = self.get_state("input_select.charge_mode", None)
+            if mode == "Max boost now":
+                self.set_chargemode_to_automatic()
+                self.notify_user("Chargemode set to automatic (was Max boost Now) as car is disconnected.")
             # AJO0806
             # This might seem strange but sometimes the charger starts charging when
             # reconnected even though it has not received an instruction to do so.

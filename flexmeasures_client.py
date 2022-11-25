@@ -19,16 +19,18 @@ class FlexMeasuresClient(hass.Hass):
     """
 
     # Constants
-    FM_API = str
-    FM_API_VERSION = str
-    FM_QUASAR_SENSOR_ID = str
-    FM_SCHEDULE_DURATION = str
-    FM_USER_EMAIL = str
-    FM_USER_PASSWORD = str
-    DELAY_FOR_REATTEMPTS = str
-    CAR_RESERVATION_CALENDAR = str
-    CAR_MAX_SOC_IN_KWH = str
-    WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY =str
+    FM_API: str
+    FM_API_VERSION: str
+    FM_QUASAR_SENSOR_ID: str
+    FM_SCHEDULE_DURATION: str
+    FM_USER_EMAIL: str
+    FM_USER_PASSWORD: str
+    DELAY_FOR_REATTEMPTS: int  # number of seconds
+    MAX_NUMBER_OF_REATTEMPTS: int
+    DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
+    CAR_RESERVATION_CALENDAR: str
+    CAR_MAX_SOC_IN_KWH: float
+    WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float
 
     # Variables
     fm_token: str
@@ -40,12 +42,12 @@ class FlexMeasuresClient(hass.Hass):
         self.FM_SCHEDULE_DURATION = self.args["fm_schedule_duration"]
         self.FM_USER_EMAIL = self.args["fm_user_email"]
         self.FM_USER_PASSWORD = self.args["fm_user_password"]
-        self.DELAY_FOR_REATTEMPTS = self.args["delay_for_reattempts_to_retrieve_schedule"]
-        self.MAX_NUMBER_OF_REATTEMPTS = self.args["max_number_of_reattempts_to_retrieve_schedule"]
-        self.DELAY_FOR_INITIAL_ATTEMPT = self.args["delay_for_initial_attempt_to_retrieve_schedule"]
+        self.DELAY_FOR_REATTEMPTS = int(self.args["delay_for_reattempts_to_retrieve_schedule"])
+        self.MAX_NUMBER_OF_REATTEMPTS = int(self.args["max_number_of_reattempts_to_retrieve_schedule"])
+        self.DELAY_FOR_INITIAL_ATTEMPT = int(self.args["delay_for_initial_attempt_to_retrieve_schedule"])
         self.CAR_RESERVATION_CALENDAR = self.args["fm_car_reservation_calendar"]
-        self.CAR_MAX_SOC_IN_KWH = self.args["fm_car_max_soc_in_kwh"]
-        self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = self.args["wallbox_plus_car_roundtrip_efficiency"]
+        self.CAR_MAX_SOC_IN_KWH = float(self.args["fm_car_max_soc_in_kwh"])
+        self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = float(self.args["wallbox_plus_car_roundtrip_efficiency"])
 
 
     def authenticate_with_fm(self):
@@ -85,7 +87,7 @@ class FlexMeasuresClient(hass.Hass):
         # Set a timer to get the schedule a little later
         s = self.DELAY_FOR_INITIAL_ATTEMPT
         self.log(f"Attempting to get schedule in {s} seconds")
-        self.run_in(self.get_schedule, delay=int(s), schedule_id=schedule_id)
+        self.run_in(self.get_schedule, delay=s, schedule_id=schedule_id)
 
     def get_schedule(self, kwargs, **fnc_kwargs):
         """GET a schedule message that has been requested by trigger_schedule.
@@ -113,7 +115,7 @@ class FlexMeasuresClient(hass.Hass):
             attempts_left = kwargs.get("attempts_left", self.MAX_NUMBER_OF_REATTEMPTS)
             if attempts_left >= 1:
                 self.log(f"Reattempting to get schedule in {s} seconds (attempts left: {attempts_left})")
-                self.run_in(self.get_schedule, delay=int(s), attempts_left=attempts_left - 1,
+                self.run_in(self.get_schedule, delay=s, attempts_left=attempts_left - 1,
                             schedule_id=schedule_id)
             else:
                 self.log("Schedule cannot be retrieved. Any previous charging schedule will keep being followed.")

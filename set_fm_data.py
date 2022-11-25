@@ -227,6 +227,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
 
             # SoC related processing
             # SoC does not change very quickly, so we just read it at conclude time and do not do any calculation
+            # Send -1 values instead of null values, until sending null values is supported by FlexMeasures
             self.soc_readings.append(self.connected_car_soc if self.connected_car_soc is not None else -1)
 
             self.log(f"Conclude called. Average power in this period: {average_period_power} MW, Availability: {percentile_availability}%, SoC: {self.connected_car_soc}%.")

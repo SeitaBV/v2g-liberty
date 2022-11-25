@@ -53,7 +53,8 @@ class FlexMeasuresClient(hass.Hass):
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.
 
-        Hint: the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
+        Hint:
+        the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
         """
         self.log("Authenticating with FlexMeasures")
         url = self.FM_API + "/requestAuthToken",
@@ -144,7 +145,7 @@ class FlexMeasuresClient(hass.Hass):
         url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/trigger"
         self.log(f"Triggering schedule by calling {url}")
 
-        # TODO AJO 2022-02-26: dit zou in fm_ha_module moeten zitten...
+        # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
         # Retrieve target SOC
         car_reservation = self.get_state(self.CAR_RESERVATION_CALENDAR, attribute="all")
         self.log(f"Car_reservation: {car_reservation}")
@@ -205,7 +206,7 @@ class FlexMeasuresClient(hass.Hass):
             self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
 
 
-# TODO AJO 2022-02-26: dit zou in fm_ha_module moeten zitten...
+# TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
 def search_for_kwh_target(description: Optional[str]) -> Optional[int]:
     """Search description for the first occurrence of some (integer) number of kWh.
 

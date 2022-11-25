@@ -59,6 +59,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
         self.listen_event(self.restart_charger, "RESTART_CHARGER")
+        self.listen_event(self.disconnect_charger, "DISCONNECT_CHARGER")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         self.listen_state(self.handle_calendar_change, self.args["fm_car_reservation_calendar"], attribute="all")
@@ -84,6 +85,17 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             self.set_next_action()
 
         self.log("Done setting up")
+
+
+    def disconnect_charger(self, *args, **kwargs):
+        """ Function te disconnect the charger.
+        Reacts to button in UI that fires DISCONNECT_CHARGER event.
+        """
+        self.log("************* Disconnect charger requested. *************")
+        self.set_charger_action("stop")
+        self.set_charger_control("give")
+        # ToDo: Remove all schedules?
+        self.notify_user("Charger disconnected charger.")
 
     def restart_charger(self, *args, **kwargs):
         """ Function te (forcefully) restart the charger.
@@ -159,15 +171,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             return
 
         schedule = self.get_state("input_text.chargeschedule", attribute="all")
-
-        if schedule["state"] in ("DisconnectNow", "reset"):
-            self.log("Stopped processing schedule; DisconnectNow requested, stop charging and give control to user.")
-            # Tell charger to stop charging and set control to user
-            self.set_charger_action("stop")
-            self.set_charger_control("give")
-            # ToDo: Remove all schedules?
-            return
-
         schedule = schedule["attributes"]
         values = schedule["values"]
         duration = isodate.parse_duration(schedule["duration"])

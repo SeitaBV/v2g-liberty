@@ -18,11 +18,11 @@ class FlexMeasuresClient(hass.Hass):
     - Reports on errors locally (input_boolean.error_schedule_cannot_be_retrieved)
     """
 
-    # Conatants
+    # Constants
     FM_API = str
     FM_API_VERSION = str
     FM_QUASAR_SENSOR_ID = str
-    FM_SCHEDUAL_DURATION = str
+    FM_SCHEDULE_DURATION = str
     FM_USER_EMAIL = str
     FM_USER_PASSWORD = str
     DELAY_FOR_REATTEMPTS = str
@@ -37,7 +37,7 @@ class FlexMeasuresClient(hass.Hass):
         self.FM_API = self.args["fm_api"]
         self.FM_API_VERSION = self.args["fm_api_version"]
         self.FM_QUASAR_SENSOR_ID = str(self.args["fm_quasar_sensor_id"])
-        self.FM_SCHEDUAL_DURATION = self.args["fm_schedule_duration"]
+        self.FM_SCHEDULE_DURATION = self.args["fm_schedule_duration"]
         self.FM_USER_EMAIL = self.args["fm_user_email"]
         self.FM_USER_PASSWORD = self.args["fm_user_password"]
         self.DELAY_FOR_REATTEMPTS = self.args["delay_for_reattempts_to_retrieve_schedule"]
@@ -97,7 +97,7 @@ class FlexMeasuresClient(hass.Hass):
         schedule_id = kwargs["schedule_id"]
         url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/" + schedule_id
         message = {
-            "duration": self.FM_SCHEDUAL_DURATION,
+            "duration": self.FM_SCHEDULE_DURATION,
         }
         res = requests.get(
             url,

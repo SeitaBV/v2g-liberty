@@ -83,7 +83,7 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         self.log("Done setting up")
 
     def restart_charger(self, *args, **kwargs):
-        """ Function te (forcefully) restart the charger.
+        """ Function to (forcefully) restart the charger.
         Used when a crash is detected.
         """
         self.log("************* Restart of charger requested. *************")

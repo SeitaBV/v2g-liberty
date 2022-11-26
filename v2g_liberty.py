@@ -15,6 +15,13 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
     the FlexMeasures platform (which delivers the charging schedules).
     """
 
+
+    # CONSTANTS
+    # Fail-safe for processing schedules that might have schedule with too high
+    # update frequency
+    MIN_RESOLUTION: timedelta
+    CAR_MAX_SOC_IN_KWH: float
+
     # Utility variables for preventing a frozen app. Call set_next_action at least every x seconds
     timer_handle_set_next_action: str  # ToDo: Should be a general object instead of string
     call_next_action_atleast_every: int
@@ -39,6 +46,9 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
 
     def initialize(self):
         self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
+        self.MIN_RESOLUTION = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
+        self.CAR_MAX_SOC_IN_KWH = float(self.args["fm_car_max_soc_in_kwh"])
+
         self.in_boost_to_reach_min_soc = False
         self.try_get_new_soc_in_process = False
         self.call_next_action_atleast_every = 15 * 60
@@ -162,10 +172,9 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         start = isodate.parse_datetime(schedule["start"])
 
         # Check against expected control signal resolution
-        min_resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
-        if resolution < min_resolution:
+        if resolution < self.MIN_RESOLUTION:
             self.log(
-                f"Stopped processing schedule; the resolution ({resolution}) is below the set minimum ({min_resolution})."
+                f"Stopped processing schedule; the resolution ({resolution}) is below the set minimum ({self.MIN_RESOLUTION})."
             )
             return
 
@@ -195,7 +204,7 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
             self.log(
                 f"input_number.car_state_of_charge ({soc}) is not equal to self.connected_car_soc ({self.connected_car_soc}), consider calling try_get_new_soc()")
         exp_soc_values = list(
-            accumulate([soc] + convert_MW_to_percentage_points(values, resolution, self.args["fm_car_max_soc_in_kwh"])))
+            accumulate([soc] + convert_MW_to_percentage_points(values, resolution, self.CAR_MAX_SOC_IN_KWH)))
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [dict(time=t.isoformat(), soc=round(v, 2)) for v, t in
                                                    zip(exp_soc_values, exp_soc_datetimes)]
@@ -332,7 +341,11 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         return
 
 
-def convert_MW_to_percentage_points(values_in_MW, resolution, max_soc_in_kWh):
+def convert_MW_to_percentage_points(
+    values_in_MW,
+    resolution: timedelta,
+    max_soc_in_kWh: float,
+):
     """
     For example, if a 62 kWh battery produces at 0.00575 MW for a period of 15 minutes,
     its SoC increases by just over 2.3%.

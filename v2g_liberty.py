@@ -94,12 +94,6 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         # ToDo: Remove all schedules?
         self.notify_user("Charger disconnected charger.")
 
-    #TODO: combine with same function in other modules??
-    def notify_user(self, message: str):
-        """ Utility function to send notifications to the user via HA.
-        """
-        self.notify(message, title="V2G Liberty")
-
     def handle_calendar_change(self, *args, **fnc_kwargs):
         self.log("Calendar update detected.")
         self.decide_whether_to_ask_for_new_schedule()

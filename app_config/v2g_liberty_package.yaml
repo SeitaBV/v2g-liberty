@@ -1,0 +1,525 @@
+################################################################################
+#                                                                              #
+#    V2G Liberty Package                                                       #
+#    Contains all entities needed for the V2G Liberty software to work         #
+#                                                                              #
+################################################################################
+
+input_select:
+  # - platform: template
+  charge_mode:
+    name: Charge mode
+    options:
+      - Automatic
+      - Max boost now
+      - Stop
+    # "Stop" used to be "Off" but this triggers HA to see it as False..
+    icon: mdi:battery-charging-medium
+    # ToDo: check if initial: Automatic is useful
+
+input_boolean:
+  # - platform: template
+  error_epex_prices_cannot_be_retrieved:
+    name: "Error: EPEX prices cannot be retrieved"
+
+  #Used for signaling in the UI that the schedule cannot be retrieved from FM
+  error_schedule_cannot_be_retrieved:
+    name: "Error: Schedule cannot be retrieved"
+
+  #Three booleans to mimic a radiobutton group for the chargemode the user can set in the UI
+  chargemodeautomatic:
+    name: ChargeModeAutomatic
+    icon: mdi:battery-charging-80
+
+  chargemodemaxboostnow:
+    name: ChargeModeMaxBoostNow
+    icon: mdi:battery-alert
+
+  chargemodeoff:
+    name: ChargeModeOff
+    icon: mdi:battery-off
+
+input_number:
+  # Used in both UI and in code. Formerly known as leaf_state_of_charge?
+  car_state_of_charge:
+    name: Car State of Charge
+    icon: mdi:battery-medium
+    min: 0.0
+    max: 100.0
+    unit_of_measurement: "%"
+    step: 1.0
+    mode: slider
+
+input_text:
+  # Used to show a user understandable version of the states in the UI.
+  # "Translation" is done in an automation.
+  charger_state:
+    name: Charger state
+    icon: mdi:ev-station
+    max: 100
+    mode: text
+    min: 0
+
+  # Used to store the (serialised) charge schedule HA receives from the
+  # backend FM, not used in UI.
+  chargeschedule:
+    name: ChargeSchedule
+    max: 10000
+    min: 0
+    mode: text
+    icon: mdi:calendar-multiselect
+
+  # Used to store the (serialized) list of EPEX prices that is fetched by
+  # get_fm_data code from FM daily. This then is shown in the UI in the graph.
+  epex_prices:
+    name: EPEX prices
+    max: 10000
+    min: 0
+    mode: text
+
+  # Based on the current SoC and the schedule a prognosis (list of values) is
+  # calculated and this (serialised list) is stored in this variable. This is Used
+  # in the graph,shown as yellow prognosis line.
+  soc_prognosis:
+    name: SoC Prognosis
+    max: 10000
+    mode: text
+    min: 0
+
+  # Used for setting an error in the UI when V2G Liberty app cannot retrieve EPEX data.
+  epex_log:
+    name: epex_log
+    max: 10000
+    min: 0
+    mode: text
+
+binary_sensor:
+  - platform: rest
+    name: "Is FlexMeasures live"
+    # ToDo 2022-08-25 AJO:
+    # test: URL changed
+    # WAS: resource: https://flexmeasures.seita.nl/v2g_fieldtest/api/home-assistant-ping
+
+    resource: https://flexmeasures.seita.nl/api/ops/ping
+    scan_interval: 1800
+    value_template: "{{ value_json.status }}"
+
+modbus:
+  - name: quasar
+    delay: 5
+    timeout: 4
+    type: tcp
+    host: 192.168.188.110
+    port: 502
+    sensors:
+      - name: charger_real_charging_power
+        address: 526
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        unit_of_measurement: "Watt"
+        slave: 1
+      - name: charger_charger_state
+        address: 537
+        input_type: holding
+        scan_interval: 5
+        slave: 1
+      - name: charger_connected_car_state_of_charge
+        address: 538
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        unit_of_measurement: "%"
+        slave: 1
+      - name: unrecoverable_errors_register_high
+        address: 539
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        slave: 1
+      - name: unrecoverable_errors_register_low
+        address: 540
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        slave: 1
+      - name: recoverable_errors_register_high
+        address: 541
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        slave: 1
+      - name: recoverable_errors_register_low
+        address: 542
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        slave: 1
+      - name: firmware_version
+        address: 1
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        slave: 1
+      - name: serial_number_high
+        address: 2
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        slave: 1
+      - name: serial_number_low
+        address: 3
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        slave: 1
+
+# Not needed if a calendar integration (e.g. google) is used.
+calendar:
+  - platform: caldav
+    username: !secret caldavUN
+    password: !secret caldavPWD
+    url: !secret caldavURL
+
+script:
+  disconnectnow:
+    alias: DisconnectNow
+    sequence:
+      - event: DISCONNECT_CHARGER
+        event_data: {}
+    mode: single
+  restartcharger:
+    alias: RestartCharger
+    sequence:
+      - event: RESTART_CHARGER
+        event_data: {}
+    mode: single
+
+automation:
+  - id: "1635947392909"
+    alias: Notify for Charger in Error > 5 min
+    description: ""
+    trigger:
+      - platform: state
+        entity_id: input_text.charger_state
+        to: Error
+        for:
+          hours: 0
+          minutes: 5
+          seconds: 0
+          milliseconds: 0
+    condition: []
+    action:
+      - device_id: d316527a7a32664c800e47c500c9c3f2
+        domain: mobile_app
+        type: notify
+        title: Charger in Error
+        message: Error state for more than 5 minutes. Please check charger.
+    mode: single
+
+  - id: "1633010017995"
+    alias: Chargemode to Automatic
+    description: 'A bit of a hack because HA does not provide radiobuttons
+
+      The values of the helper "input_select.charge_mode" are to be reflected in the
+      UI as 3 (radio)buttons.
+
+      Te give these buttons a on/off state for each of them a toggle helper is used.
+
+      When a toggle-button is clicked an (these) automations receives the trigger selects
+      the corresponding item in the input_select and switches the other toggles to off.'
+    trigger:
+      - platform: state
+        entity_id: input_boolean.chargemodeautomatic
+        from: "off"
+        to: "on"
+    condition: []
+    action:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.charge_mode
+        data:
+          option: Automatic
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodemaxboostnow
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodeoff
+    mode: single
+  - id: "1633010167089"
+    alias: Chargemode to Max boost now
+    description: 'A bit of a hack because HA does not provide radiobuttons
+
+      The values of the helper "input_select.charge_mode" are to be reflected in the
+      UI as 3 (radio)buttons.
+
+      Te give these buttons a on/off state for each of them a toggle helper is used.
+
+      When a toggle-button is clicked an (these) automations receives the trigger selects
+      the corresponding item in the input_select and switches the other toggles to off.'
+    trigger:
+      - platform: state
+        entity_id: input_boolean.chargemodemaxboostnow
+        from: "off"
+        to: "on"
+    condition: []
+    action:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.charge_mode
+        data:
+          option: Max boost now
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodeautomatic
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodeoff
+    mode: single
+  - id: "1633010384766"
+    alias: Chargemode to Off
+    description: 'A bit of a hack because HA does not provide radiobuttons
+
+      The values of the helper "input_select.charge_mode" are to be reflected in the
+      UI as 3 (radio)buttons.
+
+      Te give these buttons a on/off state for each of them a toggle helper is used.
+
+      When a toggle-button is clicked an (these) automations receives the trigger selects
+      the corresponding item in the input_select and switches the other toggles to off.'
+    trigger:
+      - platform: state
+        entity_id: input_boolean.chargemodeoff
+        from: "off"
+        to: "on"
+    condition: []
+    action:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.charge_mode
+        data:
+          option: Stop
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodeautomatic
+        data: {}
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodemaxboostnow
+        data: {}
+    mode: single
+
+  - id: "1626364003549"
+    alias: "Translate Quasar SoC change "
+    description: >-
+      Goal:
+      Provide sanitized Quasar SoC in % (in input_number.car_state_of_charge).
+      ###Provide translation from Quasar SoC in % to Wh (in car_state_of_charge_wh).
+
+      Special cases;
+      The Quasar passes 0% as the charger is not connected/paused, that is not correct.
+      Therefore, we fill another variable (input_number.car_state_of_charge) with
+      the most recent non 0 value.
+      Also, the Modbus YAML code often shows "unavailable", these are ignored.
+
+    trigger:
+      - platform: state
+        entity_id: sensor.charger_connected_car_state_of_charge
+    condition:
+      - condition: numeric_state
+        entity_id: sensor.charger_connected_car_state_of_charge
+        above: "1"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: sensor.charger_connected_car_state_of_charge
+            state: unavailable
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.car_state_of_charge
+        data:
+          value: "{{states('sensor.charger_connected_car_state_of_charge') |int }}"
+    mode: single
+  - id: "1630074922160"
+    alias: Translate Quasar charger state
+    description:
+      "Goal: create technical charger state (from Modbus YAML in configuration)
+      more readable.
+      The modbus YAML passes an int that must be translated to text.
+      Therefore, we fill another variable (input) with the most recent non-0 value.
+      The Modbus YAML code also often displays 'unavailable', which we translate to
+      'no communication with charger'"
+    trigger:
+      - platform: state
+        entity_id: sensor.charger_charger_state
+    condition: []
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "0"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: No car connected
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "1"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: Charging
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "2"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: "Connected: waiting for car demand"
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "3"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: "Connected: waiting for next schedule"
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "4"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: "Connected: not charging (paused)"
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "5"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: "Connected: end of schedule"
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "6"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: Disconnected locked
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "7"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: Error
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "8"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: "Connected: In queue by Power Sharing"
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "9"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: "Error: Unconfigured Power Sharing System"
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "10"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: "Connected: In queue by Power Boost (Home uses all available power)"
+          - conditions:
+              - condition: state
+                entity_id: sensor.charger_charger_state
+                state: "11"
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.charger_state
+                data:
+                  value: Discharging
+        default: []
+    mode: single
+  - id: "1630080858311"
+    alias: Notify for Car SoC > 80%
+    description: ""
+    trigger:
+      - platform: numeric_state
+        entity_id: input_number.car_state_of_charge
+        above: "80"
+    condition: []
+    action:
+      - device_id: d316527a7a32664c800e47c500c9c3f2
+        domain: mobile_app
+        type: notify
+        title: Car battery state of charge is above 80%
+        message: Car battery state of charge is above 80%
+    mode: single
+  - id: "1635947176767"
+    alias: Notify for car SoC < 20%
+    description: ""
+    trigger:
+      - platform: numeric_state
+        entity_id: input_number.car_state_of_charge
+        below: "20"
+    condition: []
+    action:
+      - device_id: d316527a7a32664c800e47c500c9c3f2
+        domain: mobile_app
+        type: notify
+        title: Car battery state of charge is below 20%
+        message: Car battery state of charge is below 20%, Max boost has been activated.
+    mode: single
+  - id: "1638475858743"
+    alias: Notify for failing to get EPEX prices for tomorrow
+    description: "TODO: Replace by direct notification from Python code.."
+    trigger:
+      - platform: state
+        entity_id: input_text.epex_log
+    condition: []
+    action:
+      - device_id: d316527a7a32664c800e47c500c9c3f2
+        domain: mobile_app
+        type: notify
+        message: Failed to get EPEX prices for tomorrow
+        title: Failed to get EPEX prices for tomorrow
+    mode: single

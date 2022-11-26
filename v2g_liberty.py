@@ -85,7 +85,7 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
 
 
     def disconnect_charger(self, *args, **kwargs):
-        """ Function te disconnect the charger.
+        """ Function to disconnect the charger.
         Reacts to button in UI that fires DISCONNECT_CHARGER event.
         """
         self.log("************* Disconnect charger requested. *************")

@@ -5,6 +5,22 @@
 #                                                                              #
 ################################################################################
 
+lovelace:
+  mode: storage
+  resources:
+    - url: /local/apexcharts-card.js
+      type: module
+    - url: /local/card-mod.js
+      type: module
+  dashboards:
+    lovelace-yaml:
+      mode: yaml
+      filename: appdaemon/apps/v2g-liberty/app_config/v2g_liberty_dashboard.yaml
+      title: V2G Liberty
+      icon: mdi:car-electric
+      show_in_sidebar: true
+      require_admin: false
+
 input_select:
   # - platform: template
   charge_mode:

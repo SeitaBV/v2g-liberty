@@ -83,6 +83,7 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         self.log("Done setting up")
 
     def handle_calendar_change(self, *args, **fnc_kwargs):
+        """Helper function to trace changes in calendar. Redirects to decide_whether_to_ask_for_new_schedule"""
         self.log("Calendar update detected.")
         self.decide_whether_to_ask_for_new_schedule()
 
@@ -209,6 +210,7 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         self.set_state("input_text.soc_prognosis", state=new_state, attributes=result)
 
     def update_charge_mode(self, entity, attribute, old, new, kwargs):
+        """Function to handle updates in the charge mode"""
         new_state = new["state"]
         old_state = old["state"]
         self.log(f"Charge mode has changed from '{old_state}' to '{new_state}'")
@@ -233,16 +235,26 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         self.set_next_action()
 
     def restart_set_next_action_time_based(self, *arg):
+        """Helper function to trace the time based calls of set_next_action"""
         self.log("restart_set_next_action_time_based")
         self.set_next_action()
 
     def set_next_action(self):
+        """The function determines what action should be taken next based on current SoC, Charge_mode, Charger_state
+
+        This function is meant to be called upon:
+        - SOC updates
+        - calendar updates
+        - charger state updates
+        - every 15 minutes if none of the above
+        """
+
         # Make sure this function gets called every x seconds to prevent a "frozen" app.
         if self.timer_handle_set_next_action:
-            self.log("Cancel current timer")
+            #self.log("Cancel current timer")
             self.cancel_timer(self.timer_handle_set_next_action)
         else:
-            self.log("There is no timer to cancel")
+            #self.log("There is no timer to cancel")
 
         self.timer_handle_set_next_action = self.run_in(
             self.restart_set_next_action_time_based,
@@ -327,10 +339,16 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         return
 
     def set_chargemode_to_automatic(self):
-        # This is a somewhat clumsy way to set the mode to automatic but HA does not support radio buttons,
-        # so the UI needed to be setup rather complicated. Setting the charge mode to automatic is not doing the job.
-        # Then the UI does not match the actual status.
-        # Further the set_state needs to re-apply the icon and friendly name for some odd reason. Otherwise, the icon changes to the default toggle...
+        """This function (re-)sets the charge mode in the UI to automatic.
+
+        This is a somewhat clumsy way to set the mode to automatic but HA does not support radio buttons,
+        so the UI needed to be setup rather complicated. Setting the charge mode to automatic is not doing the job.
+        Then the UI does not match the actual status.
+        Further the set_state needs to re-apply the icon and friendly name for some odd reason.
+        Otherwise, the icon changes to the default toggle...
+        """
+
+        # TODO: maybe try self.turn_on("input_boolean.chargemodeautomatic") ?
         res = self.set_state("input_boolean.chargemodeautomatic", state="on",
                              attributes={'friendly_name': 'ChargeModeAutomatic',
                                          'icon': 'mdi:battery-charging-80'})

@@ -139,27 +139,18 @@ class FlexMeasuresClient(hass.Hass):
         # Retrieve target SOC
         car_reservation = self.get_state(self.CAR_RESERVATION_CALENDAR, attribute="all")
         self.log(f"Car_reservation: {car_reservation}")
-        if car_reservation is None or "description" not in car_reservation["attributes"]:
+        if car_reservation is None or \
+                ("description" not in car_reservation["attributes"] and
+                 "message" not in car_reservation["attributes"]):
             # Set default target to 100% one week from now
             target = self.CAR_MAX_SOC_IN_KWH
             target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
         else:
-            # Depending on the type of caelndar the description or message contains the possible target.
+            # Depending on the type of calendar the description or message contains the possible target.
             text_to_search_in = car_reservation["attributes"]["message"] + " " + car_reservation["attributes"]["description"]
 
-            target_in_procent = search_for_kwh_target(text_to_search_in)
-            if target_in_procent is None:
-                target = self.CAR_MAX_SOC_IN_KWH
-            else:
-                if target_in_procent > 100:
-                    # Prevent accidental input larger thant 100%
-                    target_in_procent = 100
-                elif target_in_procent < 30:
-                    # Prevent accidental input lower thant 30%
-                    target_in_procent = 30
-
-                target = target_in_procent * self.CAR_MAX_SOC_IN_KWH / 100
-                self.log(f"Target SoC from calendar: {target} kWh.")
+            target = search_for_soc_target(self.CAR_MAX_SOC_IN_KWH, text_to_search_in)
+            self.log(f"Target SoC from calendar: {target} kWh.")
 
             target_datetime = isodate.parse_datetime(
                 car_reservation["attributes"]["start_time"].replace(" ", "T")).astimezone(
@@ -213,15 +204,31 @@ class FlexMeasuresClient(hass.Hass):
 
 
 # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
-def search_for_kwh_target(description: Optional[str]) -> Optional[int]:
+def search_for_soc_target(max_soc_kwh: float, string_to_search_in: Optional[str]) -> float:
     """Search description for the first occurrence of some (integer) number of %.
 
     Forgives errors in incorrect capitalization of the unit and missing/double spaces.
     """
-    if description is None:
-        return None
-    pattern = re.compile(r"(?P<quantity>\d+) *%")
-    match = pattern.search(description.lower())
-    if match is None:
-        return None
-    return int(float(match.group("quantity")))
+    preferred_soc = max_soc_kwh
+    if string_to_search_in is None:
+        return preferred_soc
+    string_to_search_in = string_to_search_in.lower()
+    pattern = re.compile(r"(?P<quantity>\d+) *kwh")
+    match = pattern.search(string_to_search_in)
+    if match:
+        preferred_soc = round(float(match.group("quantity")), 2)
+    else:
+        pattern = re.compile(r"(?P<quantity>\d+) *%")
+        match = pattern.search(string_to_search_in)
+        if match:
+            preferred_soc = round(float(match.group("quantity"))/100 * max_soc_kwh, 2)
+
+    if preferred_soc > max_soc_kwh:
+        return max_soc_kwh
+
+    MIN_SOC_PERCENT = 30
+    min_soc_kwh = round(float(max_soc_kwh * MIN_SOC_PERCENT/100), 2)
+    if preferred_soc < min_soc_kwh:
+        return min_soc_kwh
+
+    return preferred_soc

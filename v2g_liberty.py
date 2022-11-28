@@ -125,6 +125,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
     def handle_calendar_change(self, *args, **fnc_kwargs):
         self.log("Calendar update detected.")
+        self.log(f"The calendar is: {args}")
         self.decide_whether_to_ask_for_new_schedule()
 
     def decide_whether_to_ask_for_new_schedule(self):

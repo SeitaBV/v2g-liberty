@@ -461,7 +461,7 @@ class WallboxModbusMixin:
             # Cancel current scheduling timers
             self.cancel_charging_timers()
 
-            # When the car disconnects we want a chargemode Max Boost Now to end.
+            # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
             mode = self.get_state("input_select.charge_mode", None)
             if mode == "Max boost now":
                 self.set_chargemode_to_automatic()

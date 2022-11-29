@@ -155,16 +155,16 @@ class FlexMeasuresClient(hass.Hass):
         )
         schedule_id = None
         if res.status_code == 200:
-            self.log(f"Successfully triggered schedule. Result: {res.status_code}.")
-            schedule_id = res.json()["schedule"]
-            self.log(f"Schedule id: {schedule_id}")
-            self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
-        else:
+            schedule_id = res.json()["schedule"]  # can still be None in case something went wong
+
+        if schedule_id is None:
             self.log_failed_response(res, url)
             self.handle_response_errors(message, res, url, self.trigger_schedule, **fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
             return
 
+        self.log(f"Successfully triggered schedule. Schedule id: {schedule_id}")
+        self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
         return schedule_id
 
     def handle_response_errors(self, message, res, description, fnc, **fnc_kwargs):

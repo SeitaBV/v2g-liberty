@@ -1,3 +1,4 @@
+from datetime import timedelta
 import adbase as ad
 import time
 import appdaemon.plugins.hass.hassapi as hass
@@ -65,8 +66,8 @@ class WallboxModbusMixin:
                 return
             cs = self.client.read_holding_registers(register)
             if cs is None:
-                self.log(f"Charger returned state = None, wait half a second and try again.")
-                time.sleep(1 / 2)
+                self.log(f"Charger returned state = None, wait 2 seconds and try again.")
+                time.sleep(2)
                 attempts += 1
                 continue
             cs = cs[0]
@@ -144,7 +145,7 @@ class WallboxModbusMixin:
             # To counter this we call "stop" from disconnect event.
             value = self.registers["actions"]["stop_charging"]
         elif action == "restart":
-            if self.last_restart < self.get_now()-datetime.timedelta(seconds=self.minimum_seconds_between_restarts):
+            if self.last_restart < self.get_now() - timedelta(seconds=self.minimum_seconds_between_restarts):
                 self.log(f"Not restarting charger, a restart has been requested already in the last {self.minimum_seconds_between_restarts} seconds.")
                 return
             self.log(f"RESTARTING charger...")

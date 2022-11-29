@@ -111,10 +111,10 @@ class data_importer(hass.Hass):
 
         # From FM format (€/MWh) to user desired format (€ct/kWh) 
         # = * 100/1000 = 1/10. Also include VAT
-        VAT = float(self.args["VAT_NL"])
+        VAT = float(self.args["VAT"])
         conversion = 1/10 * VAT
         # For NL electricity is a markup for transport and sustainability
-        markup = float(self.args["markup_per_kWh_NL"])
+        markup = float(self.args["markup_per_kWh"])
         epex_price_points = []
         has_negative_prices = False
         for price in prices:

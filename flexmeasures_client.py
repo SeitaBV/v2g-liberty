@@ -130,19 +130,25 @@ class FlexMeasuresClient(hass.Hass):
             # Depending on the type of calendar the description or message contains the possible target.
             text_to_search_in = car_reservation["attributes"]["message"] + " " + car_reservation["attributes"]["description"]
 
-            target_in_procent = search_for_kwh_target(text_to_search_in)
-            if target_in_procent is None:
+            # First try searching for a number in kWh
+            target = search_for_soc_target("kWh", text_to_search_in)
+            if target is None:
+                # No kWh number found, try searching for a number in %
+                target = search_for_soc_target("%", text_to_search_in)
+                if target is None:
+                    target = self.CAR_MAX_SOC_IN_KWH
+                else:
+                    target = round(float(target)/100 * self.CAR_MAX_SOC_IN_KWH, 2)
+
+            if target > self.CAR_MAX_SOC_IN_KWH:
                 target = self.CAR_MAX_SOC_IN_KWH
             else:
-                if target_in_procent > 100:
-                    # Prevent accidental input larger than 100%
-                    target_in_procent = 100
-                elif target_in_procent < 30:
-                    # Prevent accidental input lower than 30%
-                    target_in_procent = 30
+                MIN_SOC_PERCENT = 30
+                min_soc_kwh = round(float(self.CAR_MAX_SOC_IN_KWH * MIN_SOC_PERCENT/100), 2)
+                if target < min_soc_kwh:
+                    target = min_soc_kwh
 
-                target = target_in_procent * self.CAR_MAX_SOC_IN_KWH / 100
-                self.log(f"Target SoC from calendar: {target} kWh.")
+            self.log(f"Target SoC from calendar: {target} kWh.")
 
             target_datetime = isodate.parse_datetime(
                 car_reservation["attributes"]["start_time"].replace(" ", "T")).astimezone(
@@ -192,16 +198,24 @@ class FlexMeasuresClient(hass.Hass):
             self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
 
 
-# TODO AJO 2022-02-26: dit zou in fm_ha_module moeten zitten...
-def search_for_kwh_target(description: Optional[str]) -> Optional[int]:
-    """Search description for the first occurrence of some (integer) number of %.
+# TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
+def search_for_soc_target(search_unit: str, string_to_search_in: str) -> int:
+    """Search description for the first occurrence of some (integer) number of the search_unit.
+
+    Parameters:
+        search_unit (int): The unit to search for, typically % or kWh, found directly following the number
+        string_to_search_in (str): The string in which the soc in searched
+    Returns:
+        integer number or None if nothing is found
 
     Forgives errors in incorrect capitalization of the unit and missing/double spaces.
     """
-    if description is None:
+    if string_to_search_in is None:
         return None
-    pattern = re.compile(r"(?P<quantity>\d+) *%")
-    match = pattern.search(description.lower())
-    if match is None:
-        return None
-    return int(float(match.group("quantity")))
+    string_to_search_in = string_to_search_in.lower()
+    pattern = re.compile(rf"(?P<quantity>\d+) *{search_unit.lower()}")
+    match = pattern.search(string_to_search_in)
+    if match:
+        return int(float(match.group("quantity")))
+
+    return None

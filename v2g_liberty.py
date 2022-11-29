@@ -277,7 +277,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         if self.timer_handle_set_next_action:
             #self.log("Cancel current timer")
             self.cancel_timer(self.timer_handle_set_next_action)
-        else:
+        #else:
             #self.log("There is no timer to cancel")
 
         self.timer_handle_set_next_action = self.run_in(

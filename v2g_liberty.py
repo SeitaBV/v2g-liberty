@@ -68,10 +68,10 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
 
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
+        self.listen_event(self.restart_charger, "RESTART_CHARGER")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         self.listen_state(self.handle_calendar_change, self.args["fm_car_reservation_calendar"], attribute="all")
-        #Not firing??
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")
         self.scheduling_timer_handles = []
 
@@ -94,6 +94,21 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
             self.set_next_action()
 
         self.log("Done setting up")
+
+    def restart_charger(self, *args, **kwargs):
+        """ Function to (forcefully) restart the charger.
+        Used when a crash is detected.
+        """
+        self.log("************* Restart of charger requested. *************")
+        self.set_charger_action("restart")
+        self.notify_user("Restart of charger initiated by user. Please check charger.")
+
+
+    #TODO: combine with same function in other modules??
+    def notify_user(self, message: str):
+        """ Utility function to send notifications to the user via HA.
+        """
+        self.notify(message, title="V2G Liberty")
 
     def handle_calendar_change(self, *args, **fnc_kwargs):
         self.log("Calendar update detected.")

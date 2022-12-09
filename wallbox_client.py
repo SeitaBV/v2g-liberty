@@ -307,21 +307,23 @@ class WallboxModbusMixin:
             self.log(f"Not setting charge_rate to '{charge_rate}': No car connected.")
             return
 
-        # Make sure that discharging does not occur below 20%
-        if charge_rate < 0 and self.connected_car_soc <= 20:
-            self.log(f"A discharge is attempted while the current SoC is below the minimum for discharging: 20%. Stopping discharging.")
+        # Make sure that discharging does not occur below minimum SoC.
+        if charge_rate < 0 and self.connected_car_soc <= self.CAR_MIN_SOC_IN_PERCENT:
+            # Failsafe, this should never happen...
+            self.log(f"A discharge is attempted while the current SoC is below the "
+                     f"minimum ({self.CAR_MIN_SOC_IN_PERCENT})%. Stopping discharging.")
             charge_rate = 0
 
         # Clip values to min/max charging current
         max_charging_power = self.args["wallbox_max_charging_power"]
         max_discharging_power = self.args["wallbox_max_discharging_power"]
         if charge_rate > max_charging_power:
-            self.log(
-                f"Requested charge rate {charge_rate} Watt too high. Changed charge rate to maximum: {max_charging_power} Watt.")
+            self.log(f"Requested charge rate {charge_rate} Watt too high. "
+                     f"Changed charge rate to maximum: {max_charging_power} Watt.")
             charge_rate = max_charging_power
         elif abs(charge_rate) > max_discharging_power:
-            self.log(
-                f"Requested discharge rate {charge_rate} Watt too high. Changed discharge rate to maximum: {max_discharging_power} Watt.")
+            self.log(f"Requested discharge rate {charge_rate} Watt too high. "
+                     f"Changed discharge rate to maximum: {max_discharging_power} Watt.")
             charge_rate = -max_discharging_power
 
         if charge_rate < 0:

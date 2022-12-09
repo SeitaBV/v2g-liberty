@@ -131,6 +131,7 @@ After completion of this step you'll end up with a these files and folders (othe
 │   ├── apps
 │   │   ├── v2g-liberty
 │   │   │   ├── app_config
+│   │   │   │   ├── v2g-liberty-dashboard.yaml
 │   │   │   │   ├── v2g-liberty-package.yaml
 │   │   │   │   └── wallbox_modbus_registers.yaml
 │   │   │   ├── flexmeasures_client.py
@@ -225,9 +226,27 @@ wallbox_port: XXX
 
 #############   CAR & POWER-CONNECTION CONFIGURATION   #########################
 ## ALWAYS CHECK/CHANGE ##
-# The maximum capacity of the battery of the car, as an integer.
+
+# The maximum energy storage capacity of the battery of the car, as an integer.
 # For the Nissan Leaf this is usually 24, 40 or 62
 car_max_capacity_in_kwh: 62
+
+# What would you like to be the minimum charge in your battery?
+# The scheduling will not discharge below this value and if the car returns with
+# and SoC below this value, the battery will be charged to this minimum asap
+# before regular scheduling.
+# A high value results in always having a greater driving range available, even 
+# when not planned, but less capacity available for dis-charge and so lesser
+# earnings.
+# A lower value reults in sometimes a smaller driving range available for
+# un-planned drives but there is always more capacity for discharge and so more
+# earnings.
+# Some research suggests battery life is shorter if min SoC is below 15%.
+# In some cars the SoC every now and then skips a number, eg. from 21 to 19%, 
+# skipping 20%. This might result in toggling charging behaviour around this
+# minimum SoC. If this happens try a value 1 higher or lower.
+# The setting must be an integer between 10 and 30%, default is 20%.
+car_min_soc_in_percent: 18
 
 # Max (dis-)charge rate in Watt.
 # If a load-balancer (Power Boost for WB) is installed it is safe to use maximum
@@ -372,6 +391,7 @@ v2g_liberty:
   fm_quasar_soc_event_resolution_in_minutes: !secret fm_quasar_event_resolution_in_minutes
   wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
   fm_car_max_soc_in_kwh: !secret car_max_capacity_in_kwh
+  car_min_soc_in_percent: !secret car_min_soc_in_percent
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
 

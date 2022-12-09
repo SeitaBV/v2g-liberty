@@ -22,6 +22,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     # update frequency
     MIN_RESOLUTION: timedelta
     CAR_MAX_SOC_IN_KWH: float
+    CAR_MIN_SOC_IN_PERCENT: int
     ADMIN_MOBILE_NAME: str
     ADMIN_MOBILE_PLATFORM: str
 
@@ -51,6 +52,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
         self.MIN_RESOLUTION = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
         self.CAR_MAX_SOC_IN_KWH = float(self.args["fm_car_max_soc_in_kwh"])
+        self.CAR_MIN_SOC_IN_PERCENT = int(float(self.args["car_min_soc_in_percent"]))
+        # Make sure this value is between 10 en 30
+        self.CAR_MIN_SOC_IN_PERCENT = max(min(30, self.CAR_MIN_SOC_IN_PERCENT), 10)
+
         self.ADMIN_MOBILE_NAME = self.args["admin_mobile_name"].lower()
         self.ADMIN_MOBILE_PLATFORM = self.args["admin_mobile_platform"].lower()
 
@@ -303,22 +308,25 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         if charge_mode == "Automatic":
             self.set_charger_control("take")
-
-            # Chargemode = Off (Stop) must be really Off so only check low SoC in automatic.
-            if self.connected_car_soc < 19 and not self.in_boost_to_reach_min_soc:
+            if self.connected_car_soc < self.CAR_MIN_SOC_IN_PERCENT and not self.in_boost_to_reach_min_soc:
                 # Intended for the situation where the car returns from a trip with a low battery.
-                # An SoC below 20% is considered "unhealthy" for the battery,
+                # An SoC below the minimum SoC is considered "unhealthy" for the battery,
                 # this is why the battery should be charged to this minimum asap.
 
-                self.log("Starting max charge now and not requesting schedule based on SoC below minimum (20%).")
+                self.log(f"Starting max charge now and not requesting schedule based on SoC below"
+                         f" minimum ({self.CAR_MIN_SOC_IN_PERCENT}%).")
                 # Cancel previous scheduling timers as they might have discharging instructions as well
                 self.cancel_charging_timers()
                 self.start_max_charge_now()
                 self.in_boost_to_reach_min_soc = True
                 return
-            elif self.connected_car_soc > 20 and self.in_boost_to_reach_min_soc:
-                self.log("Stopping max charge now, SoC above minimum (20%) again.")
+            elif self.connected_car_soc > self.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
+                self.log(f"Stopping max charge now, SoC above minimum ({self.CAR_MIN_SOC_IN_PERCENT}%) again.")
                 self.in_boost_to_reach_min_soc = False
+                self.set_power_setpoint(0)
+            elif self.connected_car_soc <= (self.CAR_MIN_SOC_IN_PERCENT + 1) and self.is_discharging():
+                # Failsafe, this should not happen...
+                self.log(f"Stopped discharging as SoC has reached minimum ({self.CAR_MIN_SOC_IN_PERCENT}%).")
                 self.set_power_setpoint(0)
 
             # Not checking for > max charge (97%) because we could also want to discharge based on schedule
@@ -377,7 +385,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             res = self.turn_on("input_boolean.chargemodeautomatic")
         elif setting == "MaxBoostNow":
             # Not used for now, just here for completeness.
-            # The situation with SoC < 20% is handled without setting the UI to MaxBoostNow
+            # The situation with SoC below the set minimum is handled without setting the UI to MaxBoostNow
             res = self.turn_on("input_boolean.chargemodemaxboostnow")
         elif setting == "Stop":
             # Used when charger crashes to stop further processing

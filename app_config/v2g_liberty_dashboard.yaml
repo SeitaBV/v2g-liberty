@@ -22,7 +22,7 @@ views:
                       width: 130%;
                     }
                     ha-card div.info span {
-                      font-size: 110%;
+                      font-size: 90%;
                     }
               - type: button
                 tap_action:
@@ -46,14 +46,14 @@ views:
             columns: 2
             square: false
           - type: gauge
-            max: 7400
+            max: 6000
             name: Current charging power
             entity: sensor.charger_real_charging_power
             severity:
               green: 0
-              yellow: 6000
-              red: 7000
-            min: -7400
+              yellow: 4000
+              red: 5600
+            min: -6000
             needle: true
       - type: vertical-stack
         title: Connected car
@@ -140,6 +140,18 @@ views:
                 data_generator: |
                   return entity.attributes.records.map((record, index) => {
                     return [new Date(record.time).getTime(), record.price];
+                  });
+                type: line
+              - entity: input_text.co2_emissions
+                transform: "return x / 10;"
+                color: '#339933'
+                extend_to: false
+                stroke_width: 1
+                curve: stepline
+                yaxis_id: EPEXprice
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.emission];
                   });
                 type: line
               - entity: input_number.car_state_of_charge

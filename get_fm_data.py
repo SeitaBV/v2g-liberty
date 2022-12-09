@@ -29,8 +29,8 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.log(f"get_fm_data, start setup")
 
-        self.first_try_time = "14:35:29"
-        self.second_try_time = "18:30:48"
+        self.first_try_time = "14:32:00"
+        self.second_try_time = "18:32:00"
 
         # Should normally be available just after 13:00 when data can be
         # retrieved from its original source (ENTSO-E) but sometimes there
@@ -38,26 +38,22 @@ class FlexMeasuresDataImporter(hass.Hass):
         handle = self.run_daily(self.daily_kickoff, self.first_try_time)
 
         # At init also run this as (re-) start is not always around self.first_try_time
-        self.get_epex_prices()
+        self.daily_kickoff()
 
-        self.log(f"get_fm_data, done setting up: Start checking daily from {self.first_try_time} for new EPEX prices in FM.")
-
+        self.log(f"Done setting up get_fm_data: Start checking daily from {self.first_try_time} for new data with FM.")
 
     def notify_user(self, message: str):
         """ Utility function to notify the user
         """
         self.notify(message, title="V2G Liberty")
 
-
     def daily_kickoff(self, *args):
         """ This sets off the daily routine to check for new prices.
 
         The attempts for today are reset.
         """
-
-        self.log("FMdata, daily kickoff: start checking new EPEX prices in FM.")
-        self.attempts_today = 0
         self.get_epex_prices()
+        self.get_co2_emissions()
 
     def log_failed_response(self, res, endpoint: str):
         """Log failed response for a given endpoint."""
@@ -73,7 +69,6 @@ class FlexMeasuresDataImporter(hass.Hass):
         Make prices available in HA by setting them in input_text.epex_prices
         Notify user if there will be negative prices for next day
         """
-        self.log(f"FMdata, get_epex_prices.")
 
         self.authenticate_with_fm()
         now = self.get_now()
@@ -92,7 +87,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         # Authorisation error, retry authoristion.
         if res.status_code == 401:
-            self.handle_response_errors(message, res, "get EPEX prices", self.get_epex_prices, *args, **kwargs)
+            self.handle_response_errors(url_params, res, "get EPEX prices", self.get_epex_prices, *args, **kwargs)
             return
 
         if res.status_code != 200:
@@ -145,6 +140,70 @@ class FlexMeasuresDataImporter(hass.Hass):
                     "Negative electricity prices for tomorrow. Consider to check times in the app to optimising electricity usage.")
             self.log(f"FM EPEX prices successfully retrieved. Latest price at: {date_latest_price}.")
 
+    def get_co2_emissions(self, *args, **kwargs):
+        """ Communicate with FM server and check the results.
+
+        Request hourly CO2 emissions due to electricity production in NL from the server
+        Make values available in HA by setting them in input_text.co2_emissions
+        """
+
+        self.log("FMdata: get_co2_emissions called")
+
+        self.authenticate_with_fm()
+        now = self.get_now()
+        # Getting prices since start of yesterday so that user can look back a little furter than just current window.
+        start_co2: str = str((now + timedelta(days=-1)).date())
+
+        url = self.args["fm_data_api"] + self.args["fm_data_api_co2"]
+        url_params = {
+            "event_starts_after": start_co2 + "T00:00:00.000Z",
+        }
+        res = requests.get(
+            url,
+            params=url_params,
+            headers={"Authorization": self.fm_token},
+        )
+
+        # Authorisation error, retry authorisation.
+        if res.status_code == 401:
+            self.handle_response_errors(url_params, res, "get CO2 emissions", self.get_co2_emissions, *args, **kwargs)
+            return
+
+        if res.status_code != 200:
+            self.log_failed_response(res, "Get FM CO2 emissions data")
+
+            # Only retry once at second_try_time.
+            if self.now_is_between(self.first_try_time, self.second_try_time):
+                self.log(f"Retry at {self.second_try_time}.")
+                self.run_at(self.get_co2_emissions, self.second_try_time)
+            return
+
+        emissions = res.json()
+
+        emission_points = []
+        for emission in emissions:
+            emission_value = emission['event_value']
+            if emission_value == "null" or emission_value is None:
+                continue
+            emission_value = int(round(float(emission_value)/10, 0))
+            data_point = {'time': datetime.fromtimestamp(emission['event_start'] / 1000).isoformat(),
+                          'emission': emission_value}
+            emission_points.append(data_point)
+
+        # To make sure HA considers this as new info a datetime is added
+        new_state = "Emissions collected at " + now.isoformat()
+        result = {'records': emission_points}
+        self.set_state("input_text.co2_emissions", state=new_state, attributes=result)
+
+        # FM returns all the prices it has, sometimes it has not retrieved new
+        # prices yet, than it communicates the prices it does have.
+        date_latest_emission = datetime.fromtimestamp(emissions[-1].get('event_start') / 1000).isoformat()
+        date_tomorrow = (now + timedelta(days=1)).isoformat()
+        if date_latest_emission < date_tomorrow:
+            self.log(f"FM CO2 emissions seem not renewed yet. {date_latest_emission}, retry at {self.second_try_time}.")
+            self.run_at(self.get_co2_emissions, self.second_try_time)
+        else:
+            self.log(f"FM CO2 successfully retrieved. Latest price at: {date_latest_emission}.")
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.

@@ -85,10 +85,18 @@ input_text:
     mode: text
     icon: mdi:calendar-multiselect
 
-  # Used to store the (serialized) list of EPEX prices that is fetched by
+  # Used to store the (serialized) list of hourly EPEX prices that is fetched by
   # get_fm_data code from FM daily. This then is shown in the UI in the graph.
   epex_prices:
     name: EPEX prices
+    max: 10000
+    min: 0
+    mode: text
+
+  # Used to store the (serialized) list of hourly CO2 emissions that is fetched by
+  # get_fm_data code from FM daily. This then is shown in the UI in the graph.
+  co2_emissions:
+    name: CO2 emissions
     max: 10000
     min: 0
     mode: text

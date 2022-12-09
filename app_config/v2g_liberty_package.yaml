@@ -7,11 +7,13 @@
 
 lovelace:
   mode: storage
-  resources:
-    - url: /local/apexcharts-card.js
-      type: module
-    - url: /local/card-mod.js
-      type: module
+  # These do not seem to work as supposed to (see https://github.com/RomRider/apexcharts-card#add-resource-reference).
+  # So, currently these have to be added through the UI.
+  #  resources:
+  #    - url: /hacsfiles/apexcharts-card/apexcharts-card.js
+  #      type: module
+  #    - url: /hacsfiles/card-mod/card-mod.js
+  #      type: module
   dashboards:
     lovelace-yaml:
       mode: yaml

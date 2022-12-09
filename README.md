@@ -116,6 +116,13 @@ Add the following modules to HA through HACS:
   This is needed for a better UI.
 
 There are other modules that might look interesting, like Leaf Spy, but you do not need any of these for V2G-L.
+After installation the reference to these resources has to be added through menu:
+1. Make sure, advanced mode is enabled in your user profile (click on your user name to get there)
+2. Navigate to Settings -> Dashboards -> from the top right menu (&vellip;) select resources.
+3. Click (+ ADD RESOURCE) button and enter URL `/local/apexcharts-card.js` and select type "JavaScript Module".
+4. Repeat for `/local/card-mod.js`
+4. Restart Home Assistant.
+
 
 ## Configure HA
 

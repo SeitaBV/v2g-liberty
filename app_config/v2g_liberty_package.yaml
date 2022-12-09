@@ -331,13 +331,10 @@ automation:
     description: >-
       Goal:
       Provide sanitized Quasar SoC in % (in input_number.car_state_of_charge).
-      ###Provide translation from Quasar SoC in % to Wh (in car_state_of_charge_wh).
 
-      Special cases;
-      The Quasar passes 0% as the charger is not connected/paused, that is not correct.
-      Therefore, we fill another variable (input_number.car_state_of_charge) with
-      the most recent non 0 value.
-      Also, the Modbus YAML code often shows "unavailable", these are ignored.
+      Special cases that are ignored:
+      + 0% (often when the charger is paused) that is never a correct value.
+      + The Modbus YAML code often shows "unavailable" for a little while.
 
     trigger:
       - platform: state

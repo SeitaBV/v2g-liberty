@@ -10,16 +10,13 @@ import isodate
 from wallbox_client import WallboxModbusMixin
 
 
-
 class V2Gliberty(hass.Hass, WallboxModbusMixin):
     """ This class manages the communication with the Wallbox Quasar charger and
     the FlexMeasures platform (which delivers the charging schedules). 
     """
 
-
     # CONSTANTS
-    # Fail-safe for processing schedules that might have schedule with too high
-    # update frequency
+    # Fail-safe for processing schedules that might have schedule with too high update frequency
     MIN_RESOLUTION: timedelta
     CAR_MAX_SOC_IN_KWH: float
     CAR_MIN_SOC_IN_PERCENT: int
@@ -93,10 +90,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         # When to ask FlexMeasures for a new charging schedule is determined by the charge mode
         self.set_next_action()  # on initializing the app
         if self.in_boost_to_reach_min_soc:
-
             # FNC0816
-            # Test whether restarting the app executes boost mode when boost mode is needed (below 20% SoC)
-            # Executing self.set_next_action() once may not do it, and executing it twice may be needed (we are not sure why yet)
+            # Test whether restarting the app executes boost mode when boost mode is needed (below min. SoC)
+            # Executing self.set_next_action() once may not do it, and executing it twice may be needed
+            # (we are not sure why yet)
 
             # if we went into boost mode, actually execute boost mode
             self.log("actually execute boost mode")
@@ -106,12 +103,11 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         self.log("Done setting up")
 
-
     def disconnect_charger(self, *args, **kwargs):
         """ Function te disconnect the charger.
         Reacts to button in UI that fires DISCONNECT_CHARGER event.
         """
-        self.log("************* Disconnect charger requested. *************")
+        self.log("************* Disconnect charger requested *************")
         self.set_charger_action("stop")
         self.set_charger_control("give")
         # ToDo: Remove all schedules?
@@ -121,7 +117,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         """ Function te (forcefully) restart the charger.
         Used when a crash is detected.
         """
-        self.log("************* Restart of charger requested. *************")
+        self.log("************* Restart of charger requested *************")
         self.set_charger_action("restart")
         self.notify_user("Restart of charger initiated by user. Please check charger.")
 
@@ -187,7 +183,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         Finally, the expected SoC (given the schedule) is calculated and saved to input_text.soc_prognosis.
         """
         self.log("Schedule_charge_point called, triggerd by change in input_text.chargeschedule.")
-        
+
         if not self.is_car_connected():
             self.log("Stopped processing schedule; car is not connected")
             return
@@ -201,9 +197,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         # Check against expected control signal resolution
         if resolution < self.MIN_RESOLUTION:
-            self.log(
-                f"Stopped processing schedule; the resolution ({resolution}) is below the set minimum ({self.MIN_RESOLUTION})."
-            )
+            self.log(f"Stopped processing schedule; the resolution ({resolution}) is below "
+                     f"the set minimum ({self.MIN_RESOLUTION}).")
             return
 
         # Cancel previous scheduling timers
@@ -215,12 +210,13 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         timer_datetimes = [start + i * resolution for i in range(len(values))]
         for t, value in zip(timer_datetimes, values):
             if t > now:
-                # AJO 17-10-2021 ToDo: If value is the same as previous, combine them so we have less timers and switching moments?
+                # AJO 17-10-2021
+                # ToDo: If value is the same as previous, combine them so we have less timers and switching moments?
                 h = self.run_at(self.send_control_signal, t, charge_rate=value * 1000)  # convert from MW to kW
                 handles.append(h)
             else:
-                self.log(
-                    f"Cannot time a charging scheduling in the past, specifically, at {t}. Setting it immediately instead.")
+                self.log(f"Cannot time a charging scheduling in the past, specifically, at {t}."
+                         f" Setting it immediately instead.")
                 self.send_control_signal(kwargs=dict(charge_rate=value * 1000))
         self.set_charging_timers(handles)
         self.log(f"{len(handles)} charging timers set.")
@@ -229,8 +225,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         soc = float(self.get_state("input_number.car_state_of_charge", attribute="state"))
         if int(soc) != int(self.connected_car_soc):
             # todo: consider calling try_get_new_soc() and then using accumulate(self.connected_car_soc) below instead
-            self.log(
-                f"input_number.car_state_of_charge ({soc}) is not equal to self.connected_car_soc ({self.connected_car_soc}), consider calling try_get_new_soc()")
+            self.log(f"input_number.car_state_of_charge ({soc}) is not equal to self.connected_car_soc"
+                     f" ({self.connected_car_soc}), consider calling try_get_new_soc()")
         exp_soc_values = list(
             accumulate([soc] + convert_MW_to_percentage_points(values, resolution, self.CAR_MAX_SOC_IN_KWH)))
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
@@ -256,7 +252,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             self.set_charger_control("take")
             self.set_charger_action("stop")
 
-        #TODO: check if old_state != 'Stop' is still needed.
+        # TODO: check if old_state != 'Stop' is still needed.
         if old_state != 'Stop' and new_state == 'Stop':
             # New mode "Stop" is handled by set_next_action
             self.log("Stop charging (if in action) and give control based on chargemode = Stop")
@@ -284,10 +280,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         # Make sure this function gets called every x seconds to prevent a "frozen" app.
         if self.timer_handle_set_next_action:
-            #self.log("Cancel current timer")
+            # self.log("Cancel current timer")
             self.cancel_timer(self.timer_handle_set_next_action)
-        #else:
-            #self.log("There is no timer to cancel")
+        # else:
+        # self.log("There is no timer to cancel")
 
         self.timer_handle_set_next_action = self.run_in(
             self.restart_set_next_action_time_based,
@@ -401,9 +397,9 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
 
 def convert_MW_to_percentage_points(
-    values_in_MW,
-    resolution: timedelta,
-    max_soc_in_kWh: float,
+        values_in_MW,
+        resolution: timedelta,
+        max_soc_in_kWh: float,
 ):
     """
     For example, if a 62 kWh battery produces at 0.00575 MW for a period of 15 minutes,

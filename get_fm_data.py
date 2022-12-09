@@ -52,7 +52,7 @@ class FlexMeasuresDataImporter(hass.Hass):
     def daily_kickoff(self, *args):
         """ This sets off the daily routine to check for new prices.
 
-        The attemps for today are reset.
+        The attempts for today are reset.
         """
 
         self.log("FMdata, daily kickoff: start checking new EPEX prices in FM.")
@@ -78,7 +78,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.authenticate_with_fm()
         now = self.get_now()
         # Getting prices since start of yesterday so that user can look back a little furter than just current window.
-        startEPEX = str((now +timedelta(days=-1)).date())
+        startEPEX = str((now + timedelta(days=-1)).date())
 
         url = self.args["fm_data_api"] + self.args["fm_data_api_epex"]
         url_params = {
@@ -112,36 +112,37 @@ class FlexMeasuresDataImporter(hass.Hass):
         # From FM format (€/MWh) to user desired format (€ct/kWh) 
         # = * 100/1000 = 1/10. Also include VAT
         VAT = float(self.args["VAT"])
-        conversion = 1/10 * VAT
+        conversion = 1 / 10 * VAT
         # For NL electricity is a markup for transport and sustainability
         markup = float(self.args["markup_per_kWh"])
         epex_price_points = []
         has_negative_prices = False
         for price in prices:
             data_point = {}
-            data_point['time'] = datetime.fromtimestamp(price['event_start']/1000).isoformat()
+            data_point['time'] = datetime.fromtimestamp(price['event_start'] / 1000).isoformat()
             data_point['price'] = round((price['event_value'] * conversion) + markup, 2)
             if data_point['price'] < 0:
                 has_negative_prices = True
             epex_price_points.append(data_point)
 
         # To make sure HA considers this as new info a datetime is added
-        new_state = "APEX prices collected at " + now.isoformat()
+        new_state = "EPEX prices collected at " + now.isoformat()
         result = {}
         result['records'] = epex_price_points
         self.set_state("input_text.epex_prices", state=new_state, attributes=result)
 
         # FM returns all the prices it has, sometimes it has not retrieved new
         # prices yet, than it communicates the prices it does have.
-        date_latest_price = datetime.fromtimestamp(prices[-1].get('event_start')/1000).isoformat()
+        date_latest_price = datetime.fromtimestamp(prices[-1].get('event_start') / 1000).isoformat()
         date_tomorrow = (now + timedelta(days=1)).isoformat()
         if date_latest_price < date_tomorrow:
-            self.log(f"FM EPEX prices seem not renewed yet, latest price at: {date_latest_price}, Retry at {self.second_try_time}.")
+            self.log(
+                f"FM EPEX prices seem not renewed yet, latest price at: {date_latest_price}, Retry at {self.second_try_time}.")
             self.run_at(self.get_epex_prices, self.second_try_time)
         else:
             if has_negative_prices:
-                self.notify_user("Negative electricity prices for tomorrow. Consider to check times in the app to optimising electricity usage.")
-            self.attempts_today = 0
+                self.notify_user(
+                    "Negative electricity prices for tomorrow. Consider to check times in the app to optimising electricity usage.")
             self.log(f"FM EPEX prices successfully retrieved. Latest price at: {date_latest_price}.")
 
 
@@ -164,7 +165,7 @@ class FlexMeasuresDataImporter(hass.Hass):
     def handle_response_errors(self, message, res, description, fnc, *args, **fnc_kwargs):
         if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
             self.log(
-                f"Failed to {description} on authorization (possibly the token expired); attempting to reauthenticate once")
+                f"Failed to {description} on authorization (token expired?), attempting to re-authenticate.")
             self.authenticate_with_fm()
             fnc_kwargs["retry_auth_once"] = False
             fnc(*args, **fnc_kwargs)

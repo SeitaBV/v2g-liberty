@@ -187,7 +187,7 @@ class FlexMeasuresClient(hass.Hass):
             ],
             "roundtrip-efficiency": self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         }
-        self.log(message)
+        self.log(f"Trigger_schedule with message: {message}.")
         res = requests.post(
             url,
             json=message,

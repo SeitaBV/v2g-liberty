@@ -62,7 +62,13 @@ class WallboxModbusMixin:
         attempts = 0
         while charger_state == -1:
             if attempts > max_attempts:
-                self.log(f"get_charger_state has reached max attempts ({attempts}) to read status from charger. Stopped reading and restarting charger.")
+                # Assume the charger has crashed.
+                self.log(f"get_charger_state has reached max attempts ({attempts}), the charger probably crashed. "
+                         f"Set charge_mode to Stop, notify user and try restarting charger.")
+                self.notify_user("Charger not responding (crashed?). Automatic charging has been stopped. "
+                                 "Please restart charger manually (via the Wallbox app on bluetooth or my.wallbox.com)."
+                                 " Then wait 5 minutes and switch to automatic again.", critical=True)
+                self.set_chargemode_in_ui("Stop")
                 self.set_charger_action("restart")
                 self.busy_getting_charger_state = False
                 return
@@ -94,10 +100,14 @@ class WallboxModbusMixin:
         """True if Charge Point is charging or discharging, False otherwise."""
         return self.get_charger_state() in self.registers["charging_states"]
 
+    def is_discharging(self) -> bool:
+        """True if Charge Point is discharging, False otherwise."""
+        return self.get_charger_state() == self.registers["discharging_state"]
+
     def set_charger_to_autostart_on_connect(self, setting: str):
         """Enable or disable the setting to let the charger autostart on connect."""
         if not self.is_car_connected():
-            self.log(f"Not changing the charger setting to {setting} for autostarting on connect: No car connected.")
+            self.log(f"Not changing the charger setting to {setting} for auto-starting on connect: No car connected.")
             return
 
         register = self.registers["set_charger_to_autostart_on_connect"]
@@ -159,13 +169,16 @@ class WallboxModbusMixin:
 
         register = self.registers["set_action"]
         res = False
-        total_waiting_time = 0  # in milliseconds
+        total_waiting_time = 0  # in seconds
+        # convert from milliseconds to seconds
+        wait_between_actions = self.args["wait_between_charger_write_actions"] / 1000
+        timeout_charger_write_actions = self.args["timeout_charger_write_actions"] / 1000
 
         # Make sure the charger will stop/start even though it might sometimes need more than one attempt
         while res is not True:
             res = self.client.write_single_register(register, value)
-            time.sleep(self.args["wait_between_charger_write_actions"] / 1000)
-            total_waiting_time += self.args["wait_between_charger_write_actions"]
+            time.sleep(wait_between_actions)
+            total_waiting_time += wait_between_actions
             # We need to stop at some point
             if total_waiting_time > self.args["timeout_charger_write_actions"]:
                 self.log(
@@ -304,7 +317,7 @@ class WallboxModbusMixin:
         max_discharging_power = self.args["wallbox_max_discharging_power"]
         if charge_rate > max_charging_power:
             self.log(
-                f"Requested charge rate {current} Watt too high. Changed charge rate to maximum: {max_charging_power} Watt.")
+                f"Requested charge rate {charge_rate} Watt too high. Changed charge rate to maximum: {max_charging_power} Watt.")
             charge_rate = max_charging_power
         elif abs(charge_rate) > max_discharging_power:
             self.log(
@@ -460,16 +473,15 @@ class WallboxModbusMixin:
             self.log("Charger state has changed to 'Disconnected'")
             # Cancel current scheduling timers
             self.cancel_charging_timers()
+            # This might seem strange but sometimes the charger starts charging when
+            # reconnected even though it has not received an instruction to do so.
+            self.set_action("stop")
 
             # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
             mode = self.get_state("input_select.charge_mode", None)
             if mode == "Max boost now":
-                self.set_chargemode_to_automatic()
+                self.set_chargemode_in_ui("Automatic")
                 self.notify_user("Chargemode set to automatic (was Max boost Now) as car is disconnected.")
-            # AJO0806
-            # This might seem strange but sometimes the charger starts charging when
-            # reconnected even though it has not received an instruction to do so.
-            # self.set_action("stop")
             return
 
         # **** Handle connected:

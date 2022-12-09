@@ -22,6 +22,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     # update frequency
     MIN_RESOLUTION: timedelta
     CAR_MAX_SOC_IN_KWH: float
+    ADMIN_MOBILE_NAME: str
+    ADMIN_MOBILE_PLATFORM: str
 
     # Utility variables for preventing a frozen app. Call set_next_action at least every x seconds
     timer_handle_set_next_action: str  # ToDo: Should be a general object instead of string
@@ -38,8 +40,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
     # To keep track of duration of charger in error state.
     charger_in_error_since: datetime
-    #initially charger_in_error_since is set to this date reference.
-    #If charger_in_error_since is not equal to this date we know timeing has started.
+    # initially charger_in_error_since is set to this date reference.
+    # If charger_in_error_since is not equal to this date we know timeing has started.
     date_reference: datetime
 
     # Ignore soc changes and charger_state changes.
@@ -49,6 +51,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
         self.MIN_RESOLUTION = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
         self.CAR_MAX_SOC_IN_KWH = float(self.args["fm_car_max_soc_in_kwh"])
+        self.ADMIN_MOBILE_NAME = self.args["admin_mobile_name"].lower()
+        self.ADMIN_MOBILE_PLATFORM = self.args["admin_mobile_platform"].lower()
 
         self.in_boost_to_reach_min_soc = False
         self.try_get_new_soc_in_process = False
@@ -329,7 +333,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             if self.connected_car_soc >= 100:
                 self.log(f"Reset charge_mode to 'Automatic' because max_charge is reached.")
                 # ToDo: Maybe do this after 20 minutes or so..
-                self.set_chargemode_to_automatic()
+                self.set_chargemode_in_ui("Automatic")
             else:
                 self.log("Starting max charge now based on chargemode = Max boost now")
                 self.start_max_charge_now()
@@ -346,22 +350,46 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         return
 
-    def set_chargemode_to_automatic(self):
-        """This function (re-)sets the charge mode in the UI to automatic.
+    def set_chargemode_in_ui(self, setting: str):
+        """ This function sets the charge mode in the UI to setting.
+        By setting the UI switch an event will also be fired. So other code will run due to this setting.
 
-        This is a somewhat clumsy way to set the mode to automatic but HA does not support radio buttons,
-        so the UI needed to be setup rather complicated. Setting the charge mode to automatic is not doing the job.
-        Then the UI does not match the actual status.
-        Further the set_state needs to re-apply the icon and friendly name for some odd reason.
-        Otherwise, the icon changes to the default toggle...
+        Parameters:
+        setting (str): Automatic, MaxBoostNow or Stop (=Off))
+
+        Returns:
+        nothing.
         """
 
-        # TODO: maybe try self.turn_on("input_boolean.chargemodeautomatic") ?
-        res = self.set_state("input_boolean.chargemodeautomatic", state="on",
-                             attributes={'friendly_name': 'ChargeModeAutomatic',
-                                         'icon': 'mdi:battery-charging-80'})
+        res = False
+        if setting == "Automatic":
+            # Comment block Tobe removed if new code is bug-free.
+            # This is a somewhat clumsy way to set the mode to automatic but HA does not support radio buttons, so
+            # the UI needed to be setup rather complicated. Setting the charge mode to automatic is not doing the job.
+            # Then the UI does not match the actual status.
+            # Further the set_state needs to re-apply the icon and friendly name for some odd reason.
+            # Otherwise, the icon changes to the default toggle...
+            # res = self.set_state("input_boolean.chargemodeautomatic", state="on",
+            #                      attributes={'friendly_name': 'ChargeModeAutomatic',
+            #                                  'icon': 'mdi:battery-charging-80'})
+
+            # Used when car gets disconnected and ChargeMode was MaxBoostNow.
+            res = self.turn_on("input_boolean.chargemodeautomatic")
+        elif setting == "MaxBoostNow":
+            # Not used for now, just here for completeness.
+            # The situation with SoC < 20% is handled without setting the UI to MaxBoostNow
+            res = self.turn_on("input_boolean.chargemodemaxboostnow")
+        elif setting == "Stop":
+            # Used when charger crashes to stop further processing
+            res = self.turn_on("input_boolean.chargemodeoff")
+        else:
+            self.log(f"In valid charge_mode in UI setting: '{setting}'.")
+            return
+
         if not res is True:
-            self.log(f"Failed to reset charge_mode to 'Automatic'. Home Assistant responded with: {res}")
+            self.log(f"Failed to set charge_mode in UI to '{setting}'. Home Assistant responded with: {res}")
+        else:
+            self.log(f"Successfully set charge_mode in UI to '{setting}'.")
 
 
 def convert_MW_to_percentage_points(

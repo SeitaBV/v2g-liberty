@@ -162,19 +162,28 @@ If you have installed the Studio Code Server addon (not mandatory!), you can use
 #    Contains all settings that need to be set for you, usually secrets        #
 #    such as passwords, usernames, ip-addresses and entity addresses.          #
 #                                                                              #
-#    It is also used for storing variables for use in the app configuration    #
+#    It is also used for storing variables for use in the app configuration.   #
+#                                                                              #
+#    After changes have been saved restart HA and AppDaemon.                   #
 #                                                                              #
 ################################################################################
 
 #############   BASIC HA CONFIG   ##############################################
 ## ALWAYS CHANGE ##
 # Provide the coordinates of the location.
-# Typical: lat. 52.xxxxxx lon. 4.xxxxxx, elevation in meters.
+# Typical: lat. 52.xxxxxx,  lon. 4.xxxxxx, elevation in meters.
 ha_latitude: xx.xxxxxxx
 ha_longitude: x.xxxxxxx
 ha_elevation: x
 ha_time_zone: Europe/Amsterdam
 
+# To which mobile device must (critial) platform notifications be send
+# Can be found in the home assistant companion app under:
+# Settings > Companion App > (Top item) your name and server > Device name
+# Replace any spaces, minus (-), dots(.) with underscores (_)
+admin_mobile_name: "your_device_name"
+#Should be iOS or Android, others are not supported.
+admin_mobile_platform: "your platform name: iOS or Android"
 
 #############   FLEXMEASURES CONFIGURATION   ###################################
 

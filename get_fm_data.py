@@ -72,7 +72,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.authenticate_with_fm()
         now = self.get_now()
-        # Getting prices since start of yesterday so that user can look back a little furter than just current window.
+        # Getting prices since start of yesterday so that user can look back a little further than just current window.
         startEPEX = str((now + timedelta(days=-1)).date())
 
         url = self.args["fm_data_api"] + self.args["fm_data_api_epex"]
@@ -224,7 +224,7 @@ class FlexMeasuresDataImporter(hass.Hass):
     def handle_response_errors(self, message, res, description, fnc, *args, **fnc_kwargs):
         if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
             self.log(
-                f"Failed to {description} on authorization (token expired?), attempting to re-authenticate.")
+                f"Failed to {description} on authorization (possibly the token expired); attempting to reauthenticate once")
             self.authenticate_with_fm()
             fnc_kwargs["retry_auth_once"] = False
             fnc(*args, **fnc_kwargs)

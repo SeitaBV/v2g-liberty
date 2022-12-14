@@ -12,7 +12,7 @@ from wallbox_client import WallboxModbusMixin
 
 class V2Gliberty(hass.Hass, WallboxModbusMixin):
     """ This class manages the communication with the Wallbox Quasar charger and
-    the FlexMeasures platform (which delivers the charging schedules). 
+    the FlexMeasures platform (which delivers the charging schedules).
     """
 
     # CONSTANTS
@@ -114,10 +114,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.notify_user("Charger disconnected charger.")
 
     def restart_charger(self, *args, **kwargs):
-        """ Function te (forcefully) restart the charger.
+        """ Function to (forcefully) restart the charger.
         Used when a crash is detected.
         """
-        self.log("************* Restart of charger requested *************")
+        self.log("************* Restart of charger requested. *************")
         self.set_charger_action("restart")
         self.notify_user("Restart of charger initiated by user. Please check charger.")
 

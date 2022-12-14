@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import adbase as ad
 import time
 import appdaemon.plugins.hass.hassapi as hass
@@ -41,8 +41,6 @@ class WallboxModbusMixin:
         The variable busy_getting_charger_state is used to effectively lock up this function,
         such that it can only run sequentially.
         """
-        # FNC: hopefully not needed
-        # global busy_getting_charger_state
 
         # Prevent this code running in parallel
         if self.busy_getting_charger_state:
@@ -55,7 +53,7 @@ class WallboxModbusMixin:
         # self.log(f"get_charger_state:: Charger state is {charger_state}.")
 
         # Sometimes the charger returns None for a while, so keep reading until a proper reading is retrieved
-        # In rare cases this situation remains for longer. 
+        # In rare cases this situation remains for longer.
         # If the max number of attempts has been reached it is most likely the charger is
         # non-responsive in general and a (manual) restart (reboot) of the charger is the only way out.
         max_attempts = 30

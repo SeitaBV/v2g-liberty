@@ -19,19 +19,19 @@ class FlexMeasuresClient(hass.Hass):
     """
 
     # Constants
-    FM_API = str
-    FM_API_VERSION = str
-    FM_QUASAR_SENSOR_ID = str
-    FM_SCHEDULE_DURATION = str
-    FM_USER_EMAIL = str
-    FM_USER_PASSWORD = str
-    MAX_NUMBER_OF_REATTEMPTS = str
-    DELAY_FOR_INITIAL_ATTEMPT = str
-    DELAY_FOR_REATTEMPTS = str
-    CAR_RESERVATION_CALENDAR = str
-    CAR_MAX_SOC_IN_KWH = str
-    WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = str
-    
+    FM_API: str
+    FM_API_VERSION: str
+    FM_QUASAR_SENSOR_ID: str
+    FM_SCHEDULE_DURATION: str
+    FM_USER_EMAIL: str
+    FM_USER_PASSWORD: str
+    MAX_NUMBER_OF_REATTEMPTS: int
+    DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
+    DELAY_FOR_REATTEMPTS: int  # number of seconds
+    CAR_RESERVATION_CALENDAR: str
+    CAR_MAX_SOC_IN_KWH: float
+    WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float
+
     # Variables
     fm_token: str
 
@@ -42,12 +42,12 @@ class FlexMeasuresClient(hass.Hass):
         self.FM_SCHEDULE_DURATION = self.args["fm_schedule_duration"]
         self.FM_USER_EMAIL = self.args["fm_user_email"]
         self.FM_USER_PASSWORD = self.args["fm_user_password"]
-        self.DELAY_FOR_REATTEMPTS = self.args["delay_for_reattempts_to_retrieve_schedule"]
-        self.MAX_NUMBER_OF_REATTEMPTS = self.args["max_number_of_reattempts_to_retrieve_schedule"]
-        self.DELAY_FOR_INITIAL_ATTEMPT = self.args["delay_for_initial_attempt_to_retrieve_schedule"]
+        self.DELAY_FOR_REATTEMPTS = int(self.args["delay_for_reattempts_to_retrieve_schedule"])
+        self.MAX_NUMBER_OF_REATTEMPTS = int(self.args["max_number_of_reattempts_to_retrieve_schedule"])
+        self.DELAY_FOR_INITIAL_ATTEMPT = int(self.args["delay_for_initial_attempt_to_retrieve_schedule"])
         self.CAR_RESERVATION_CALENDAR = self.args["fm_car_reservation_calendar"]
-        self.CAR_MAX_SOC_IN_KWH = self.args["fm_car_max_soc_in_kwh"]
-        self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = self.args["wallbox_plus_car_roundtrip_efficiency"]
+        self.CAR_MAX_SOC_IN_KWH = float(self.args["fm_car_max_soc_in_kwh"])
+        self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = float(self.args["wallbox_plus_car_roundtrip_efficiency"])
 
 
     def authenticate_with_fm(self):
@@ -57,15 +57,16 @@ class FlexMeasuresClient(hass.Hass):
         the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
         """
         self.log("Authenticating with FlexMeasures")
+        url = self.FM_API + "/requestAuthToken",
         res = requests.post(
-            self.FM_API + "/requestAuthToken",
+            url,
             json=dict(
                 email=self.FM_USER_EMAIL,
                 password=self.FM_USER_PASSWORD,
             ),
         )
         if not res.status_code == 200:
-            self.log_failed_response(res, "requestAuthToken")
+            self.log_failed_response(res, url)
         self.fm_token = res.json()["auth_token"]
 
     def log_failed_response(self, res, endpoint: str):
@@ -78,25 +79,26 @@ class FlexMeasuresClient(hass.Hass):
     def get_new_schedule(self, current_soc_kwh):
         """Get a new schedule from FlexMeasures.
 
-        POST a UDI event and set a timer to GET a device message for the given UDI event id.
+        Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
         """
 
-        # Ask to compute a new schedule by posting a UDI event
-        udi_event_id = self.trigger_schedule(current_soc_kwh = current_soc_kwh)
+        # Ask to compute a new schedule by posting flex constraints while triggering the scheduler
+        schedule_id = self.trigger_schedule(current_soc_kwh = current_soc_kwh)
 
-        # Set a timer to get the device message
-        self.log(f"Attempting to get device message in {self.DELAY_FOR_INITIAL_ATTEMPT} seconds")
-        self.run_in(self.get_schedule, delay=int(self.DELAY_FOR_INITIAL_ATTEMPT), udi_event_id=udi_event_id)
+        # Set a timer to get the schedule a little later
+        s = self.DELAY_FOR_INITIAL_ATTEMPT
+        self.log(f"Attempting to get schedule in {s} seconds")
+        self.run_in(self.get_schedule, delay=s, schedule_id=schedule_id)
 
     def get_schedule(self, kwargs, **fnc_kwargs):
         """GET a schedule message that has been requested by trigger_schedule.
-           The ID for this is UDI_event_id.
+           The ID for this is schedule_id.
            Then store the retrieved schedule.
 
-        Pass the UDI event id using kwargs["udi_event_id"]=<udi_event_id>.
+        Pass the schedule id using kwargs["schedule_id"]=<schedule_id>.
         """
-        udi_event_id = kwargs["udi_event_id"]
-        url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/" + udi_event_id
+        schedule_id = kwargs["schedule_id"]
+        url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/" + schedule_id
         message = {
             "duration": self.FM_SCHEDULE_DURATION,
         }
@@ -106,14 +108,16 @@ class FlexMeasuresClient(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
         if res.status_code != 200:
-            self.log_failed_response(res, "getSchedule")
-
+            self.log_failed_response(res, url)
+        else:
+            self.log(f"GET schedule success: retrieved {res.status_code}")
         if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
+            s = self.DELAY_FOR_REATTEMPTS
             attempts_left = kwargs.get("attempts_left", self.MAX_NUMBER_OF_REATTEMPTS)
             if attempts_left >= 1:
-                self.log(f"Reattempting to get schedule in {self.DELAY_FOR_REATTEMPTS} seconds (attempts left: {attempts_left})")
-                self.run_in(self.get_schedule, delay=int(self.DELAY_FOR_REATTEMPTS), attempts_left=attempts_left - 1,
-                            udi_event_id=udi_event_id)
+                self.log(f"Reattempting to get schedule in {s} seconds (attempts left: {attempts_left})")
+                self.run_in(self.get_schedule, delay=s, attempts_left=attempts_left - 1,
+                            schedule_id=schedule_id)
             else:
                 self.log("Schedule cannot be retrieved. Any previous charging schedule will keep being followed.")
             return
@@ -124,8 +128,12 @@ class FlexMeasuresClient(hass.Hass):
         self.set_state("input_text.chargeschedule", state="ChargeScheduleAvailable" + datetime.now(tz=pytz.utc).isoformat(), attributes=schedule)
 
     def trigger_schedule(self, *args, **fnc_kwargs):
-        """Request a new schedule to be generated by POSTing a UDI event
-         Return the UDI event id for later retrieval of a device message."""
+        """Request a new schedule to be generated by calling the schedule triggering endpoint, while
+        POSTing flex constraints.
+        Return the schedule id for later retrieval of the asynchronously computed schedule.
+        """
+
+        # Prepare the SoC measurement to be sent along with the scheduling request
         current_soc_kwh = fnc_kwargs["current_soc_kwh"]
         self.log(f"trigger_schedule called with current_soc_kwh: {current_soc_kwh} kWh.")
 
@@ -133,7 +141,9 @@ class FlexMeasuresClient(hass.Hass):
         soc_datetime = datetime.now(tz=pytz.utc)
         resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
         soc_datetime = time_round(soc_datetime, resolution).isoformat()
+
         url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/trigger"
+        self.log(f"Triggering schedule by calling {url}")
 
         # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
         # Retrieve target SOC
@@ -175,7 +185,6 @@ class FlexMeasuresClient(hass.Hass):
             target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
 
         message = {
-            # todo: relay flow constraints with new UDI event type ":soc-with-target-and-flow-constraints"
             "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
             "start": soc_datetime,
@@ -193,19 +202,19 @@ class FlexMeasuresClient(hass.Hass):
             json=message,
             headers={"Authorization": self.fm_token},
         )
-        udi_event_id = None
+        schedule_id = None
         if res.status_code == 200:
-            udi_event_id = res.json()["schedule"]
+            schedule_id = res.json()["schedule"]  # can still be None in case something went wong
 
-        if udi_event_id == None:
-            self.log_failed_response(res, "Trigger_schedule")
-            self.handle_response_errors(message, res, "Trigger schedule", self.trigger_schedule, *args, **fnc_kwargs)
+        if schedule_id is None:
+            self.log_failed_response(res, url)
+            self.handle_response_errors(message, res, url, self.trigger_schedule, *args, **fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
             return
-        else:
-            self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
-        self.log(f"Successfully triggered schedule. Result: {res.status_code}.")
-        return udi_event_id
+
+        self.log(f"Successfully triggered schedule. Schedule id: {schedule_id}")
+        self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
+        return schedule_id
 
     def handle_response_errors(self, message, res, description, fnc, **fnc_kwargs):
         if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:

@@ -121,12 +121,29 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.set_charger_action("restart")
         self.notify_user("Restart of charger initiated by user. Please check charger.")
 
+    # TODO: combine with same function in other modules??
+    def notify_user(self, message: str, critical=False):
+        """ Utility function to send notifications to the user via HA"""
 
-    #TODO: combine with same function in other modules??
-    def notify_user(self, message: str):
-        """ Utility function to send notifications to the user via HA.
-        """
-        self.notify(message, title="V2G Liberty")
+        self.log(f"Notify_user a:{self.ADMIN_MOBILE_NAME}, b:{self.ADMIN_MOBILE_PLATFORM}")
+        if self.ADMIN_MOBILE_NAME is None or self.ADMIN_MOBILE_NAME == "":
+            # If no device to send to then follow normal flow.
+            critical = False
+
+        if critical:
+            device_address = "notify/mobile_app_" + self.ADMIN_MOBILE_NAME
+            if self.ADMIN_MOBILE_PLATFORM == "ios":
+                self.call_service(device_address,
+                                  title="V2G Liberty",
+                                  message=message,
+                                  data={"push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}})
+            elif self.ADMIN_MOBILE_PLATFORM == "android":
+                self.call_service(device_address,
+                                  title="V2G Liberty",
+                                  message=message,
+                                  data={"ttl": 0, "priority": "high"})
+        else:
+            self.notify(message, title="V2G Liberty")
 
     def handle_calendar_change(self, *args, **fnc_kwargs):
         """Helper function to trace changes in calendar. Redirects to decide_whether_to_ask_for_new_schedule"""

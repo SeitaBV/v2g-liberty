@@ -1,0 +1,315 @@
+title: V2G Liberty
+views:
+  - path: default_view
+    title: Main
+    icon: mdi:car-electric
+    layout:
+      width: 300
+      max_cols: 10
+    badges: []
+    cards:
+      - type: vertical-stack
+        title: Charger
+        cards:
+          - type: grid
+            cards:
+              - type: entity
+                entity: input_text.charger_state
+                name: ' '
+                card_mod:
+                  style: |
+                    ha-card {
+                      width: 130%;
+                    }
+                    ha-card div.info span {
+                      font-size: 90%;
+                    }
+              - type: button
+                tap_action:
+                  action: call-service
+                  service: script.disconnectnow
+                  service_data: {}
+                  target: {}
+                entity: ''
+                name: Disconnect now
+                icon: mdi:power-plug-off
+                icon_height: 25px
+                hold_action:
+                  action: none
+                card_mod:
+                  style: |
+                    ha-card {
+                      padding-top: 10px;
+                      width: 70%;
+                      margin-left: 30%;
+                    }
+            columns: 2
+            square: false
+          - type: gauge
+            max: 6000
+            name: Current charging power
+            entity: sensor.charger_real_charging_power
+            severity:
+              green: 0
+              yellow: 4000
+              red: 5600
+            min: -6000
+            needle: true
+      - type: vertical-stack
+        title: Connected car
+        cards:
+          - type: gauge
+            entity: input_number.car_state_of_charge
+            min: 0
+            max: 100
+            name: Car SoC
+            severity:
+              green: 20
+              yellow: 80
+              red: 100
+            needle: true
+            unit: '%'
+          - type: conditional
+            conditions:
+              - entity: input_boolean.error_schedule_cannot_be_retrieved
+                state: 'on'
+              - entity: binary_sensor.is_flexmeasures_live
+                state: 'on'
+            card:
+              type: markdown
+              content: >-
+                The FlexMeasures server is online but there is no automated
+                charging schedule available. Set charging manually. Please check
+                with system administrator.
+              title: No charging schedule available
+              card_mod:
+                style: |
+                  ha-card {
+                    background-color: #FEF0EA;
+                    color: #000000;
+                    border: solid 2px #E14D0E;
+                  }
+          - type: conditional
+            conditions:
+              - entity: input_boolean.error_epex_prices_cannot_be_retrieved
+                state: 'on'
+              - entity: binary_sensor.is_flexmeasures_live
+                state: 'on'
+            card:
+              type: markdown
+              content: >-
+                The FlexMeasures server is online but there are no EPEX prices
+                available. Please check with system administrator.
+              title: EPEX prices not available
+              card_mod:
+                style: |
+                  ha-card {
+                    background-color: #FEF0EA;
+                    color: #000000;
+                    border: solid 2px #E14D0E;
+                  }
+          - type: custom:apexcharts-card
+            graph_span: 24h
+            span:
+              start: hour
+              offset: '-4h'
+            now:
+              show: true
+            header:
+              show: true
+              title: Car State of Charge (%)
+            apex_config:
+              legend:
+                show: false
+              chart:
+                zoom:
+                  enabled: true
+                toolbar:
+                  show: true
+                  tools:
+                    zoom: true
+                    pan: true
+                    reset: true
+            series:
+              - entity: input_text.epex_prices
+                color: '#666666'
+                extend_to: false
+                stroke_width: 1
+                curve: stepline
+                yaxis_id: EPEXprice
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.price];
+                  });
+                type: line
+              - entity: input_text.co2_emissions
+                transform: "return x / 10;"
+                color: '#339933'
+                extend_to: false
+                stroke_width: 1
+                curve: stepline
+                yaxis_id: EPEXprice
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.emission];
+                  });
+                type: line
+              - entity: input_number.car_state_of_charge
+                color: '#009be5'
+                stroke_width: 2
+                type: line
+                extend_to: now
+                yaxis_id: SoC
+              - entity: input_text.soc_prognosis
+                type: line
+                color: '#fea602'
+                stroke_width: 2
+                extend_to: false
+                yaxis_id: SoC
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.soc];
+                  });
+            yaxis:
+              - id: SoC
+                min: 0
+                max: 100
+                decimals: 0
+                apex_config:
+                  tickAmount: 5
+              - id: EPEXprice
+                decimals: 0
+                opposite: true
+                min: '|-2|'
+                max: '|+2|'
+      - type: vertical-stack
+        title: Charge mode
+        cards:
+          - type: grid
+            cards:
+              - type: button
+                name: Automatic
+                hold_action:
+                  action: none
+                entity: input_boolean.chargemodeautomatic
+                show_state: false
+                icon_height: 40px
+                card_mod:
+                  style: |
+                    ha-card {
+                      padding: 10% 0 !important;
+                    }
+              - type: button
+                name: Max Charge Now
+                icon: mdi:battery-alert
+                hold_action:
+                  action: none
+                entity: input_boolean.chargemodemaxboostnow
+                show_state: false
+                icon_height: 40px
+                card_mod:
+                  style: |
+                    ha-card {
+                      padding: 10% 0 !important;
+                    }
+              - type: button
+                name: 'Off'
+                hold_action:
+                  action: none
+                entity: input_boolean.chargemodeoff
+                icon_height: 40px
+                show_state: false
+                card_mod:
+                  style: |
+                    ha-card {
+                      padding: 10% 0 !important;
+                    }
+            square: false
+          - type: conditional
+            conditions:
+              - entity: input_text.charger_state
+                state: No car connected
+              - entity: input_boolean.chargemodemaxboostnow
+                state: 'on'
+            card:
+              type: markdown
+              content: |-
+                The car is not connected.
+                To start charging, please connect the car to the charger.
+              title: Charging not possible
+              card_mod:
+                style: |
+                  ha-card {
+                    background-color: #FEF0EA;
+                    color: #000000;
+                    border: solid 2px #E14D0E;
+                  }
+          - type: conditional
+            conditions:
+              - entity: binary_sensor.is_flexmeasures_live
+                state: 'off'
+            card:
+              type: markdown
+              content: >-
+                It seems the FlexMeasures server is offline. It is not possible
+                to get an automated charging schedule. Set charging manually.
+                Please check with system administrator.
+              title: Server offline
+              card_mod:
+                style: |
+                  ha-card {
+                    background-color: #FEF0EA;
+                    color: #000000;
+                    border: solid 2px #E14D0E;
+                  }
+          - type: calendar
+            entities:
+              - calendar.car_reservation
+            initial_view: listWeek
+            title: Car reservations
+            card_mod:
+              style: |
+                ha-card.type-calendar {
+                  min-height: auto;
+                  height: 350px;
+                  overflow: hidden;
+                }
+                ha-card.type-calendar div.header:after {
+                  content: "Target SoC is 100% 15 minutes before start";
+                  font-size: 50%;
+                  color: #6f6f6f;
+                  display: block;
+                }
+  - title: Help
+    icon: mdi:help-box
+    cards:
+      - type: entities
+        entities:
+          - entity: sensor.unrecoverable_errors_register_high
+          - entity: sensor.unrecoverable_errors_register_low
+          - entity: sensor.recoverable_errors_register_high
+          - entity: sensor.recoverable_errors_register_low
+          - entity: sensor.serial_number_high
+          - entity: sensor.serial_number_low
+          - entity: sensor.firmware_version
+        title: "Quasar"
+      - type: entities
+        entities:
+          - input_number.car_state_of_charge
+          - input_select.charge_mode
+          - update.appdaemon_update
+      - show_name: true
+        show_icon: true
+        type: button
+        icon: mdi:reload-alert
+        name: Restart charger
+        trigger:
+          - platform: state
+            entity_id: button.restart_charger_button
+        tap_action:
+          action: call-service
+          confirmation:
+            text: Are you sure you want to restart?
+          service: script.turn_on
+          data:
+            entity_id: script.RestartCharger

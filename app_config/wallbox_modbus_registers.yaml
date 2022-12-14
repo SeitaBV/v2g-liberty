@@ -2,7 +2,7 @@
 # This is provided by the Wallbox Chargers S.L. as is.
 # For reference see https://wallbox.com/en_uk/quasar-dc-charger
 
-# The addresses are used by the V2G Liberty software for smart (dis-)charging
+# The addressing is used by the V2G Liberty software for smart(dis-)charging
 # of V2G Vehicles.
 # For reference see: https://v2g-liberty.eu/
 

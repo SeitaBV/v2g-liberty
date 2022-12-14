@@ -25,9 +25,9 @@ class FlexMeasuresClient(hass.Hass):
     FM_SCHEDULE_DURATION: str
     FM_USER_EMAIL: str
     FM_USER_PASSWORD: str
-    DELAY_FOR_REATTEMPTS: int  # number of seconds
     MAX_NUMBER_OF_REATTEMPTS: int
     DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
+    DELAY_FOR_REATTEMPTS: int  # number of seconds
     CAR_RESERVATION_CALENDAR: str
     CAR_MAX_SOC_IN_KWH: float
     WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float
@@ -83,7 +83,7 @@ class FlexMeasuresClient(hass.Hass):
         """
 
         # Ask to compute a new schedule by posting flex constraints while triggering the scheduler
-        schedule_id = self.trigger_schedule(current_soc_kwh=current_soc_kwh)
+        schedule_id = self.trigger_schedule(current_soc_kwh = current_soc_kwh)
 
         # Set a timer to get the schedule a little later
         s = self.DELAY_FOR_INITIAL_ATTEMPT
@@ -149,7 +149,9 @@ class FlexMeasuresClient(hass.Hass):
         # Retrieve target SOC
         car_reservation = self.get_state(self.CAR_RESERVATION_CALENDAR, attribute="all")
         self.log(f"Car_reservation: {car_reservation}")
-        if car_reservation is None or "description" not in car_reservation["attributes"]:
+        if car_reservation is None or \
+                ("description" not in car_reservation["attributes"] and
+                 "message" not in car_reservation["attributes"]):
             # Set default target to 100% one week from now
             target = self.CAR_MAX_SOC_IN_KWH
             target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
@@ -194,7 +196,7 @@ class FlexMeasuresClient(hass.Hass):
             ],
             "roundtrip-efficiency": self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         }
-        self.log(message)
+        self.log(f"Trigger_schedule with message: {message}.")
         res = requests.post(
             url,
             json=message,

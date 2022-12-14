@@ -1,5 +1,4 @@
 from datetime import timedelta
-
 import adbase as ad
 import time
 import appdaemon.plugins.hass.hassapi as hass
@@ -23,7 +22,7 @@ class WallboxModbusMixin:
         """Configure the Wallbox Modbus client and return it."""
         # Assume that a restart of this code is the same as last restart of the charger.
         self.last_restart = self.get_now()
-        
+
         host = self.args["wallbox_host"]
         port = self.args["wallbox_port"]
         self.log(f"Configuring Modbus client at {host}:{port}")
@@ -54,14 +53,20 @@ class WallboxModbusMixin:
         # self.log(f"get_charger_state:: Charger state is {charger_state}.")
 
         # Sometimes the charger returns None for a while, so keep reading until a proper reading is retrieved
-        # In rare cases this situation remains for longer. 
+        # In rare cases this situation remains for longer.
         # If the max number of attempts has been reached it is most likely the charger is
-        # non-responsive in general and a restart (reboot) of the charger is the only way out.
-        max_attempts = 60
+        # non-responsive in general and a (manual) restart (reboot) of the charger is the only way out.
+        max_attempts = 30
         attempts = 0
         while charger_state == -1:
             if attempts > max_attempts:
-                self.log(f"get_charger_state has reached max attempts ({attempts}) to read status from charger. Stopped reading and restarting charger.")
+                # Assume the charger has crashed.
+                self.log(f"get_charger_state has reached max attempts ({attempts}), the charger probably crashed. "
+                         f"Set charge_mode to Stop, notify user and try restarting charger.")
+                self.notify_user("Charger not responding (crashed?). Automatic charging has been stopped. "
+                                 "Please restart charger manually (via the Wallbox app on bluetooth or my.wallbox.com)."
+                                 " Then wait 5 minutes and switch to automatic again.", critical=True)
+                self.set_chargemode_in_ui("Stop")
                 self.set_charger_action("restart")
                 self.busy_getting_charger_state = False
                 return
@@ -79,6 +84,7 @@ class WallboxModbusMixin:
                 continue
             charger_state = int(float(cs))
         self.busy_getting_charger_state = False
+        # self.log(f"Returning charger_state: {charger_state}.")
         return charger_state
 
     def is_charger_in_error(self) -> bool:
@@ -93,10 +99,14 @@ class WallboxModbusMixin:
         """True if Charge Point is charging or discharging, False otherwise."""
         return self.get_charger_state() in self.registers["charging_states"]
 
+    def is_discharging(self) -> bool:
+        """True if Charge Point is discharging, False otherwise."""
+        return self.get_charger_state() == self.registers["discharging_state"]
+
     def set_charger_to_autostart_on_connect(self, setting: str):
         """Enable or disable the setting to let the charger autostart on connect."""
         if not self.is_car_connected():
-            self.log(f"Not changing the charger setting to {setting} for autostarting on connect: No car connected.")
+            self.log(f"Not changing the charger setting to {setting} for auto-starting on connect: No car connected.")
             return
 
         register = self.registers["set_charger_to_autostart_on_connect"]
@@ -128,9 +138,10 @@ class WallboxModbusMixin:
         time.sleep(self.args["wait_between_charger_write_actions"] / 1000)
 
     def set_charger_action(self, action: str):
-
         """Set action to start/stop charging or restart the charger"""
-        if not self.is_car_connected():
+
+        # Restart is called in problem situations and then is_connected is not reliable..
+        if not self.is_car_connected() and action != "restart":
             self.log(f"Not performing charger action '{action}': No car connected.")
             return False
 
@@ -142,14 +153,15 @@ class WallboxModbusMixin:
         elif action == "stop":
             # AJO 2022-10-08
             # Stop needs to be very reliable, so we always perform this action, even if currently not charging.
-            # We sometimes see the charger starting charging after reconnect without haven gotten the instruction to do so.
+            # Sometimes the charger starts charging after reconnect without haven gotten the instruction to do so.
             # To counter this we call "stop" from disconnect event.
             value = self.registers["actions"]["stop_charging"]
         elif action == "restart":
-            if self.last_restart < self.get_now() - timedelta(seconds=self.minimum_seconds_between_restarts):
-                self.log(f"Not restarting charger, a restart has been requested already in the last {self.minimum_seconds_between_restarts} seconds.")
+            if self.last_restart < (self.get_now() - timedelta(seconds=self.minimum_seconds_between_restarts)):
+                self.log(f"Not restarting charger, a restart has been requested already in the "
+                         f"last {self.minimum_seconds_between_restarts} seconds.")
                 return
-            self.log(f"RESTARTING charger...")
+            self.log(f"Start RESTARTING charger...")
             value = self.registers["actions"]["restart_charger"]
             self.last_restart = self.get_now()
         else:
@@ -157,17 +169,20 @@ class WallboxModbusMixin:
 
         register = self.registers["set_action"]
         res = False
-        total_waiting_time = 0  # in milliseconds
+        total_waiting_time = 0  # in seconds
+        # convert from milliseconds to seconds
+        wait_between_actions = self.args["wait_between_charger_write_actions"] / 1000
+        timeout_charger_write_actions = self.args["timeout_charger_write_actions"] / 1000
 
         # Make sure the charger will stop/start even though it might sometimes need more than one attempt
         while res is not True:
             res = self.client.write_single_register(register, value)
-            time.sleep(self.args["wait_between_charger_write_actions"] / 1000)
-            total_waiting_time += self.args["wait_between_charger_write_actions"]
+            time.sleep(wait_between_actions)
+            total_waiting_time += wait_between_actions
             # We need to stop at some point
-            if total_waiting_time > self.args["timeout_charger_write_actions"]:
-                self.log(
-                    f"Failed to set action to {action} due to timeout (after {total_waiting_time / 1000} seconds). Charge Point responded with: {res}")
+            if total_waiting_time > timeout_charger_write_actions:
+                self.log(f"Failed to set action to {action} due to timeout (after {total_waiting_time} seconds). "
+                         f"Charge Point responded with: {res}")
                 return False
         else:
             self.log(f"Charger {action} succeeded")
@@ -176,7 +191,7 @@ class WallboxModbusMixin:
         """Set charger control (take control from the user or give control back to the user).
 
         With giving user control:
-        + the user can use the app for controling the charger and
+        + the user can use the app for controlling the charger and
         + the charger will start charging automatically upon connection.
 
         :param take_or_give_control: "take" remote control or "give" user control
@@ -255,7 +270,7 @@ class WallboxModbusMixin:
         retries = 0
         while retries < 10:
             res = self.client.write_single_register(register, setpoint_type)
-            if res == None:
+            if res is None:
                 retries += 1
                 time.sleep(0.5)
             else:
@@ -292,21 +307,23 @@ class WallboxModbusMixin:
             self.log(f"Not setting charge_rate to '{charge_rate}': No car connected.")
             return
 
-        # Make sure that discharging does not occur below 20%
-        if charge_rate < 0 and self.connected_car_soc <= 20:
-            self.log(f"A discharge is attempted while the current SoC is below the minimum for discharging: 20%. Stopping discharging.")
+        # Make sure that discharging does not occur below minimum SoC.
+        if charge_rate < 0 and self.connected_car_soc <= self.CAR_MIN_SOC_IN_PERCENT:
+            # Failsafe, this should never happen...
+            self.log(f"A discharge is attempted while the current SoC is below the "
+                     f"minimum ({self.CAR_MIN_SOC_IN_PERCENT})%. Stopping discharging.")
             charge_rate = 0
 
         # Clip values to min/max charging current
         max_charging_power = self.args["wallbox_max_charging_power"]
         max_discharging_power = self.args["wallbox_max_discharging_power"]
         if charge_rate > max_charging_power:
-            self.log(
-                f"Requested charge rate {current} Watt too high. Changed charge rate to maximum: {max_charging_power} Watt.")
+            self.log(f"Requested charge rate {charge_rate} Watt too high. "
+                     f"Changed charge rate to maximum: {max_charging_power} Watt.")
             charge_rate = max_charging_power
         elif abs(charge_rate) > max_discharging_power:
-            self.log(
-                f"Requested discharge rate {charge_rate} Watt too high. Changed discharge rate to maximum: {max_discharging_power} Watt.")
+            self.log(f"Requested discharge rate {charge_rate} Watt too high. "
+                     f"Changed discharge rate to maximum: {max_discharging_power} Watt.")
             charge_rate = -max_discharging_power
 
         if charge_rate < 0:
@@ -340,8 +357,8 @@ class WallboxModbusMixin:
             # Recalculate for negative values
             if charge_rate > (self.NUM_MODBUS_PORTS / 2):
                 charge_rate = charge_rate - self.NUM_MODBUS_PORTS
-            self.log(
-                f'New-charge-power-setting is same as current-charge-power-setting: {charge_rate} Watt. Not writing to charger.')
+            self.log(f'New-charge-power-setting is same as current-charge-power-setting: {charge_rate} Watt. '
+                     f'Not writing to charger.')
             return
 
         self.set_setpoint_type("power")
@@ -349,7 +366,7 @@ class WallboxModbusMixin:
         time.sleep(self.args["wait_between_charger_write_actions"] / 1000)
 
         if res is not True:
-            self.log(f"Failed to set charge power to {charge_rate} Watt. Charge Point responded with: {res}")
+            self.log(f"Failed to set charge power to {charge_rate} Watt. Charge Point responded with: {res}.")
             # If negative value result in false, check if gridcode is set correct in charger.
         else:
             self.log(f"Charge power set to {charge_rate} Watt successfully.")
@@ -359,8 +376,8 @@ class WallboxModbusMixin:
     def handle_soc_change(self, entity, attribute, old, new, kwargs):
         # todo: move to main app?
         if self.try_get_new_soc_in_process:
-            self.log(
-                "Handle_soc_change called while getting a soc reading and not really charging. Stop processing the soc change")
+            self.log("Handle_soc_change called while getting a soc reading and not really charging. Stop processing "
+                     "the soc change")
             return
         reported_soc = new["state"]
         self.log(f"Handle_soc_change called with raw SoC: {reported_soc}")
@@ -389,28 +406,30 @@ class WallboxModbusMixin:
 
     def handle_charger_in_error(self):
         # If charger remains in error state more than 7 minutes restart the charger.
-        # We wait 7 minutes as the charger might be return an error state up until 5 minutes afer a restart.
+        # We wait 7 minutes as the charger might be return an error state up until 5 minutes after a restart.
         # The default charger_in_error_since is filled with the refrence date.
         # At the registration of an error charger_in_error_since is set to now.
-        # This way we know "checking for error" is in progress if the charger_in_error_since is not equal to the reference date.
+        # This way we know "checking for error" is in progress if the charger_in_error_since is
+        # not equal to the reference date.
 
         if not self.is_charger_in_error():
-            self.log("handle_charger_in_error, charger not in error_state anymore (due to restart?), cancel further error processing.")
+            self.log("handle_charger_in_error, charger not in error_state anymore (due to restart?), cancel further "
+                     "error processing.")
             self.charger_in_error_since = self.date_reference
             return
 
         if self.charger_in_error_since == self.date_reference:
-            self.log("handle_charger_in_error, new charger_error_state detected, check if error persists for next 7 minutes, then preform restart.")
+            self.log("handle_charger_in_error, new charger_error_state detected, check if error persists for next 7 "
+                     "minutes, then preform restart.")
             self.charger_in_error_since = self.get_now()
 
-        if ((self.get_now() - self.charger_in_error_since).total_seconds() > 7*60):
+        if (self.get_now() - self.charger_in_error_since).total_seconds() > 7 * 60:
             self.log("handle_charger_in_error, check if error_state persists for next 7 minutes, then preform restart.")
             self.charger_in_error_since = self.date_reference
             self.set_charger_action("restart")
         else:
             self.log("handle_charger_in_error, recheck error_state in 30 seconds.")
             self.run_in(self.handle_charger_in_error, 30)
-
 
     def handle_charger_state_change(self, entity, attribute, old, new, kwargs):
 
@@ -458,16 +477,15 @@ class WallboxModbusMixin:
             self.log("Charger state has changed to 'Disconnected'")
             # Cancel current scheduling timers
             self.cancel_charging_timers()
+            # This might seem strange but sometimes the charger starts charging when
+            # reconnected even though it has not received an instruction to do so.
+            self.set_action("stop")
 
             # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
             mode = self.get_state("input_select.charge_mode", None)
             if mode == "Max boost now":
-                self.set_chargemode_to_automatic()
+                self.set_chargemode_in_ui("Automatic")
                 self.notify_user("Chargemode set to automatic (was Max boost Now) as car is disconnected.")
-            # AJO0806
-            # This might seem strange but sometimes the charger starts charging when
-            # reconnected even though it has not received an instruction to do so.
-            # self.set_action("stop")
             return
 
         # **** Handle connected:
@@ -508,11 +526,11 @@ class WallboxModbusMixin:
         self.try_get_new_soc_in_process = True
         is_currently_charging = self.is_charging()
         # If currently charging then reading the SoC should be possible
-        # Then keep charging rate as is was, otherwise start charging with minimal
+        # Then keep charging rate as it was, otherwise start charging with minimal
         # power to be able to read the SoC.
         if not is_currently_charging:
             self.log(f"Reading SoC, starting charging so a SoC can be read.")
-            #Set minimal charging power 1 Watt
+            # Set minimal charging power 1 Watt
             self.set_power_setpoint(1)
             self.set_charger_action("start")
         register = self.registers["get_car_state_of_charge"]
@@ -546,8 +564,8 @@ class WallboxModbusMixin:
                 self.log(f"Try_get_new_soc externally stopped.")
                 break
         else:
-            self.log(
-                f"Read SoC from car (poked charger by starting minimal charge): '{reported_soc}', time before relevant SoC was retrieved: {total_time}seconds.")
+            self.log(f"Read SoC from car (poked charger by starting minimal charge): '{reported_soc}', "
+                     f"time before relevant SoC was retrieved: {total_time}seconds.")
 
         if not is_currently_charging:
             self.set_charger_action("stop")

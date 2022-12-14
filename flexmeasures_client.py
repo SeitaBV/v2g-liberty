@@ -18,22 +18,51 @@ class FlexMeasuresClient(hass.Hass):
     - Reports on errors locally (input_boolean.error_schedule_cannot_be_retrieved)
     """
 
+    # Constants
+    FM_API: str
+    FM_API_VERSION: str
+    FM_QUASAR_SENSOR_ID: str
+    FM_SCHEDULE_DURATION: str
+    FM_USER_EMAIL: str
+    FM_USER_PASSWORD: str
+    DELAY_FOR_REATTEMPTS: int  # number of seconds
+    MAX_NUMBER_OF_REATTEMPTS: int
+    DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
+    CAR_RESERVATION_CALENDAR: str
+    CAR_MAX_SOC_IN_KWH: float
+    WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float
+
+    # Variables
     fm_token: str
 
     def initialize(self):
-        pass
+        self.FM_API = self.args["fm_api"]
+        self.FM_API_VERSION = self.args["fm_api_version"]
+        self.FM_QUASAR_SENSOR_ID = str(self.args["fm_quasar_sensor_id"])
+        self.FM_SCHEDULE_DURATION = self.args["fm_schedule_duration"]
+        self.FM_USER_EMAIL = self.args["fm_user_email"]
+        self.FM_USER_PASSWORD = self.args["fm_user_password"]
+        self.DELAY_FOR_REATTEMPTS = int(self.args["delay_for_reattempts_to_retrieve_schedule"])
+        self.MAX_NUMBER_OF_REATTEMPTS = int(self.args["max_number_of_reattempts_to_retrieve_schedule"])
+        self.DELAY_FOR_INITIAL_ATTEMPT = int(self.args["delay_for_initial_attempt_to_retrieve_schedule"])
+        self.CAR_RESERVATION_CALENDAR = self.args["fm_car_reservation_calendar"]
+        self.CAR_MAX_SOC_IN_KWH = float(self.args["fm_car_max_soc_in_kwh"])
+        self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = float(self.args["wallbox_plus_car_roundtrip_efficiency"])
+
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.
 
-        Hint: the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
+        Hint:
+        the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
         """
         self.log("Authenticating with FlexMeasures")
+        url = self.FM_API + "/requestAuthToken",
         res = requests.post(
-            self.args["fm_api"] + "/requestAuthToken",
+            url,
             json=dict(
-                email=self.args["fm_user_email"],
-                password=self.args["fm_user_password"],
+                email=self.FM_USER_EMAIL,
+                password=self.FM_USER_PASSWORD,
             ),
         )
         if not res.status_code == 200:
@@ -47,19 +76,19 @@ class FlexMeasuresClient(hass.Hass):
         except json.decoder.JSONDecodeError:
             self.log(f"{endpoint} failed ({res.status_code}) with response {res}")
 
-    def get_new_schedule(self):
+    def get_new_schedule(self, current_soc_kwh):
         """Get a new schedule from FlexMeasures.
 
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
         """
 
         # Ask to compute a new schedule by posting flex constraints while triggering the scheduler
-        schedule_id = self.trigger_schedule()
+        schedule_id = self.trigger_schedule(current_soc_kwh=current_soc_kwh)
 
         # Set a timer to get the schedule a little later
-        s = self.args["delay_for_initial_attempt_to_retrieve_schedule"]
+        s = self.DELAY_FOR_INITIAL_ATTEMPT
         self.log(f"Attempting to get schedule in {s} seconds")
-        self.run_in(self.get_schedule, delay=int(s), schedule_id=schedule_id)
+        self.run_in(self.get_schedule, delay=s, schedule_id=schedule_id)
 
     def get_schedule(self, kwargs, **fnc_kwargs):
         """GET a schedule message that has been requested by trigger_schedule.
@@ -69,9 +98,9 @@ class FlexMeasuresClient(hass.Hass):
         Pass the schedule id using kwargs["schedule_id"]=<schedule_id>.
         """
         schedule_id = kwargs["schedule_id"]
-        url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/sensors/" + str(self.args["fm_quasar_sensor_id"]) + "/schedules/" + schedule_id
+        url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/" + schedule_id
         message = {
-            "duration": self.args["fm_schedule_duration"],
+            "duration": self.FM_SCHEDULE_DURATION,
         }
         res = requests.get(
             url,
@@ -83,12 +112,11 @@ class FlexMeasuresClient(hass.Hass):
         else:
             self.log(f"GET schedule success: retrieved {res.status_code}")
         if res.json().get("status", None) == "UNKNOWN_SCHEDULE":
-            s = self.args["delay_for_reattempts_to_retrieve_schedule"]
-            attempts_left = kwargs.get("attempts_left",
-                                       self.args["max_number_of_reattempts_to_retrieve_schedule"])
+            s = self.DELAY_FOR_REATTEMPTS
+            attempts_left = kwargs.get("attempts_left", self.MAX_NUMBER_OF_REATTEMPTS)
             if attempts_left >= 1:
                 self.log(f"Reattempting to get schedule in {s} seconds (attempts left: {attempts_left})")
-                self.run_in(self.get_schedule, delay=int(s), attempts_left=attempts_left - 1,
+                self.run_in(self.get_schedule, delay=s, attempts_left=attempts_left - 1,
                             schedule_id=schedule_id)
             else:
                 self.log("Schedule cannot be retrieved. Any previous charging schedule will keep being followed.")
@@ -106,25 +134,24 @@ class FlexMeasuresClient(hass.Hass):
         """
 
         # Prepare the SoC measurement to be sent along with the scheduling request
-        soc_entity = self.get_state("input_number.car_state_of_charge_wh", attribute="all")
-        soc_value = float(soc_entity["state"]) / 1000  # to kWh
-        soc_datetime = datetime.now(tz=pytz.utc)  # soc_entity["last_changed"]
+        current_soc_kwh = fnc_kwargs["current_soc_kwh"]
+        self.log(f"trigger_schedule called with current_soc_kwh: {current_soc_kwh} kWh.")
 
         # Snap to sensor resolution
-        # soc_datetime = isodate.parse_datetime(soc_datetime)
+        soc_datetime = datetime.now(tz=pytz.utc)
         resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
         soc_datetime = time_round(soc_datetime, resolution).isoformat()
 
-        url = self.args["fm_api"] + "/" + self.args["fm_api_version"] + "/sensors/" + str(self.args["fm_quasar_sensor_id"]) + "/schedules/trigger"
+        url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/trigger"
         self.log(f"Triggering schedule by calling {url}")
 
-        # TODO AJO 2022-02-26: dit zou in fm_ha_module moeten zitten...
+        # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
         # Retrieve target SOC
-        car_reservation = self.get_state(self.args["fm_car_reservation_calendar"], attribute="all")
+        car_reservation = self.get_state(self.CAR_RESERVATION_CALENDAR, attribute="all")
         self.log(f"Car_reservation: {car_reservation}")
         if car_reservation is None or "description" not in car_reservation["attributes"]:
             # Set default target to 100% one week from now
-            target = self.args["fm_car_max_soc_in_kwh"]
+            target = self.CAR_MAX_SOC_IN_KWH
             target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
         else:
             # Depending on the type of calendar the description or message contains the possible target.
@@ -156,7 +183,7 @@ class FlexMeasuresClient(hass.Hass):
             target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
 
         message = {
-            "soc-at-start": soc_value,
+            "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
             "start": soc_datetime,
             "soc-targets": [
@@ -165,7 +192,7 @@ class FlexMeasuresClient(hass.Hass):
                     "datetime": target_datetime,
                 }
             ],
-            "roundtrip-efficiency": self.args["wallbox_plus_car_roundtrip_efficiency"]
+            "roundtrip-efficiency": self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         }
         self.log(message)
         res = requests.post(
@@ -173,16 +200,18 @@ class FlexMeasuresClient(hass.Hass):
             json=message,
             headers={"Authorization": self.fm_token},
         )
-        if res.status_code != 200:
+        schedule_id = None
+        if res.status_code == 200:
+            schedule_id = res.json()["schedule"]  # can still be None in case something went wong
+
+        if schedule_id is None:
             self.log_failed_response(res, url)
-            self.handle_response_errors(message, res, url, self.trigger_schedule, **fnc_kwargs)
+            self.handle_response_errors(message, res, url, self.trigger_schedule, *args, **fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
             return
-        else:
-            self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
-        self.log(f"Successfully triggered schedule. Result: {res.status_code}.")
-        schedule_id = res.json()["schedule"]
-        self.log(f"Schedule id: {schedule_id}")
+
+        self.log(f"Successfully triggered schedule. Schedule id: {schedule_id}")
+        self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
         return schedule_id
 
     def handle_response_errors(self, message, res, description, fnc, **fnc_kwargs):

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import adbase as ad
 import time
 import appdaemon.plugins.hass.hassapi as hass
@@ -65,8 +67,8 @@ class WallboxModbusMixin:
                 return
             cs = self.client.read_holding_registers(register)
             if cs is None:
-                self.log(f"Charger returned state = None, wait half a second and try again.")
-                time.sleep(1 / 2)
+                self.log(f"Charger returned state = None, wait 2 seconds and try again.")
+                time.sleep(2)
                 attempts += 1
                 continue
             cs = cs[0]
@@ -144,14 +146,14 @@ class WallboxModbusMixin:
             # To counter this we call "stop" from disconnect event.
             value = self.registers["actions"]["stop_charging"]
         elif action == "restart":
-            if self.last_restart < self.get_now()-datetime.timedelta(seconds=self.minimum_seconds_between_restarts):
+            if self.last_restart < self.get_now() - timedelta(seconds=self.minimum_seconds_between_restarts):
                 self.log(f"Not restarting charger, a restart has been requested already in the last {self.minimum_seconds_between_restarts} seconds.")
                 return
             self.log(f"RESTARTING charger...")
             value = self.registers["actions"]["restart_charger"]
             self.last_restart = self.get_now()
         else:
-            raise ValueError(f"Unknown option for action '{action}'")
+            raise ValueError(f"Unknown option for action: '{action}'")
 
         register = self.registers["set_action"]
         res = False
@@ -355,7 +357,7 @@ class WallboxModbusMixin:
         return
 
     def handle_soc_change(self, entity, attribute, old, new, kwargs):
-        # todo: move to main app
+        # todo: move to main app?
         if self.try_get_new_soc_in_process:
             self.log(
                 "Handle_soc_change called while getting a soc reading and not really charging. Stop processing the soc change")
@@ -381,7 +383,8 @@ class WallboxModbusMixin:
             self.log(f"New SoC '{reported_soc}' ignored.")
             return False
         self.connected_car_soc = round(reported_soc, 0)
-        self.log(f"New SoC processed, self.connected_car_soc is now set to: {reported_soc}%.")
+        self.connected_car_soc_kwh = round(reported_soc * float(self.args["fm_car_max_soc_in_kwh"]/100), 2)
+        self.log(f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%.")
         return True
 
     def handle_charger_in_error(self):
@@ -406,7 +409,7 @@ class WallboxModbusMixin:
             self.set_charger_action("restart")
         else:
             self.log("handle_charger_in_error, recheck error_state in 30 seconds.")
-            self.run_in(handle_charger_in_error, 30)
+            self.run_in(self.handle_charger_in_error, 30)
 
 
     def handle_charger_state_change(self, entity, attribute, old, new, kwargs):
@@ -426,7 +429,7 @@ class WallboxModbusMixin:
 
         if self.current_charger_state == new_charger_state:
             # Nothing has changed really. Update but not a change.
-            self.log(f"It now appears the Charger state has not changed at all.")
+            # self.log(f"It now appears the Charger state has not changed at all.")
             return
         self.log(f"Charger state changed from {self.current_charger_state} to {new_charger_state}.")
 
@@ -453,10 +456,14 @@ class WallboxModbusMixin:
         # Goes to this status when disconnected
         if new_charger_state == self.registers["disconnected_state"]:
             self.log("Charger state has changed to 'Disconnected'")
-            # Send this to FM?
             # Cancel current scheduling timers
             self.cancel_charging_timers()
 
+            # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
+            mode = self.get_state("input_select.charge_mode", None)
+            if mode == "Max boost now":
+                self.set_chargemode_to_automatic()
+                self.notify_user("Chargemode set to automatic (was Max boost Now) as car is disconnected.")
             # AJO0806
             # This might seem strange but sometimes the charger starts charging when
             # reconnected even though it has not received an instruction to do so.

@@ -12,7 +12,7 @@ We intend to add optimisation for your solar generation or the CO₂ content of 
 You can read more about the project and its vision [here](https://v2g-liberty.eu/) and [here](https://seita.nl/project/v2ghome-living-lab/).
 
 In practice, V2G Liberty does the following:
-- In automatic mode: Now worries, just plugin when you return home and let the system automatically optimize charging. 
+- In automatic mode: No worries, just plugin when you return home and let the system automatically optimize charging. 
 - Set targets (e.g. be charged 100% at 7am tomorrow) which prompts FlexMeasures to update its schedules.
 - Override the system and set charging to "Max Boost Now" mode in cases where you need as much battery SoC a possible quickly.
 

@@ -1,10 +1,3 @@
-<style>
-  body {
-    max-width: 50em;
-    margin: 3em;
-  }
-</style>
-
 # V2G Liberty: optimised vehicle-to-grid charging of your EV
 
 This integration lets you add full automatic and price optimized control over Vehicle to grid (V2G) charging. It has a practical local app in [HomeAssistant](https://www.home-assistant.io/) and uses the smart EMS [FlexMeasures](https://flexmeasures.io) for optimized schedules.

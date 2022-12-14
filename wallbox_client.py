@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import adbase as ad
 import time
 import appdaemon.plugins.hass.hassapi as hass
@@ -65,8 +67,8 @@ class WallboxModbusMixin:
                 return
             cs = self.client.read_holding_registers(register)
             if cs is None:
-                self.log(f"Charger returned state = None, wait half a second and try again.")
-                time.sleep(1 / 2)
+                self.log(f"Charger returned state = None, wait 2 seconds and try again.")
+                time.sleep(2)
                 attempts += 1
                 continue
             cs = cs[0]
@@ -144,14 +146,14 @@ class WallboxModbusMixin:
             # To counter this we call "stop" from disconnect event.
             value = self.registers["actions"]["stop_charging"]
         elif action == "restart":
-            if self.last_restart < self.get_now()-datetime.timedelta(seconds=self.minimum_seconds_between_restarts):
+            if self.last_restart < self.get_now() - timedelta(seconds=self.minimum_seconds_between_restarts):
                 self.log(f"Not restarting charger, a restart has been requested already in the last {self.minimum_seconds_between_restarts} seconds.")
                 return
             self.log(f"RESTARTING charger...")
             value = self.registers["actions"]["restart_charger"]
             self.last_restart = self.get_now()
         else:
-            raise ValueError(f"Unknown option for action '{action}'")
+            raise ValueError(f"Unknown option for action: '{action}'")
 
         register = self.registers["set_action"]
         res = False
@@ -355,7 +357,7 @@ class WallboxModbusMixin:
         return
 
     def handle_soc_change(self, entity, attribute, old, new, kwargs):
-        # todo: move to main app
+        # todo: move to main app?
         if self.try_get_new_soc_in_process:
             self.log(
                 "Handle_soc_change called while getting a soc reading and not really charging. Stop processing the soc change")
@@ -381,7 +383,8 @@ class WallboxModbusMixin:
             self.log(f"New SoC '{reported_soc}' ignored.")
             return False
         self.connected_car_soc = round(reported_soc, 0)
-        self.log(f"New SoC processed, self.connected_car_soc is now set to: {reported_soc}%.")
+        self.connected_car_soc_kwh = round(reported_soc * float(self.args["fm_car_max_soc_in_kwh"]/100), 2)
+        self.log(f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%.")
         return True
 
     def handle_charger_in_error(self):

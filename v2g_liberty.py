@@ -15,6 +15,13 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
     the FlexMeasures platform (which delivers the charging schedules).
     """
 
+
+    # CONSTANTS
+    # Fail-safe for processing schedules that might have schedule with too high
+    # update frequency
+    MIN_RESOLUTION: timedelta
+    CAR_MAX_SOC_IN_KWH: float
+
     # Utility variables for preventing a frozen app. Call set_next_action at least every x seconds
     timer_handle_set_next_action: str  # ToDo: Should be a general object instead of string
     call_next_action_atleast_every: int
@@ -22,6 +29,8 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
 
     # A SoC of 0 means: unknown/car not connected.
     connected_car_soc: int
+    connected_car_soc_kwh: float
+
     # Variable to store charger_state for comparison for change
     current_charger_state: int
     in_boost_to_reach_min_soc: bool
@@ -37,11 +46,15 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
 
     def initialize(self):
         self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
+        self.MIN_RESOLUTION = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
+        self.CAR_MAX_SOC_IN_KWH = float(self.args["fm_car_max_soc_in_kwh"])
+
         self.in_boost_to_reach_min_soc = False
         self.try_get_new_soc_in_process = False
         self.call_next_action_atleast_every = 15 * 60
         self.timer_handle_set_next_action = ""
         self.connected_car_soc = 0
+        self.connected_car_soc_kwh = 0
         # Force change event at initialisation
         self.current_charger_state = -1
 
@@ -56,10 +69,10 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
         self.listen_event(self.disconnect_charger, "DISCONNECT_CHARGER")
+        self.listen_event(self.restart_charger, "RESTART_CHARGER")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         self.listen_state(self.handle_calendar_change, self.args["fm_car_reservation_calendar"], attribute="all")
-        #Not firing??
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")
         self.scheduling_timer_handles = []
 
@@ -94,6 +107,21 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         # ToDo: Remove all schedules?
         self.notify_user("Charger disconnected charger.")
 
+    def restart_charger(self, *args, **kwargs):
+        """ Function to (forcefully) restart the charger.
+        Used when a crash is detected.
+        """
+        self.log("************* Restart of charger requested. *************")
+        self.set_charger_action("restart")
+        self.notify_user("Restart of charger initiated by user. Please check charger.")
+
+
+    #TODO: combine with same function in other modules??
+    def notify_user(self, message: str):
+        """ Utility function to send notifications to the user via HA.
+        """
+        self.notify(message, title="V2G Liberty")
+
     def handle_calendar_change(self, *args, **fnc_kwargs):
         self.log("Calendar update detected.")
         self.decide_whether_to_ask_for_new_schedule()
@@ -119,24 +147,17 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
             self.log(f"Not posting UDI event. SoC below minimum, boosting to reach that first.")
             return
 
-        # Get the SoC in Wh
-        soc_entity = self.get_state("input_number.car_state_of_charge_wh", attribute="all")
+        # The HA entity that was used connected_car_soc_wh is deprecated
+        # so this code needs to be refactored (or removed)
 
-        # Check whether the most recent SOC update represents a state change
-        if self.args.get("reschedule_on_soc_changes_only", True) and soc_entity["last_changed"] != soc_entity[
-            "last_updated"]:
-            self.log(f"Not posting UDI event. SoC Wh state update but not a state change")
-            # A state update but not a state change
-            # https://data.home-assistant.io/docs/states/
-            return
-
-        # Prepare the SoC measurement to be sent along with the scheduling request
-        soc = float(soc_entity["state"]) / 1000  # to kWh
-        soc_datetime = datetime.now(tz=pytz.utc)  # soc_entity["last_changed"]
-
-        self.log("getting new schedule")
-        # Otherwise, ask for a new schedule
-        self.get_app("flexmeasures-client").get_new_schedule()
+        # # Check whether the most recent SOC update represents a state change
+        # if self.args.get("reschedule_on_soc_changes_only", True) and soc_entity["last_changed"] != soc_entity[
+        #     "last_updated"]:
+        #     self.log(f"Not posting UDI event. SoC Wh state update but not a state change")
+        #     # A state update but not a state change
+        #     # https://data.home-assistant.io/docs/states/
+        #     return
+        self.get_app("flexmeasures-client").get_new_schedule(self.connected_car_soc_kwh)
 
     def cancel_charging_timers(self):
         # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles
@@ -169,10 +190,9 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         start = isodate.parse_datetime(schedule["start"])
 
         # Check against expected control signal resolution
-        min_resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
-        if resolution < min_resolution:
+        if resolution < self.MIN_RESOLUTION:
             self.log(
-                f"Stopped processing schedule; the resolution ({resolution}) is below the set minimum ({min_resolution})."
+                f"Stopped processing schedule; the resolution ({resolution}) is below the set minimum ({self.MIN_RESOLUTION})."
             )
             return
 
@@ -202,7 +222,7 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
             self.log(
                 f"input_number.car_state_of_charge ({soc}) is not equal to self.connected_car_soc ({self.connected_car_soc}), consider calling try_get_new_soc()")
         exp_soc_values = list(
-            accumulate([soc] + convert_MW_to_percentage_points(values, resolution, self.args["fm_car_max_soc_in_kwh"])))
+            accumulate([soc] + convert_MW_to_percentage_points(values, resolution, self.CAR_MAX_SOC_IN_KWH)))
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [dict(time=t.isoformat(), soc=round(v, 2)) for v, t in
                                                    zip(exp_soc_values, exp_soc_datetimes)]
@@ -339,7 +359,11 @@ class V2GLibertyApp(hass.Hass, WallboxModbusMixin):
         return
 
 
-def convert_MW_to_percentage_points(values_in_MW, resolution, max_soc_in_kWh):
+def convert_MW_to_percentage_points(
+    values_in_MW,
+    resolution: timedelta,
+    max_soc_in_kWh: float,
+):
     """
     For example, if a 62 kWh battery produces at 0.00575 MW for a period of 15 minutes,
     its SoC increases by just over 2.3%.

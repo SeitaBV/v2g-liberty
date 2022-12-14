@@ -1,0 +1,108 @@
+# This file contains the Modbus address information for the Wallbox Quasar 1 EVSE.
+# This is provided by the Wallbox Chargers S.L. as is.
+# For reference see https://wallbox.com/en_uk/quasar-dc-charger
+
+# The addresses are used by the V2G Liberty software for smart (dis-)charging
+# of V2G Vehicles.
+# For reference see: https://v2g-liberty.eu/
+
+# Wallbox is not provider of the software and does not provide any type of service
+# for the software.
+# Wallbox will not be responsible for any damage or malfunction generated on
+# the Charger by the Software.
+
+# Charger can be controlled by the app = user or by code = remote (Read/Write)
+# For all other settings mentioned here to work this setting must be remote.
+set_control: 0x0051
+user_control: 0
+remote_control: 1
+
+# Car state of charge.
+get_car_state_of_charge: 0x021A
+
+# Control if charger can be set through current setting or power setting (Read/Write)
+set_setpoint_type: 0x0053
+setpoint_types:
+  current: 0
+  power: 1
+
+# AC Max Charging Power (by phase) (Read/Write)
+# (int16) unit W, min -7400, max 7400
+# Used when set_setpoint_type = power
+set_power_setpoint: 0x0104
+
+# AC Max Charging Current (Read/Write)
+# (int16) unit A, min -32, max 32
+# Used when set_setpoint_type = current
+# To go from power (W) to current (Amps) divide by
+set_current_setpoint: 0x0102
+
+# Charger charging can be started/stopped remote (Read/Write)
+set_action: 0x0101
+actions:
+  start_charging: 1
+  stop_charging: 2
+  restart_charger: 3 # This pauses charging
+  update_software: 4
+
+# Start charging/discharging on EV-Gun connected
+# Resets to default (=enabled) when control set to user
+# Must be set to "disabled" when controlled from this code.
+set_charger_to_autostart_on_connect: 0x0052
+autostart_on_connect_setting:
+  enable: 1
+  disable: 0
+
+# Charger status (Readonly)
+get_status: 0x0219
+
+# Goes to this status when disconnected
+disconnected_state: 0
+
+# Connected and charging; goes to this status when action = start
+charging_state: &charging 1
+
+# Connected and waiting for car demand; sometimes shortly goes to this status when action = start
+waiting_state: &waiting 2
+
+# Connected and paused by user; goes to this status when action = stop or when gun is connected and auto start = disabled
+paused_state: &paused 4
+
+# In error; the charger sometimes returns error first minutes after restart
+error_state: 7
+
+# Connected and in queue by Power Boost
+# Power Boost is available in the Quasar since Q4 2021
+# The charger will lower the charging power if the power demand from the house becomes too big for one phase
+in_queue_state: &in_queue 10
+
+# Connected and discharging. This status is reached when the power or current setting is set to a negative value and the action = start
+discharging_state: &discharging 11
+
+# Unused charger statuses (for now)
+# 3: Connected: waiting for next schedule
+# 5: Connected: end of schedule
+# 6: Disconnected locked
+# 8: Connected: In queue by Power Sharing
+# 9: Unconfigured Power Sharing System
+
+# Charger state group definitions
+charging_states:
+  - *charging
+  - *discharging
+connected_states:
+  - *in_queue
+  - *waiting
+  - *paused
+  - *charging
+  - *discharging
+idle_states:
+  - *waiting
+  - *paused
+
+# Error codes
+error_registers:
+  - 0x021B # Unrecoverable errorcode high
+  - 0x021C # Unrecoverable errorcode low
+  - 0x021D # Recoverable errorcode high
+  - 0x021E # Recoverable errorcode low

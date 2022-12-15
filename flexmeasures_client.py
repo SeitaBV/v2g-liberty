@@ -57,7 +57,7 @@ class FlexMeasuresClient(hass.Hass):
         the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
         """
         self.log("Authenticating with FlexMeasures")
-        url = self.FM_API + "/requestAuthToken",
+        url = self.FM_API + "/requestAuthToken"
         res = requests.post(
             url,
             json=dict(

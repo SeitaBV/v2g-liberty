@@ -135,8 +135,8 @@ modbus:
     delay: 5
     timeout: 4
     type: tcp
-    host: 192.168.188.110
-    port: 502
+    host: !secret wallbox_host
+    port: !secret wallbox_port
     sensors:
       - name: charger_real_charging_power
         address: 526

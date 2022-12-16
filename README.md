@@ -1,11 +1,12 @@
 # V2G Liberty: optimised vehicle-to-grid charging of your EV
 
-This integration lets you add full automatic and price optimized control over Vehicle to grid (V2G) charging. It has a practical local app in [HomeAssistant](https://www.home-assistant.io/) and uses the smart EMS [FlexMeasures](https://flexmeasures.io) for optimized schedules.
+This integration lets you add full automatic and price optimized control over Vehicle to grid (V2G) charging. It has a 
+practical local app in [HomeAssistant](https://www.home-assistant.io/) and uses the smart EMS [FlexMeasures](https://flexmeasures.io) for optimized schedules.
 
-The schedules are optimized on EPEX day-ahead energy prices, so this works best with an electricity contract with dynamic (hourly) prices<sup>†</sup>.
+The schedules are optimized on EPEX day-ahead energy prices, so this works best with an electricity contract with dynamic (hourly) prices[^1].
 We intend to add optimisation for your solar generation or the CO₂ content of the grid in the near future.
 
-† For now: only Dutch energy prices, if you have interest in this software and live outside the Netherlands, please [contact us](https://v2g-liberty.eu/) to see what the options are.
+[^1]: For now: only Dutch energy prices, if you have interest in this software and live outside the Netherlands, please [contact us](https://v2g-liberty.eu/) to see what the options are.
 
 ![The V2G Liberty Dashboard](https://positive-design.nl/wp-content/uploads/2022/04/V2GL-1-1024x549.png)
 
@@ -387,6 +388,9 @@ v2g_liberty:
     - flexmeasures-client
     - wallbox-client
 
+  admin_mobile_name: !secret admin_mobile_name
+  admin_mobile_platform: !secret admin_mobile_platform
+
   fm_car_reservation_calendar: calendar.car_reservation
   fm_quasar_soc_event_resolution_in_minutes: !secret fm_quasar_event_resolution_in_minutes
   wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
@@ -451,9 +455,7 @@ homeassistant:
     v2g_pack: !include appdaemon/apps/v2g-liberty/app_config/v2g_liberty_package.yaml
 ```
 
-<<TODO: Add the dashboard yaml>>
-
-### Conveniant HA optimisations
+### Convenient HA optimisations
 
 These are "out of the box" super handy HA features that are highly recommended.
 
@@ -482,3 +484,10 @@ HA can be restarted by `Settings > System > Restart (top right)`.
 AppDaemon can be (re-)started via `Settings > Add-ons > AppDaemon > (Re-)start`.
 
 Now the system needs 5 to 10 minutes before it runs nicely. If a car is connected you should see a schedule comming in soon after.
+<style 
+  type="text/css">
+  body {
+    max-width: 50em;
+    margin: 4em;
+  }
+</style>

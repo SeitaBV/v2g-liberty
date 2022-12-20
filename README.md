@@ -209,7 +209,6 @@ fm_soc_entity_address: "your FM soc entity adres here"
 fm_api: https://flexmeasures.seita.nl/api
 fm_data_api: https://flexmeasures.seita.nl/api/
 fm_api_version: v3_0
-fm_data_api_post_meter_data: v2_0/postMeterData
 fm_data_api_post_sensor_data: v3_0/sensors/data
 
 # This represents how far ahead the schedule should look. Keep at this setting.

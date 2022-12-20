@@ -369,11 +369,11 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         minutes = duration - hours*60
         str_duration = "PT" + str(hours) + "H" + str(minutes) + "M"
 
-        url = self.args["fm_data_api"] + self.args["fm_data_api_post_meter_data"]
+        url = self.args["fm_data_api"] + self.args["fm_data_api_post_sensor_data"]
 
         message = {
-            "type": "PostMeterDataRequest",
-            "connection": self.args["fm_power_entity_address"],
+            "type": "PostSensorDataRequest",
+            "sensor": self.args["fm_power_entity_address"],
             "values": self.power_readings,
             "start": self.hourly_power_readings_since.isoformat() + "+01:00",
             "duration": str_duration,

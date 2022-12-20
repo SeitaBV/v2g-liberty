@@ -375,7 +375,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             "type": "PostSensorDataRequest",
             "sensor": self.args["fm_power_entity_address"],
             "values": self.power_readings,
-            "start": self.hourly_power_readings_since.isoformat() + "+01:00",
+            "start": self.hourly_power_readings_since.isoformat(),
             "duration": str_duration,
             "unit": "MW"
         }

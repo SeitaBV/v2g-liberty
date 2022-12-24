@@ -7,13 +7,16 @@
 
 lovelace:
   mode: storage
-  # These do not seem to work as supposed to (see https://github.com/RomRider/apexcharts-card#add-resource-reference).
+  # These do not seem to work as expected, maybe resources cannot be added in a package...
+  # see https://github.com/RomRider/apexcharts-card#add-resource-reference
   # So, currently these have to be added through the UI.
-  #  resources:
-  #    - url: /hacsfiles/apexcharts-card/apexcharts-card.js
-  #      type: module
-  #    - url: /hacsfiles/card-mod/card-mod.js
-  #      type: module
+  # This is why the mode is storage instead of the (expected?) yaml.
+  # resources:
+  #   - url: /hacsfiles/lovelace-card-mod/card-mod.js
+  #     type: module
+  #   - url: /hacsfiles/apexcharts-card/apexcharts-card.js
+  #     type: module
+ 
   dashboards:
     lovelace-yaml:
       mode: yaml
@@ -24,7 +27,6 @@ lovelace:
       require_admin: false
 
 input_select:
-  # - platform: template
   charge_mode:
     name: Charge mode
     options:
@@ -36,7 +38,6 @@ input_select:
     # ToDo: check if initial: Automatic is useful
 
 input_boolean:
-  # - platform: template
   error_epex_prices_cannot_be_retrieved:
     name: "Error: EPEX prices cannot be retrieved"
 
@@ -122,10 +123,6 @@ input_text:
 binary_sensor:
   - platform: rest
     name: "Is FlexMeasures live"
-    # ToDo 2022-08-25 AJO:
-    # test: URL changed
-    # WAS: resource: https://flexmeasures.seita.nl/v2g_fieldtest/api/home-assistant-ping
-
     resource: https://flexmeasures.seita.nl/api/ops/ping
     scan_interval: 1800
     value_template: "{{ value_json.status }}"

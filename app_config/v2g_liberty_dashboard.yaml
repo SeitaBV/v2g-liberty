@@ -11,50 +11,54 @@ views:
       - type: vertical-stack
         title: Charger
         cards:
-          - type: grid
-            cards:
-              - type: entity
-                entity: input_text.charger_state
-                name: ' '
-                card_mod:
-                  style: |
-                    ha-card {
-                      width: 130%;
-                    }
-                    ha-card div.info span {
-                      font-size: 90%;
-                    }
-              - type: button
-                tap_action:
-                  action: call-service
-                  service: script.disconnectnow
-                  service_data: {}
-                  target: {}
-                entity: ''
-                name: Disconnect now
-                icon: mdi:power-plug-off
-                icon_height: 25px
-                hold_action:
-                  action: none
-                card_mod:
-                  style: |
-                    ha-card {
-                      padding-top: 10px;
-                      width: 70%;
-                      margin-left: 30%;
-                    }
-            columns: 2
-            square: false
-          - type: gauge
-            max: 6000
-            name: Current charging power
-            entity: sensor.charger_real_charging_power
-            severity:
-              green: 0
-              yellow: 4000
-              red: 5600
-            min: -6000
-            needle: true
+          - type: markdown
+            entities:
+              - entity: input_text.charger_state
+              - entity: sensor.charger_real_charging_power
+            content: >-
+                <ha-icon icon="mdi:ev-station"></ha-icon>
+                <table><tbody><tr><th>
+                {{ states('input_text.charger_state') }}
+                </th><td>
+                {{ states('sensor.charger_real_charging_power') }}&nbsp;Watt
+                </td></tr></tbody></table>
+            card_mod:
+              style:
+                .: |
+                  ha-card {
+                    font-size: 123%;
+                  }
+                ha-markdown$: |
+                  table {
+                    width: 100%;
+                    max-width: 100%;
+                    margin: 8px 0;
+                  }
+                  th {
+                    font-weight: normal;
+                    text-align: left;
+                  }
+                  td {
+                    text-align: right;
+                    vertical-align: top;
+                  }
+          - type: button
+            tap_action:
+              action: call-service
+              service: script.disconnectnow
+              service_data: {}
+              target: {}
+            entity: ''
+            name: Disconnect now
+            icon: mdi:power-plug-off
+            icon_height: 40px
+            hold_action:
+              action: none
+            card_mod:
+              style: |
+                ha-card {
+                  padding-top: 10px;
+                }
       - type: vertical-stack
         title: Connected car
         cards:
@@ -298,9 +302,9 @@ views:
           - input_number.car_state_of_charge
           - input_select.charge_mode
           - update.appdaemon_update
-      - show_name: true
+      - type: button
+        show_name: true
         show_icon: true
-        type: button
         icon: mdi:reload-alert
         name: Restart charger
         trigger:

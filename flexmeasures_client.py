@@ -83,14 +83,18 @@ class FlexMeasuresClient(hass.Hass):
         ---------
         https://flexmeasures.readthedocs.io/en/latest/api/introduction.html#deprecation-and-sunset
         """
-        # Go through the response headers in their given order
-        for header, content in res.headers:
-            if header == "Deprecation":
-                self.log(f"Your request to {url} returned a deprecation warning. Deprecation: {content}")
-            elif header == "Sunset":
-                self.log(f"Your request to {url} returned a sunset warning. Sunset: {content}")
-            elif header == "Link" and ('rel="deprecation";' in content or 'rel="sunset";' in content):
-                self.log(f"Further info is available: {content}")
+        warnings = res.headers.get_all("Deprecation") + res.headers.get_all("Sunset")
+        if warnings:
+            message = f"Your request to {url} returned {'a warning' if len(warnings) == 1 else f'{len(warnings)} warnings'}."
+            # Go through the response headers in their given order
+            for header, content in res.headers:
+                if header == "Deprecation":
+                    message += f"\nDeprecation: {content}."
+                elif header == "Sunset":
+                    message += f"\nSunset: {content}."
+                elif header == "Link" and ('rel="deprecation";' in content or 'rel="sunset";' in content):
+                    message += f" Link for further info: {content}"
+            self.log(message)
 
     def get_new_schedule(self, current_soc_kwh):
         """Get a new schedule from FlexMeasures.

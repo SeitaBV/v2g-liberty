@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import json
 import math
 import requests
-from typing import List
+from typing import List, Union
 import appdaemon.plugins.hass.hassapi as hass
 from wallbox_client import WallboxModbusMixin
 from util_functions import time_round, time_ceil
@@ -69,9 +69,9 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     current_availability_since: datetime
     availability_readings: List[float]
 
-    # State of Charge (SoC) of connected car battery. If not connected set to -1.
-    soc_readings: List[int]
-    connected_car_soc: int
+    # State of Charge (SoC) of connected car battery. If not connected set to None.
+    soc_readings: List[Union[int, None]]
+    connected_car_soc: Union[int, None]
 
     
     def initialize(self):
@@ -89,7 +89,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         self.listen_state(self.handle_charge_power_change, "sensor.charger_real_charging_power", attribute="all")
 
         # SoC related
-        self.connected_car_soc = -1
+        self.connected_car_soc = None
         self.soc_readings = []
 
         # Availability related
@@ -127,12 +127,12 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         if isinstance(reported_soc, str):
             if not reported_soc.isnumeric():
                 # Sometimes the charger returns "Unknown" or "Undefined" or "Unavailable"
-                self.connected_car_soc = -1
+                self.connected_car_soc = None
                 return
             reported_soc = int(round(float(reported_soc), 0))
 
         if reported_soc == 0:
-            self.connected_car_soc = -1
+            self.connected_car_soc = None
             return
 
         self.log(f"Processed reported SoC, self.connected_car_soc is now set to: {reported_soc}%.")

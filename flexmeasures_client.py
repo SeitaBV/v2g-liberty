@@ -186,16 +186,18 @@ class FlexMeasuresClient(hass.Hass):
             target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
 
         message = {
-            "soc-at-start": current_soc_kwh,
-            "soc-unit": "kWh",
-            "start": soc_datetime,
-            "soc-targets": [
-                {
-                    "value": target,
-                    "datetime": target_datetime,
-                }
-            ],
-            "roundtrip-efficiency": self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY
+            "flex-model": {
+                "soc-at-start": current_soc_kwh,
+                "soc-unit": "kWh",
+                "start": soc_datetime,
+                "soc-targets": [
+                    {
+                        "value": target,
+                        "datetime": target_datetime,
+                    }
+                ],
+                "roundtrip-efficiency": self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY
+            }
         }
         self.log(f"Trigger_schedule with message: {message}.")
         res = requests.post(

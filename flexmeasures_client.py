@@ -64,6 +64,7 @@ class FlexMeasuresClient(hass.Hass):
                 password=self.FM_USER_PASSWORD,
             ),
         )
+        self.check_deprecation_and_sunset(url, res)
         if not res.status_code == 200:
             self.log_failed_response(res, url)
         self.fm_token = res.json()["auth_token"]
@@ -74,6 +75,22 @@ class FlexMeasuresClient(hass.Hass):
             self.log(f"{endpoint} failed ({res.status_code}) with JSON response {res.json()}")
         except json.decoder.JSONDecodeError:
             self.log(f"{endpoint} failed ({res.status_code}) with response {res}")
+
+    def check_deprecation_and_sunset(self, url, res):
+        """Log deprecation and sunset headers, along with info links.
+
+        Reference
+        ---------
+        https://flexmeasures.readthedocs.io/en/latest/api/introduction.html#deprecation-and-sunset
+        """
+        # Go through the response headers in their given order
+        for header, content in res.headers:
+            if header == "Deprecation":
+                self.log(f"Your request to {url} returned a deprecation warning. Deprecation: {content}")
+            elif header == "Sunset":
+                self.log(f"Your request to {url} returned a sunset warning. Sunset: {content}")
+            elif header == "Link" and ('rel="deprecation";' in content or 'rel="sunset";' in content):
+                self.log(f"Further info is available: {content}")
 
     def get_new_schedule(self, current_soc_kwh):
         """Get a new schedule from FlexMeasures.
@@ -106,6 +123,7 @@ class FlexMeasuresClient(hass.Hass):
             params=message,
             headers={"Authorization": self.fm_token},
         )
+        self.check_deprecation_and_sunset(url, res)
         if res.status_code != 200:
             self.log_failed_response(res, url)
         else:
@@ -203,6 +221,7 @@ class FlexMeasuresClient(hass.Hass):
             json=message,
             headers={"Authorization": self.fm_token},
         )
+        self.check_deprecation_and_sunset(url, res)
         schedule_id = None
         if res.status_code == 200:
             schedule_id = res.json()["schedule"]  # can still be None in case something went wong

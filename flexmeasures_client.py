@@ -64,6 +64,7 @@ class FlexMeasuresClient(hass.Hass):
                 password=self.FM_USER_PASSWORD,
             ),
         )
+        self.check_deprecation_and_sunset(url, res)
         if not res.status_code == 200:
             self.log_failed_response(res, url)
         self.fm_token = res.json()["auth_token"]
@@ -74,6 +75,26 @@ class FlexMeasuresClient(hass.Hass):
             self.log(f"{endpoint} failed ({res.status_code}) with JSON response {res.json()}")
         except json.decoder.JSONDecodeError:
             self.log(f"{endpoint} failed ({res.status_code}) with response {res}")
+
+    def check_deprecation_and_sunset(self, url, res):
+        """Log deprecation and sunset headers, along with info links.
+
+        Reference
+        ---------
+        https://flexmeasures.readthedocs.io/en/latest/api/introduction.html#deprecation-and-sunset
+        """
+        warnings = res.headers.get_all("Deprecation") + res.headers.get_all("Sunset")
+        if warnings:
+            message = f"Your request to {url} returned {'a warning' if len(warnings) == 1 else f'{len(warnings)} warnings'}."
+            # Go through the response headers in their given order
+            for header, content in res.headers:
+                if header == "Deprecation":
+                    message += f"\nDeprecation: {content}."
+                elif header == "Sunset":
+                    message += f"\nSunset: {content}."
+                elif header == "Link" and ('rel="deprecation";' in content or 'rel="sunset";' in content):
+                    message += f" Link for further info: {content}"
+            self.log(message)
 
     def get_new_schedule(self, current_soc_kwh):
         """Get a new schedule from FlexMeasures.
@@ -106,6 +127,7 @@ class FlexMeasuresClient(hass.Hass):
             params=message,
             headers={"Authorization": self.fm_token},
         )
+        self.check_deprecation_and_sunset(url, res)
         if res.status_code != 200:
             self.log_failed_response(res, url)
         else:
@@ -203,6 +225,7 @@ class FlexMeasuresClient(hass.Hass):
             json=message,
             headers={"Authorization": self.fm_token},
         )
+        self.check_deprecation_and_sunset(url, res)
         schedule_id = None
         if res.status_code == 200:
             schedule_id = res.json()["schedule"]  # can still be None in case something went wong

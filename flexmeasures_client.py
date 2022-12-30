@@ -208,10 +208,10 @@ class FlexMeasuresClient(hass.Hass):
             target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
 
         message = {
+            "start": soc_datetime,
             "flex-model": {
                 "soc-at-start": current_soc_kwh,
                 "soc-unit": "kWh",
-                "start": soc_datetime,
                 "soc-targets": [
                     {
                         "value": target,

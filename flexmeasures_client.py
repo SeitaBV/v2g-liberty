@@ -82,11 +82,12 @@ class FlexMeasuresClient(hass.Hass):
         ---------
         https://flexmeasures.readthedocs.io/en/latest/api/introduction.html#deprecation-and-sunset
         """
-        warnings = res.headers.get_all("Deprecation") + res.headers.get_all("Sunset")
+        self.log(res.headers)
+        warnings = res.headers.get("Deprecation") or res.headers.get("Sunset")
         if warnings:
-            message = f"Your request to {url} returned {'a warning' if len(warnings) == 1 else f'{len(warnings)} warnings'}."
+            message = f"Your request to {url} returned a warning."
             # Go through the response headers in their given order
-            for header, content in res.headers:
+            for header, content in res.headers.items():
                 if header == "Deprecation":
                     message += f"\nDeprecation: {content}."
                 elif header == "Sunset":

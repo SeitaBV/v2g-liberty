@@ -1,11 +1,10 @@
 from datetime import datetime, timedelta
+import json
 import pytz
 import re
 import requests
-import time
 import isodate
-from typing import Optional
-from util_functions import time_mod, time_round
+from util_functions import time_round
 
 import appdaemon.plugins.hass.hassapi as hass
 

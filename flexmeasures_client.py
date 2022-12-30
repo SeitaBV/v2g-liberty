@@ -82,7 +82,6 @@ class FlexMeasuresClient(hass.Hass):
         ---------
         https://flexmeasures.readthedocs.io/en/latest/api/introduction.html#deprecation-and-sunset
         """
-        self.log(res.headers)
         warnings = res.headers.get("Deprecation") or res.headers.get("Sunset")
         if warnings:
             message = f"Your request to {url} returned a warning."

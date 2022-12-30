@@ -436,11 +436,11 @@ set_fm_data:
   fm_soc_entity_address: !secret fm_soc_entity_address
 
   fm_chargepower_resolution_in_minutes: !secret fm_quasar_event_resolution_in_minutes
+  car_min_soc_in_percent: !secret car_min_soc_in_percent
 
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
   wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
-
 ```
 
 ## Configure HA to use v2g-liberty

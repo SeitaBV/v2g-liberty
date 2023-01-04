@@ -479,7 +479,7 @@ class WallboxModbusMixin:
             self.cancel_charging_timers()
             # This might seem strange but sometimes the charger starts charging when
             # reconnected even though it has not received an instruction to do so.
-            self.set_action("stop")
+            self.set_charger_action("stop")
 
             # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
             mode = self.get_state("input_select.charge_mode", None)

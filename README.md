@@ -412,6 +412,7 @@ get_fm_data:
   fm_api: !secret fm_api
   fm_data_api: !secret fm_data_api
   fm_data_api_epex: !secret fm_data_api_epex
+  fm_data_api_co2: !secret fm_data_api_co2
   fm_data_user_email: !secret fm_user_email
   fm_data_user_password: !secret fm_user_password
   fm_data_entity_address: !secret fm_quasar_entity_address

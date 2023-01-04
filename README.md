@@ -257,8 +257,7 @@ wallbox_max_charging_power: XXXX
 wallbox_max_discharging_power: XXXX
 
 # For transforming the raw EPEX (from FM) to net price to be shown in UI.
-# For NL: Temporary VAT reduction per 2022-07-01 to 9%, normally 21%
-VAT: 1.09
+VAT: 1.21
 # FOR NL: 2022 ODE € 0,0305 and Energiebelasting € 0,036790 combined
 markup_per_kWh: 0.067290
 

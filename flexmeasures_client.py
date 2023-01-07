@@ -152,8 +152,7 @@ class FlexMeasuresClient(hass.Hass):
             params=message,
             headers={"Authorization": self.fm_token},
         )
-        self.check_deprecation_and_sunset(url, res)
-        if res.status_code != 200:
+        if (res.status_code != 200) or (res.json is None):
             self.log_failed_response(res, url)
         else:
             self.log(f"GET schedule success: retrieved {res.status_code}")
@@ -168,7 +167,10 @@ class FlexMeasuresClient(hass.Hass):
                 self.log("Schedule cannot be retrieved. Any previous charging schedule will keep being followed.")
                 self.fm_busy_getting_schedule = False
             return
+
+        self.log(f"GET schedule success: retrieved {res.status_code}")
         self.fm_busy_getting_schedule = False
+        self.check_deprecation_and_sunset(url, res)
 
         schedule = res.json()
         self.log(f"Schedule {schedule}")

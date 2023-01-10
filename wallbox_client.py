@@ -401,7 +401,7 @@ class WallboxModbusMixin:
             self.log(f"New SoC '{reported_soc}' ignored.")
             return False
         self.connected_car_soc = round(reported_soc, 0)
-        self.connected_car_soc_kwh = round(reported_soc * float(self.args["fm_car_max_soc_in_kwh"]/100), 2)
+        self.connected_car_soc_kwh = round(reported_soc * float(self.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
         self.log(f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%.")
         return True
 

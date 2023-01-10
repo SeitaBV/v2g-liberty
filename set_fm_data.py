@@ -406,8 +406,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
                 return self.connected_car_soc >= self.CAR_MIN_SOC_IN_PERCENT
         return False
 
-
-
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.
         Hint: the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.

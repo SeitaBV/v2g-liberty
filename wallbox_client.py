@@ -6,6 +6,7 @@ import appdaemon.plugins.hass.hassapi as hass
 from pyModbusTCP.client import ModbusClient
 
 
+
 class WallboxModbusMixin:
     """ This class manages the communication with the Wallbox charger, using Modbus."""
 
@@ -395,7 +396,7 @@ class WallboxModbusMixin:
         """
         try:
             reported_soc = float(reported_soc)
-            assert reported_soc > 0 and reported_soc <= 100
+            assert 0 < reported_soc <= 100
         except (TypeError, AssertionError, ValueError):
             self.log(f"New SoC '{reported_soc}' ignored.")
             return False

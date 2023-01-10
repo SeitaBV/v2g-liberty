@@ -441,7 +441,6 @@ set_fm_data:
 
   fm_api: !secret fm_api
   fm_data_api: !secret fm_data_api
-  fm_data_api_post_meter_data: !secret fm_data_api_post_meter_data
   fm_data_api_post_sensor_data: !secret fm_data_api_post_sensor_data
   fm_data_user_email: !secret fm_user_email
   fm_data_user_password: !secret fm_user_password

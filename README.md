@@ -227,9 +227,9 @@ wallbox_port: XXX
 #############   CAR & POWER-CONNECTION CONFIGURATION   #########################
 ## ALWAYS CHECK/CHANGE ##
 
-# The maximum energy storage capacity of the battery of the car, as an integer.
-# For the Nissan Leaf this is usually 24, 40 or 62
-car_max_capacity_in_kwh: 62
+# The maximum usable energy storage capacity of the battery of the car, as an integer.
+# For the Nissan Leaf this is usually 21, 36 or 56 kWh 
+car_max_capacity_in_kwh: 56
 
 # What would you like to be the minimum charge in your battery?
 # The scheduling will not discharge below this value and if the car returns with
@@ -247,6 +247,17 @@ car_max_capacity_in_kwh: 62
 # minimum SoC. If this happens try a value 1 higher or lower.
 # The setting must be an integer between 10 and 30%, default is 20%.
 car_min_soc_in_percent: 18
+
+# What would you like to be the maximum charge in your car battery?
+# The schedule will use this for regular scheduling. It can be used to further
+# protect the battery from degredation as a 100% charge (for longer periods) may
+# reduce battery health/life time. 
+# When a calendar item is present, the schedule will ignore this setting and
+# try to charge to 100% (or if the calendar item has a target use that).
+# A low setting reduces schedule flexibility and so the capability to earn
+# money and reduce emissions.
+# The setting must be an integer value between 60 and 100, default is 100.
+car_max_soc_in_percent: 85 
 
 # Max (dis-)charge rate in Watt.
 # If a load-balancer (Power Boost for WB) is installed it is safe to use maximum
@@ -363,10 +374,13 @@ flexmeasures-client:
   delay_for_reattempts_to_retrieve_schedule: 30
   delay_for_initial_attempt_to_retrieve_schedule: 10
 
-  fm_car_max_soc_in_kwh: !secret car_max_capacity_in_kwh
+  car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
+  car_min_soc_in_percent: !secret car_min_soc_in_percent
+  car_max_soc_in_percent: !secret car_max_soc_in_percent
+  wallbox_plus_car_roundtrip_efficiency: 0.85
+
   fm_car_reservation_calendar: !secret car_calendar_name
   fm_car_reservation_calendar_timezone: !secret car_calendar_timezone
-  wallbox_plus_car_roundtrip_efficiency: 0.85
 
 wallbox-client:
   module: wallbox_client
@@ -393,7 +407,7 @@ v2g_liberty:
   fm_car_reservation_calendar: calendar.car_reservation
   fm_quasar_soc_event_resolution_in_minutes: !secret fm_quasar_event_resolution_in_minutes
   wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
-  fm_car_max_soc_in_kwh: !secret car_max_capacity_in_kwh
+  car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
   car_min_soc_in_percent: !secret car_min_soc_in_percent
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port

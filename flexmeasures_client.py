@@ -27,10 +27,14 @@ class FlexMeasuresClient(hass.Hass):
     DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
     DELAY_FOR_REATTEMPTS: int  # number of seconds
     CAR_RESERVATION_CALENDAR: str
+    CAR_MAX_CAPACITY_IN_KWH: float
+    CAR_MIN_SOC_IN_PERCENT: int
+    CAR_MAX_SOC_IN_PERCENT: int
+    CAR_MIN_SOC_IN_KWH: float
     CAR_MAX_SOC_IN_KWH: float
     WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float
 
-    # FM Authentiction token
+    # FM Authentication token
     fm_token: str
     # Helper to prevent parallel calls to FM for getting a schedule
     fm_busy_getting_schedule: bool
@@ -50,7 +54,21 @@ class FlexMeasuresClient(hass.Hass):
         self.MAX_NUMBER_OF_REATTEMPTS = int(self.args["max_number_of_reattempts_to_retrieve_schedule"])
         self.DELAY_FOR_INITIAL_ATTEMPT = int(self.args["delay_for_initial_attempt_to_retrieve_schedule"])
         self.CAR_RESERVATION_CALENDAR = self.args["fm_car_reservation_calendar"]
-        self.CAR_MAX_SOC_IN_KWH = float(self.args["fm_car_max_soc_in_kwh"])
+
+        self.CAR_MAX_CAPACITY_IN_KWH = float(self.args["car_max_capacity_in_kwh"])
+
+        # ToDo: AJO 2022-12-30: This code is copied in several modules: combine!
+        self.CAR_MIN_SOC_IN_PERCENT = int(float(self.args["car_min_soc_in_percent"]))
+        # Make sure this value is between 10 en 30
+        self.CAR_MIN_SOC_IN_PERCENT = max(min(30, self.CAR_MIN_SOC_IN_PERCENT), 10)
+
+        self.CAR_MAX_SOC_IN_PERCENT = int(float(self.args["car_max_soc_in_percent"]))
+        # Make sure this value is between 60 en 100
+        self.CAR_MAX_SOC_IN_PERCENT = max(min(100, self.CAR_MAX_SOC_IN_PERCENT), 60)
+
+        self.CAR_MIN_SOC_IN_KWH = self.CAR_MAX_CAPACITY_IN_KWH * self.CAR_MIN_SOC_IN_PERCENT / 100
+        self.CAR_MAX_SOC_IN_KWH = self.CAR_MAX_CAPACITY_IN_KWH * self.CAR_MAX_SOC_IN_PERCENT / 100
+
         self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = float(self.args["wallbox_plus_car_roundtrip_efficiency"])
 
         self.previous_trigger_message = ""
@@ -135,7 +153,7 @@ class FlexMeasuresClient(hass.Hass):
 
         Pass the schedule id using kwargs["schedule_id"]=<schedule_id>.
         """
-        # Just to be sure also set this her, it's primairy point for setting to true is in get_new_schedule
+        # Just to be sure also set this her, it's primary point for setting to true is in get_new_schedule
         self.fm_busy_getting_schedule = True
 
         schedule_id = kwargs["schedule_id"]
@@ -199,7 +217,7 @@ class FlexMeasuresClient(hass.Hass):
                 ("description" not in car_reservation["attributes"] and
                  "message" not in car_reservation["attributes"]):
             # Set default target to 100% one week from now
-            target = self.CAR_MAX_SOC_IN_KWH
+            target = self.CAR_MAX_CAPACITY_IN_KWH
             target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
         else:
             # Depending on the type of calendar the description or message contains the possible target.
@@ -212,17 +230,18 @@ class FlexMeasuresClient(hass.Hass):
                 # No kWh number found, try searching for a number in %
                 target = search_for_soc_target("%", text_to_search_in)
                 if target is None:
-                    target = self.CAR_MAX_SOC_IN_KWH
+                    target = self.CAR_MAX_CAPACITY_IN_KWH
                 else:
-                    target = round(float(target) / 100 * self.CAR_MAX_SOC_IN_KWH, 2)
+                    target = round(float(target) / 100 * self.CAR_MAX_CAPACITY_IN_KWH, 2)
 
-            if target > self.CAR_MAX_SOC_IN_KWH:
-                target = self.CAR_MAX_SOC_IN_KWH
+            if target > self.CAR_MAX_CAPACITY_IN_KWH:
+                target = self.CAR_MAX_CAPACITY_IN_KWH
             else:
-                MIN_SOC_PERCENT = 30
-                min_soc_kwh = round(float(self.CAR_MAX_SOC_IN_KWH * MIN_SOC_PERCENT / 100), 2)
-                if target < min_soc_kwh:
-                    target = min_soc_kwh
+                # A targets in a calendar item below 30% are not acceptable (not relevant)
+                min_acceptable_target_in_percent = 30 / 100
+                min_acceptable_target_in_kwh = self.CAR_MAX_CAPACITY_IN_KWH * min_acceptable_target_in_percent
+                if target < min_acceptable_target_in_kwh:
+                    target = min_acceptable_target_in_kwh
 
             self.log(f"Target SoC from calendar: {target} kWh.")
 

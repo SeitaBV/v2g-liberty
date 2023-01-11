@@ -46,8 +46,6 @@ class FlexMeasuresDataImporter(hass.Hass):
         # At init also run this as (re-) start is not always around self.first_try_time
         self.daily_kickoff_emissions_data()
 
-
-
         self.log(f"Done setting up get_fm_data: check daily at {self.first_try_time_price_data} for new data with FM.")
 
     def notify_user(self, message: str):

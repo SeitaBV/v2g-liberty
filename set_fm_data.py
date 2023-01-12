@@ -36,6 +36,9 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     the SoC does not change very often in an interval.
     """
 
+    # Availability = false below minimum SoC
+    CAR_MIN_SOC_IN_PERCENT: int
+
     # Access token for FM
     fm_token: str
 
@@ -75,6 +78,11 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
 
     
     def initialize(self):
+        # ToDo: AJO 2022-12-30: This code is copied in several modules: combine!
+        self.CAR_MIN_SOC_IN_PERCENT = int(float(self.args["car_min_soc_in_percent"]))
+        # Make sure this value is between 10 en 30
+        self.CAR_MIN_SOC_IN_PERCENT = max(min(30, self.CAR_MIN_SOC_IN_PERCENT), 10)
+
         self.readings_resolution = self.args["fm_chargepower_resolution_in_minutes"]
         self.client = self.configure_charger_client()
         local_now = self.get_now()

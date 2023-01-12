@@ -211,45 +211,63 @@ class FlexMeasuresClient(hass.Hass):
         url = self.FM_URL + "trigger"
 
         # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
-        # Retrieve target SOC
+        # Set default target_soc to 100% one week from now
+        target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
+        target_soc = self.CAR_MAX_CAPACITY_IN_KWH
+
+        # Check if calendar has a relevant item that is within one week from now.
+        # If so try to retrieve target_soc
         car_reservation = self.get_state(self.CAR_RESERVATION_CALENDAR, attribute="all")
-        self.log(f"Car_reservation: {car_reservation}")
-        if car_reservation is None or \
-                ("description" not in car_reservation["attributes"] and
-                 "message" not in car_reservation["attributes"]):
-            # Set default target to 100% one week from now
-            target = self.CAR_MAX_CAPACITY_IN_KWH
-            target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
+        # This should get the first item from the calendar. It only does when the item is too far in the future,
+        # unfortunately we don't exactly when that is and how to influence that. If the item is too far in the future
+        # it returns a general entity that does not contain a start_time, message or description.
+
+        if car_reservation is None:
+            self.log("No calendar item found, no calendar configured?")
         else:
-            # Depending on the type of calendar the description or message contains the possible target.
-            text_to_search_in = car_reservation["attributes"]["message"] + " " + car_reservation["attributes"][
-                "description"]
+            self.log(f"Calender: {car_reservation}")
+            calendar_item_start = car_reservation["attributes"]["start_time"]
+            if calendar_item_start is not None:
+                calendar_item_start = isodate.parse_datetime(calendar_item_start.replace(" ", "T")).astimezone(
+                    pytz.timezone("Europe/Amsterdam")).isoformat()
+                if calendar_item_start < target_datetime:
+                    # There is a relevant calendar item with a start date less than a week in the future.
+                    # Set the calendar_item_start as the target for the schedule
+                    target_datetime = time_round(isodate.parse_datetime(calendar_item_start), resolution).isoformat()
 
-            # First try searching for a number in kWh
-            target = search_for_soc_target("kWh", text_to_search_in)
-            if target is None:
-                # No kWh number found, try searching for a number in %
-                target = search_for_soc_target("%", text_to_search_in)
-                if target is None:
-                    target = self.CAR_MAX_CAPACITY_IN_KWH
-                else:
-                    target = round(float(target) / 100 * self.CAR_MAX_CAPACITY_IN_KWH, 2)
+                    # Now try to retrieve target_soc.
+                    # Depending on the type of calendar the description or message contains the possible target_soc.
+                    m = car_reservation["attributes"]["message"]
+                    d = car_reservation["attributes"]["description"]
+                    # Prevent concatenation of possible None values
+                    text_to_search_in = " ".join(filter(None, [m, d]))
 
-            if target > self.CAR_MAX_CAPACITY_IN_KWH:
-                target = self.CAR_MAX_CAPACITY_IN_KWH
-            else:
-                # A targets in a calendar item below 30% are not acceptable (not relevant)
-                min_acceptable_target_in_percent = 30 / 100
-                min_acceptable_target_in_kwh = self.CAR_MAX_CAPACITY_IN_KWH * min_acceptable_target_in_percent
-                if target < min_acceptable_target_in_kwh:
-                    target = min_acceptable_target_in_kwh
+                    # First try searching for a number in kWh
+                    target_soc = search_for_soc_target("kWh", text_to_search_in)
+                    if target_soc is None:
+                        # No kWh number found, try searching for a number in %
+                        target_soc = search_for_soc_target("%", text_to_search_in)
+                        if target_soc is not None:
+                            self.log(f"Target SoC from calendar: {target_soc} %.")
+                            target_soc = round(float(target_soc) / 100 * self.CAR_MAX_CAPACITY_IN_KWH, 2)
+                        else:
+                            target_soc = self.CAR_MAX_CAPACITY_IN_KWH
+                    else:
+                        self.log(f"Target SoC from calendar: {target_soc} kWh.")
 
-            self.log(f"Target SoC from calendar: {target} kWh.")
-
-            target_datetime = isodate.parse_datetime(
-                car_reservation["attributes"]["start_time"].replace(" ", "T")).astimezone(
-                pytz.timezone("Europe/Amsterdam")).isoformat()
-            target_datetime = time_round(isodate.parse_datetime(target_datetime), resolution).isoformat()
+                    # Prevent target_soc above max_capacity
+                    if target_soc > self.CAR_MAX_CAPACITY_IN_KWH:
+                        self.log(f"Target SoC from calendar too high: {target_soc}, "
+                                 f"adjusted to {self.CAR_MAX_CAPACITY_IN_KWH}kWh.")
+                        target_soc = self.CAR_MAX_CAPACITY_IN_KWH
+                    else:
+                        # A targets in a calendar item below 30% are not acceptable (not relevant)
+                        min_acceptable_target_in_percent = 30 / 100
+                        min_acceptable_target_in_kwh = self.CAR_MAX_CAPACITY_IN_KWH * min_acceptable_target_in_percent
+                        if target_soc < min_acceptable_target_in_kwh:
+                            self.log(f"Target SoC from calendar too low: {target_soc}, "
+                                     f"adjusted to {min_acceptable_target_in_kwh}kWh.")
+                            target_soc = min_acceptable_target_in_kwh
 
         message = {
             "start": soc_datetime,
@@ -258,7 +276,7 @@ class FlexMeasuresClient(hass.Hass):
                 "soc-unit": "kWh",
                 "soc-targets": [
                     {
-                        "value": target,
+                        "value": target_soc,
                         "datetime": target_datetime,
                     }
                 ],

@@ -84,7 +84,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.listen_event(self.disconnect_charger, "DISCONNECT_CHARGER")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
-        self.listen_state(self.handle_calendar_change, self.args["fm_car_reservation_calendar"], attribute="all")
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")
         self.scheduling_timer_handles = []
 
@@ -150,17 +149,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         else:
             self.notify(message, title="V2G Liberty")
 
-    def handle_calendar_change(self, *args, **fnc_kwargs):
-        """Helper function to trace changes in calendar. Redirects to decide_whether_to_ask_for_new_schedule"""
-        self.log("Calendar update detected.")
-        self.log(f"The calendar is: {args}")
-        self.decide_whether_to_ask_for_new_schedule()
-
     def decide_whether_to_ask_for_new_schedule(self):
         """
         This function is meant to be called upon:
         - SOC updates
-        - calendar updates
         - charger state updates
         - every 15 minutes if none of the above
         """

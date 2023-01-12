@@ -203,6 +203,7 @@ calendar:
     username: !secret caldavUN
     password: !secret caldavPWD
     url: !secret caldavURL
+    days: 7
 
 script:
   disconnectnow:

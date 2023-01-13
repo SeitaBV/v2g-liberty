@@ -19,8 +19,6 @@ class FlexMeasuresClient(hass.Hass):
 
     # Constants
     FM_API: str
-    # FM_API_VERSION: str
-    # FM_QUASAR_SENSOR_ID: str
     FM_URL: str
     FM_SCHEDULE_DURATION: str
     FM_USER_EMAIL: str
@@ -41,8 +39,6 @@ class FlexMeasuresClient(hass.Hass):
 
     def initialize(self):
         self.FM_API = self.args["fm_api"]
-        # self.FM_API_VERSION = self.args["fm_api_version"]
-        # self.FM_QUASAR_SENSOR_ID = str(self.args["fm_quasar_sensor_id"])
         self.FM_URL = self.FM_API + "/" + \
                       self.args["fm_api_version"] + "/sensors/" + \
                       str(self.args["fm_quasar_sensor_id"]) + "/schedules/"
@@ -152,6 +148,7 @@ class FlexMeasuresClient(hass.Hass):
             params=message,
             headers={"Authorization": self.fm_token},
         )
+        self.check_deprecation_and_sunset(url, res)
         if (res.status_code != 200) or (res.json is None):
             self.log_failed_response(res, url)
         else:
@@ -170,7 +167,6 @@ class FlexMeasuresClient(hass.Hass):
 
         self.log(f"GET schedule success: retrieved {res.status_code}")
         self.fm_busy_getting_schedule = False
-        self.check_deprecation_and_sunset(url, res)
 
         schedule = res.json()
         self.log(f"Schedule {schedule}")
@@ -249,9 +245,6 @@ class FlexMeasuresClient(hass.Hass):
                 "roundtrip-efficiency": self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY
             }
         }
-        # ToDo: Add min- and max-soc to request (just before roundtrip-efficiency")
-        # "soc-min": self.CAR_MIN_SOC_IN_KWH,
-        # "soc-max": self.CAR_MAX_SOC_IN_KWH,
 
         # Prevent triggering the same message twice. This sometimes happens when ??
         if message == self.previous_trigger_message:
@@ -291,8 +284,8 @@ class FlexMeasuresClient(hass.Hass):
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
         else:
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
-            # Removed res.json as it crashed sometimes on (none present) json..
-            # self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
+            if res.json is not None:
+                self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
             self.log(f"Failed to {description} (status {res.status_code}) as response to {message}")
 
 

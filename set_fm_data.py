@@ -81,7 +81,20 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         # ToDo: AJO 2022-12-30: This code is copied in several modules: combine!
         self.CAR_MIN_SOC_IN_PERCENT = int(float(self.args["car_min_soc_in_percent"]))
         # Make sure this value is between 10 en 30
-        self.CAR_MIN_SOC_IN_PERCENT = max(min(30, self.CAR_MIN_SOC_IN_PERCENT), 10)
+        notification_message = ""
+        if self.CAR_MIN_SOC_IN_PERCENT < 10:
+            notification_message = f"Setting for minimum SoC (car_min_soc_in_percent) {self.CAR_MIN_SOC_IN_PERCENT} " \
+                                   f"in secrets.yaml too low. Using minimum value 10."
+            self.CAR_MIN_SOC_IN_PERCENT = 10
+        elif self.CAR_MIN_SOC_IN_PERCENT > 30:
+            notification_message = f"Setting for minimum SoC (car_min_soc_in_percent) {self.CAR_MIN_SOC_IN_PERCENT}" \
+                                   f" in secrets.yaml too high. Using maximum value 30."
+            self.CAR_MIN_SOC_IN_PERCENT = 30
+
+        if notification_message != "":
+            self.call_service('persistent_notification/create', message=notification_message,
+                              title="V2g Liberty configuration", notification_id="config_error")
+            self.log(f"Config error, notified user with: {notification_message}")
 
         self.readings_resolution = self.args["fm_chargepower_resolution_in_minutes"]
         self.client = self.configure_charger_client()

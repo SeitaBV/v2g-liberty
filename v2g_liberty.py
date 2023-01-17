@@ -6,7 +6,6 @@ from typing import AsyncGenerator, List
 
 import appdaemon.plugins.hass.hassapi as hass
 import isodate
-import math
 
 from wallbox_client import WallboxModbusMixin
 
@@ -416,7 +415,7 @@ def convert_MW_to_percentage_points(
     For example, if a 62 kWh battery produces at 0.00575 MW for a period of 15 minutes,
     its SoC increases by just over 2.3%.
     """
-    e = math.sqrt(round_trip_efficiency)
+    e = round_trip_efficiency ** 0.5
     scalar = resolution / timedelta(hours=1) * 1000 * 100 / max_soc_in_kWh
     lst = []
     for v in values_in_MW:

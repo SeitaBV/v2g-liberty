@@ -36,6 +36,9 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     the SoC does not change very often in an interval.
     """
 
+    # Availability = false below minimum SoC
+    CAR_MIN_SOC_IN_PERCENT: int
+
     # Access token for FM
     fm_token: str
 
@@ -73,8 +76,27 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     soc_readings: List[Union[int, None]]
     connected_car_soc: Union[int, None]
 
-    
     def initialize(self):
+        # ToDo: AJO 2022-12-30: This code is copied in several modules: combine!
+        self.CAR_MIN_SOC_IN_PERCENT = int(float(self.args["car_min_soc_in_percent"]))
+        # Make sure this value is between 10 en 30
+        notification_message = ""
+        if self.CAR_MIN_SOC_IN_PERCENT < 10:
+            notification_message = f"Setting for minimum SoC (car_min_soc_in_percent) {self.CAR_MIN_SOC_IN_PERCENT} " \
+                                   f"in secrets.yaml too low. Using minimum value 10."
+            self.CAR_MIN_SOC_IN_PERCENT = 10
+        elif self.CAR_MIN_SOC_IN_PERCENT > 30:
+            notification_message = f"Setting for minimum SoC (car_min_soc_in_percent) {self.CAR_MIN_SOC_IN_PERCENT}" \
+                                   f" in secrets.yaml too high. Using maximum value 30."
+            self.CAR_MIN_SOC_IN_PERCENT = 30
+
+        if notification_message:
+            self.call_service('persistent_notification/create', message=notification_message,
+                              title="V2G Liberty configuration", notification_id="v2g_liberty_config_error")
+            self.log(f"Config error, notified user with: {notification_message}")
+        else:
+            self.call_service('persistent_notification/dismiss', notification_id="v2g_liberty_config_error")
+
         self.readings_resolution = self.args["fm_chargepower_resolution_in_minutes"]
         self.client = self.configure_charger_client()
         local_now = self.get_now()
@@ -139,11 +161,9 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         self.connected_car_soc = reported_soc
         self.record_availability()
 
-
     def handle_charge_mode_change(self, entity, attribute, old, new, kwargs):
         """ Handle changes in charger (car) state (eg automatic or not)"""
         self.record_availability()
-
 
     def handle_charger_state_change(self, entity, attribute, old, new, kwargs):
         """ Handle changes in charger (car) state (eg connected or not)
@@ -157,8 +177,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             return
         self.record_availability()
 
-
-    def record_availability(self, conclude_interval = False):
+    def record_availability(self, conclude_interval=False):
         """ Record (non_)availability durations of time in current interval.
             Called at chargemode_change and charger_status_change
             Use conclude_interval argument to conclude an interval (without changing the availablity)
@@ -181,7 +200,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
                 self.current_availability = not self.current_availability
 
             self.current_availability_since = local_now
-
 
     def handle_charge_power_change(self, entity, attribute, old, new, kwargs):
         """Handle a state change in the power sensor."""
@@ -214,12 +232,14 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         if total_interval_duration > (self.readings_resolution * 60 * 0.95):
             # Power related processing
             # Conversion from Watt to MegaWatt
-            average_period_power = round((self.period_power_x_duration / self.power_period_duration)/1000000, 5)
+            average_period_power = round((self.period_power_x_duration / self.power_period_duration) / 1000000, 5)
             self.power_readings.append(average_period_power)
 
             # Availability related processing
-            self.log(f"Concluded availability interval, un_/availability was: {self.un_availability_duration_in_current_interval} / {self.availability_duration_in_current_interval} ms.")
-            percentile_availability = round(100 * (self.availability_duration_in_current_interval/(total_interval_duration)), 2)
+            self.log(
+                f"Concluded availability interval, un_/availability was: {self.un_availability_duration_in_current_interval} / {self.availability_duration_in_current_interval} ms.")
+            percentile_availability = round(
+                100 * (self.availability_duration_in_current_interval / (total_interval_duration)), 2)
             if percentile_availability > 100.00:
                 # Prevent reading > 100% (due to rounding)
                 percentile_availability = 100.00
@@ -229,7 +249,8 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             # SoC does not change very quickly so we just read it at conclude time and do not do any calculation
             self.soc_readings.append(self.connected_car_soc)
 
-            self.log(f"Conclude called. Average power in this period: {average_period_power} MW, Availability: {percentile_availability}%, SoC: {self.connected_car_soc}%.")
+            self.log(
+                f"Conclude called. Average power in this period: {average_period_power} MW, Availability: {percentile_availability}%, SoC: {self.connected_car_soc}%.")
 
         else:
             self.log(f"Period duration too short: {self.power_period_duration} s, discarding this reading.")
@@ -241,7 +262,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         # Reset availability values
         self.availability_duration_in_current_interval = 0
         self.un_availability_duration_in_current_interval = 0
-
 
     def try_send_data(self, *args):
         """ Central function for sending all readings to FM.
@@ -291,8 +311,8 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             return False
 
         duration = len(self.soc_readings) * self.readings_resolution
-        hours = math.floor(duration/60)
-        minutes = duration - hours*60
+        hours = math.floor(duration / 60)
+        minutes = duration - hours * 60
         str_duration = "PT" + str(hours) + "H" + str(minutes) + "M"
         url = self.args["fm_data_api"] + self.args["fm_data_api_post_sensor_data"]
 
@@ -316,7 +336,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
 
         return True
 
-
     def post_availability_data(self, *args, **kwargs):
         """ Try to Post Availability readings to FM.
 
@@ -328,8 +347,8 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             return False
 
         duration = len(self.availability_readings) * self.readings_resolution
-        hours = math.floor(duration/60)
-        minutes = duration - hours*60
+        hours = math.floor(duration / 60)
+        minutes = duration - hours * 60
         str_duration = "PT" + str(hours) + "H" + str(minutes) + "M"
 
         url = self.args["fm_data_api"] + self.args["fm_data_api_post_sensor_data"]
@@ -353,7 +372,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             return False
         return True
 
-
     def post_power_data(self, *args, **kwargs):
         """ Try to Post power readings to FM.
 
@@ -365,8 +383,8 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             return False
 
         duration = len(self.power_readings) * self.readings_resolution
-        hours = math.floor(duration/60)
-        minutes = duration - hours*60
+        hours = math.floor(duration / 60)
+        minutes = duration - hours * 60
         str_duration = "PT" + str(hours) + "H" + str(minutes) + "M"
 
         url = self.args["fm_data_api"] + self.args["fm_data_api_post_sensor_data"]
@@ -389,7 +407,6 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             self.log_failed_response(res, "PostSensorData for Power")
             return False
         return True
-
 
     def is_available(self):
         """ Check if car and charger are available for automatic charging. """

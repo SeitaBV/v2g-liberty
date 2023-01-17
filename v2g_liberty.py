@@ -18,7 +18,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     # CONSTANTS
     # Fail-safe for processing schedules that might have schedule with too high update frequency
     MIN_RESOLUTION: timedelta
-    CAR_MAX_SOC_IN_KWH: float
+    CAR_MAX_CAPACITY_IN_KWH: float
+    WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float
     CAR_MIN_SOC_IN_PERCENT: int
     ADMIN_MOBILE_NAME: str
     ADMIN_MOBILE_PLATFORM: str
@@ -48,7 +49,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     def initialize(self):
         self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
         self.MIN_RESOLUTION = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
-        self.CAR_MAX_SOC_IN_KWH = float(self.args["fm_car_max_soc_in_kwh"])
+        self.CAR_MAX_CAPACITY_IN_KWH = float(self.args["car_max_capacity_in_kwh"])
+        self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = float(self.args["wallbox_plus_car_roundtrip_efficiency"])
+
+        # ToDo: AJO 2022-12-30: This code is copied in several modules: combine!
         self.CAR_MIN_SOC_IN_PERCENT = int(float(self.args["car_min_soc_in_percent"]))
         # Make sure this value is between 10 en 30
         self.CAR_MIN_SOC_IN_PERCENT = max(min(30, self.CAR_MIN_SOC_IN_PERCENT), 10)
@@ -79,7 +83,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.listen_event(self.disconnect_charger, "DISCONNECT_CHARGER")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
-        self.listen_state(self.handle_calendar_change, self.args["fm_car_reservation_calendar"], attribute="all")
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")
         self.scheduling_timer_handles = []
 
@@ -145,17 +148,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         else:
             self.notify(message, title="V2G Liberty")
 
-    def handle_calendar_change(self, *args, **fnc_kwargs):
-        """Helper function to trace changes in calendar. Redirects to decide_whether_to_ask_for_new_schedule"""
-        self.log("Calendar update detected.")
-        self.log(f"The calendar is: {args}")
-        self.decide_whether_to_ask_for_new_schedule()
-
     def decide_whether_to_ask_for_new_schedule(self):
         """
         This function is meant to be called upon:
         - SOC updates
-        - calendar updates
         - charger state updates
         - every 15 minutes if none of the above
         """
@@ -245,7 +241,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             self.log(f"input_number.car_state_of_charge ({soc}) is not equal to self.connected_car_soc"
                      f" ({self.connected_car_soc}), consider calling try_get_new_soc()")
         exp_soc_values = list(
-            accumulate([soc] + convert_MW_to_percentage_points(values, resolution, self.CAR_MAX_SOC_IN_KWH)))
+            accumulate([soc] + convert_MW_to_percentage_points(values, resolution, self.CAR_MAX_CAPACITY_IN_KWH, self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY)))
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [dict(time=t.isoformat(), soc=round(v, 2)) for v, t in
                                                    zip(exp_soc_values, exp_soc_datetimes)]
@@ -413,10 +409,18 @@ def convert_MW_to_percentage_points(
         values_in_MW,
         resolution: timedelta,
         max_soc_in_kWh: float,
+        round_trip_efficiency: float,
 ):
     """
     For example, if a 62 kWh battery produces at 0.00575 MW for a period of 15 minutes,
     its SoC increases by just over 2.3%.
     """
+    e = round_trip_efficiency ** 0.5
     scalar = resolution / timedelta(hours=1) * 1000 * 100 / max_soc_in_kWh
-    return [v * scalar for v in values_in_MW]
+    lst = []
+    for v in values_in_MW:
+        if v >= 0:
+            lst.append(v * scalar * e)
+        else:
+            lst.append(v * scalar / e)
+    return lst

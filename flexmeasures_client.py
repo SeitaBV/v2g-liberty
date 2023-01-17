@@ -19,8 +19,7 @@ class FlexMeasuresClient(hass.Hass):
 
     # Constants
     FM_API: str
-    FM_API_VERSION: str
-    FM_QUASAR_SENSOR_ID: str
+    FM_URL: str
     FM_SCHEDULE_DURATION: str
     FM_USER_EMAIL: str
     FM_USER_PASSWORD: str
@@ -31,13 +30,19 @@ class FlexMeasuresClient(hass.Hass):
     CAR_MAX_SOC_IN_KWH: float
     WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float
 
-    # Variables
+    # FM Authentiction token
     fm_token: str
+    # Helper to prevent parallel calls to FM for getting a schedule
+    fm_busy_getting_schedule: bool
+    # Helper to prevent sending the same trigger message twice.
+    previous_trigger_message: str
 
     def initialize(self):
         self.FM_API = self.args["fm_api"]
-        self.FM_API_VERSION = self.args["fm_api_version"]
-        self.FM_QUASAR_SENSOR_ID = str(self.args["fm_quasar_sensor_id"])
+        self.FM_URL = self.FM_API + "/" + \
+                      self.args["fm_api_version"] + "/sensors/" + \
+                      str(self.args["fm_quasar_sensor_id"]) + "/schedules/"
+        self.log(f"The FM_URL is: {self.FM_URL}.")
         self.FM_SCHEDULE_DURATION = self.args["fm_schedule_duration"]
         self.FM_USER_EMAIL = self.args["fm_user_email"]
         self.FM_USER_PASSWORD = self.args["fm_user_password"]
@@ -47,6 +52,9 @@ class FlexMeasuresClient(hass.Hass):
         self.CAR_RESERVATION_CALENDAR = self.args["fm_car_reservation_calendar"]
         self.CAR_MAX_SOC_IN_KWH = float(self.args["fm_car_max_soc_in_kwh"])
         self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = float(self.args["wallbox_plus_car_roundtrip_efficiency"])
+
+        self.previous_trigger_message = ""
+        self.fm_busy_getting_schedule = False
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.
@@ -97,12 +105,23 @@ class FlexMeasuresClient(hass.Hass):
 
     def get_new_schedule(self, current_soc_kwh):
         """Get a new schedule from FlexMeasures.
-
+           But not if still busy with getting previous schedule.
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
         """
+        if self.fm_busy_getting_schedule:
+            self.log("Not getting new schedule, still processing previous request.")
+            return
+
+        # This has to be set here instead of in get_schedule because that function is called with a delay
+        # and during this delay this get_new_schedule could be called.
+        self.fm_busy_getting_schedule = True
 
         # Ask to compute a new schedule by posting flex constraints while triggering the scheduler
         schedule_id = self.trigger_schedule(current_soc_kwh=current_soc_kwh)
+        if schedule_id is None:
+            self.log("Failed to trigger new schedule, schedule ID is None. Cannot call get_schedule")
+            self.fm_busy_getting_schedule = False
+            return
 
         # Set a timer to get the schedule a little later
         s = self.DELAY_FOR_INITIAL_ATTEMPT
@@ -116,8 +135,11 @@ class FlexMeasuresClient(hass.Hass):
 
         Pass the schedule id using kwargs["schedule_id"]=<schedule_id>.
         """
+        # Just to be sure also set this her, it's primairy point for setting to true is in get_new_schedule
+        self.fm_busy_getting_schedule = True
+
         schedule_id = kwargs["schedule_id"]
-        url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/" + schedule_id
+        url = self.FM_URL + schedule_id
         message = {
             "duration": self.FM_SCHEDULE_DURATION,
         }
@@ -127,7 +149,7 @@ class FlexMeasuresClient(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
         self.check_deprecation_and_sunset(url, res)
-        if res.status_code != 200:
+        if (res.status_code != 200) or (res.json is None):
             self.log_failed_response(res, url)
         else:
             self.log(f"GET schedule success: retrieved {res.status_code}")
@@ -140,7 +162,11 @@ class FlexMeasuresClient(hass.Hass):
                             schedule_id=schedule_id)
             else:
                 self.log("Schedule cannot be retrieved. Any previous charging schedule will keep being followed.")
+                self.fm_busy_getting_schedule = False
             return
+
+        self.log(f"GET schedule success: retrieved {res.status_code}")
+        self.fm_busy_getting_schedule = False
 
         schedule = res.json()
         self.log(f"Schedule {schedule}")
@@ -163,8 +189,7 @@ class FlexMeasuresClient(hass.Hass):
         resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
         soc_datetime = time_round(soc_datetime, resolution).isoformat()
 
-        url = self.FM_API + "/" + self.FM_API_VERSION + "/sensors/" + self.FM_QUASAR_SENSOR_ID + "/schedules/trigger"
-        self.log(f"Triggering schedule by calling {url}")
+        url = self.FM_URL + "trigger"
 
         # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
         # Retrieve target SOC
@@ -220,7 +245,15 @@ class FlexMeasuresClient(hass.Hass):
                 "roundtrip-efficiency": self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY
             }
         }
-        self.log(f"Trigger_schedule with message: {message}.")
+
+        # Prevent triggering the same message twice. This sometimes happens when ??
+        if message == self.previous_trigger_message:
+            self.log(f"Not triggering schedule, message is exactly the same as previous.")
+            return None
+        else:
+            self.log(f"Trigger_schedule on url '{url}', with message: '{message}'.")
+            self.previous_trigger_message = message
+
         res = requests.post(
             url,
             json=message,
@@ -235,7 +268,7 @@ class FlexMeasuresClient(hass.Hass):
             self.log_failed_response(res, url)
             self.handle_response_errors(message, res, url, self.trigger_schedule, *args, **fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
-            return
+            return None
 
         self.log(f"Successfully triggered schedule. Schedule id: {schedule_id}")
         self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
@@ -251,7 +284,10 @@ class FlexMeasuresClient(hass.Hass):
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
         else:
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
-            self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
+            if res.json is not None:
+                self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
+            else:
+                self.log(f"Failed to {description} (status {res.status_code}) as response to {message}")
 
 
 # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?

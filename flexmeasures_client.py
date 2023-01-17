@@ -211,11 +211,11 @@ class FlexMeasuresClient(hass.Hass):
         target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
         target_soc = self.CAR_MAX_CAPACITY_IN_KWH
 
-        # Check if calendar has a relevant item that is within one week from now.
+        # Check if calendar has a relevant item that is within one week (*) from now.
+        # (*) 7 days is the setting in v2g_liberty_package.yaml
         # If so try to retrieve target_soc
         car_reservation = self.get_state(self.CAR_RESERVATION_CALENDAR, attribute="all")
-        # This should get the first item from the calendar. It only does when the item is too far in the future,
-        # unfortunately we don't exactly when that is and how to influence that. If the item is too far in the future
+        # This should get the first item from the calendar. If no item is found (i.e. items are too far into the future)
         # it returns a general entity that does not contain a start_time, message or description.
 
         if car_reservation is None:

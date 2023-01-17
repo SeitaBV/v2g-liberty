@@ -239,17 +239,16 @@ class FlexMeasuresClient(hass.Hass):
                     text_to_search_in = " ".join(filter(None, [m, d]))
 
                     # First try searching for a number in kWh
-                    target_soc = search_for_soc_target("kWh", text_to_search_in)
-                    if target_soc is None:
-                        # No kWh number found, try searching for a number in %
-                        target_soc = search_for_soc_target("%", text_to_search_in)
-                        if target_soc is not None:
-                            self.log(f"Target SoC from calendar: {target_soc} %.")
-                            target_soc = round(float(target_soc) / 100 * self.CAR_MAX_CAPACITY_IN_KWH, 2)
-                        else:
-                            target_soc = self.CAR_MAX_CAPACITY_IN_KWH
+                    found_target_soc_in_kwh = search_for_soc_target("kWh", text_to_search_in)
+                    if found_target_soc_in_kwh is not None:
+                        self.log(f"Target SoC from calendar: {found_target_soc_in_kwh} kWh.")
+                        target_soc = found_target_soc_in_kwh
                     else:
-                        self.log(f"Target SoC from calendar: {target_soc} kWh.")
+                        # No kWh number found, try searching for a number in %
+                        found_target_soc_in_percentage = search_for_soc_target("%", text_to_search_in)
+                        if found_target_soc_in_percentage is not None:
+                            self.log(f"Target SoC from calendar: {found_target_soc_in_percentage} %.")
+                            target_soc = round(float(found_target_soc_in_percentage) / 100 * self.CAR_MAX_CAPACITY_IN_KWH, 2)
 
                     # Prevent target_soc above max_capacity
                     if target_soc > self.CAR_MAX_CAPACITY_IN_KWH:

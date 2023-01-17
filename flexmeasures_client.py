@@ -286,7 +286,8 @@ class FlexMeasuresClient(hass.Hass):
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
             if res.json is not None:
                 self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
-            self.log(f"Failed to {description} (status {res.status_code}) as response to {message}")
+            else:
+                self.log(f"Failed to {description} (status {res.status_code}) as response to {message}")
 
 
 # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?

@@ -257,8 +257,7 @@ wallbox_max_charging_power: XXXX
 wallbox_max_discharging_power: XXXX
 
 # For transforming the raw EPEX (from FM) to net price to be shown in UI.
-# For NL: Temporary VAT reduction per 2022-07-01 to 9%, normally 21%
-VAT: 1.09
+VAT: 1.21
 # FOR NL: 2022 ODE € 0,0305 and Energiebelasting € 0,036790 combined
 markup_per_kWh: 0.067290
 
@@ -412,6 +411,7 @@ get_fm_data:
   fm_api: !secret fm_api
   fm_data_api: !secret fm_data_api
   fm_data_api_epex: !secret fm_data_api_epex
+  fm_data_api_co2: !secret fm_data_api_co2
   fm_data_user_email: !secret fm_user_email
   fm_data_user_password: !secret fm_user_password
   fm_data_entity_address: !secret fm_quasar_entity_address
@@ -427,7 +427,6 @@ set_fm_data:
 
   fm_api: !secret fm_api
   fm_data_api: !secret fm_data_api
-  fm_data_api_post_meter_data: !secret fm_data_api_post_meter_data
   fm_data_api_post_sensor_data: !secret fm_data_api_post_sensor_data
   fm_data_user_email: !secret fm_user_email
   fm_data_user_password: !secret fm_user_password

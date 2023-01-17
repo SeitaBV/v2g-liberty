@@ -297,11 +297,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         # Make sure this function gets called every x seconds to prevent a "frozen" app.
         if self.timer_handle_set_next_action:
-            # self.log("Cancel current timer")
             self.cancel_timer(self.timer_handle_set_next_action)
-        # else:
-        # self.log("There is no timer to cancel")
-
         self.timer_handle_set_next_action = self.run_in(
             self.restart_set_next_action_time_based,
             self.call_next_action_atleast_every,

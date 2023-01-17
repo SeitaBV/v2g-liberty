@@ -258,8 +258,8 @@ class FlexMeasuresClient(hass.Hass):
                         target_soc = self.CAR_MAX_CAPACITY_IN_KWH
                     else:
                         # A targets in a calendar item below 30% are not acceptable (not relevant)
-                        min_acceptable_target_in_percent = 30 / 100
-                        min_acceptable_target_in_kwh = self.CAR_MAX_CAPACITY_IN_KWH * min_acceptable_target_in_percent
+                        min_acceptable_target_in_percent = 30
+                        min_acceptable_target_in_kwh = self.CAR_MAX_CAPACITY_IN_KWH * min_acceptable_target_in_percent / 100
                         if target_soc < min_acceptable_target_in_kwh:
                             self.log(f"Target SoC from calendar too low: {target_soc}, "
                                      f"adjusted to {min_acceptable_target_in_kwh}kWh.")

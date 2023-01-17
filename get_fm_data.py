@@ -12,8 +12,11 @@ import isodate
 
 class FlexMeasuresDataImporter(hass.Hass):
     fm_token: str
-    first_try_time: str
-    second_try_time: str
+    first_try_time_price_data: str
+    second_try_time_price_data: str
+
+    first_try_time_emissions_data: str
+    second_try_time_emissions_data: str
 
     def initialize(self):
         """Daily get epex prices purely for display in the UI.
@@ -29,30 +32,33 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.log(f"get_fm_data, start setup")
 
-        self.first_try_time = "14:32:00"
-        self.second_try_time = "18:32:00"
-
-        # Should normally be available just after 13:00 when data can be
-        # retrieved from its original source (ENTSO-E) but sometimes there
-        # is a delay of several hours.
-        handle = self.run_daily(self.daily_kickoff, self.first_try_time)
-
+        # Price data should normally be available just after 13:00 when data can be
+        # retrieved from its original source (ENTSO-E) but sometimes there is a delay of several hours.
+        self.first_try_time_price_data = "14:32:00"
+        self.second_try_time_price_data = "18:32:00"
+        self.run_daily(self.daily_kickoff_price_data, self.first_try_time_price_data)
         # At init also run this as (re-) start is not always around self.first_try_time
-        self.daily_kickoff()
+        self.daily_kickoff_price_data()
 
-        self.log(f"Done setting up get_fm_data: Start checking daily from {self.first_try_time} for new data with FM.")
+        self.first_try_time_emissions_data = "15:16:17"
+        self.second_try_time_emissions_data = "19:18:17"
+        self.run_daily(self.daily_kickoff_emissions_data, self.first_try_time_emissions_data)
+        # At init also run this as (re-) start is not always around self.first_try_time
+        self.daily_kickoff_emissions_data()
+
+        self.log(f"Done setting up get_fm_data: check daily at {self.first_try_time_price_data} for new data with FM.")
 
     def notify_user(self, message: str):
         """ Utility function to notify the user
         """
         self.notify(message, title="V2G Liberty")
 
-    def daily_kickoff(self, *args):
-        """ This sets off the daily routine to check for new prices.
-
-        The attempts for today are reset.
-        """
+    def daily_kickoff_price_data(self, *args):
+        """ This sets off the daily routine to check for new prices."""
         self.get_epex_prices()
+
+    def daily_kickoff_emissions_data(self, *args):
+        """ This sets off the daily routine to check for new emission data."""
         self.get_co2_emissions()
 
     def log_failed_response(self, res, endpoint: str):
@@ -94,9 +100,9 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.log_failed_response(res, "Get FM EPEX data")
 
             # Only retry once at second_try_time.
-            if self.now_is_between(self.first_try_time, self.second_try_time):
-                self.log(f"Retry at {self.second_try_time}.")
-                self.run_at(self.get_epex_prices, self.second_try_time)
+            if self.now_is_between(self.first_try_time_price_data, self.second_try_time_price_data):
+                self.log(f"Retry at {self.second_try_time_price_data}.")
+                self.run_at(self.get_epex_prices, self.second_try_time_price_data)
             else:
                 self.log(f"Retry tomorrow.")
                 self.notify_user("Getting EPEX price data failed, retry tomorrow.")
@@ -132,8 +138,8 @@ class FlexMeasuresDataImporter(hass.Hass):
         date_tomorrow = (now + timedelta(days=1)).isoformat()
         if date_latest_price < date_tomorrow:
             self.log(
-                f"FM EPEX prices seem not renewed yet, latest price at: {date_latest_price}, Retry at {self.second_try_time}.")
-            self.run_at(self.get_epex_prices, self.second_try_time)
+                f"FM EPEX prices seem not renewed yet, latest price at: {date_latest_price}, Retry at {self.second_try_time_price_data}.")
+            self.run_at(self.get_epex_prices, self.second_try_time_price_data)
         else:
             if has_negative_prices:
                 self.notify_user(
@@ -151,7 +157,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.authenticate_with_fm()
         now = self.get_now()
-        # Getting prices since start of yesterday so that user can look back a little furter than just current window.
+        # Getting emissions since start of yesterday so that user can look back a little furter than just current window.
         start_co2: str = str((now + timedelta(days=-1)).date())
 
         url = self.args["fm_data_api"] + self.args["fm_data_api_co2"]
@@ -173,9 +179,9 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.log_failed_response(res, "Get FM CO2 emissions data")
 
             # Only retry once at second_try_time.
-            if self.now_is_between(self.first_try_time, self.second_try_time):
-                self.log(f"Retry at {self.second_try_time}.")
-                self.run_at(self.get_co2_emissions, self.second_try_time)
+            if self.now_is_between(self.first_try_time_emissions_data, self.second_try_time_emissions_data):
+                self.log(f"Retry at {self.second_try_time_emissions_data}.")
+                self.run_at(self.get_co2_emissions, self.second_try_time_emissions_data)
             return
 
         emissions = res.json()
@@ -200,8 +206,8 @@ class FlexMeasuresDataImporter(hass.Hass):
         date_latest_emission = datetime.fromtimestamp(emissions[-1].get('event_start') / 1000).isoformat()
         date_tomorrow = (now + timedelta(days=1)).isoformat()
         if date_latest_emission < date_tomorrow:
-            self.log(f"FM CO2 emissions seem not renewed yet. {date_latest_emission}, retry at {self.second_try_time}.")
-            self.run_at(self.get_co2_emissions, self.second_try_time)
+            self.log(f"FM CO2 emissions seem not renewed yet. {date_latest_emission}, retry at {self.second_try_time_emissions_data}.")
+            self.run_at(self.get_co2_emissions, self.second_try_time_emissions_data)
         else:
             self.log(f"FM CO2 successfully retrieved. Latest price at: {date_latest_emission}.")
 

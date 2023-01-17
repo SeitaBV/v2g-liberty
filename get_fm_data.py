@@ -179,7 +179,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.log_failed_response(res, "Get FM CO2 emissions data")
 
             # Only retry once at second_try_time.
-            if self.now_is_between(self.first_try_time_price_data, self.second_try_time_emissions_data):
+            if self.now_is_between(self.first_try_time_emissions_data, self.second_try_time_emissions_data):
                 self.log(f"Retry at {self.second_try_time_emissions_data}.")
                 self.run_at(self.get_co2_emissions, self.second_try_time_emissions_data)
             return

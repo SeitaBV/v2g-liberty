@@ -269,8 +269,10 @@ wallbox_max_discharging_power: XXXX
 
 # For transforming the raw EPEX (from FM) to net price to be shown in UI.
 VAT: 1.21
-# FOR NL: 2022 ODE € 0,0305 and Energiebelasting € 0,036790 combined
-markup_per_kWh: 0.067290
+# FOR NL: Energiebelasting 2023 is € 0,12599 (ODE is now included in Energiebelasting).
+# Source: 
+# https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/overige_belastingen/belastingen_op_milieugrondslag/tarieven_milieubelastingen/tabellen_tarieven_milieubelastingen
+markup_per_kWh: 0.12599
 
 #############   CALENDAR CONFIGURATION   #######################################
 

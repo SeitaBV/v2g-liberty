@@ -222,9 +222,7 @@ class FlexMeasuresClient(hass.Hass):
             self.log("No calendar item found, no calendar configured?")
         else:
             self.log(f"Calender: {car_reservation}")
-            calendar_item_start = None
-            if "start_time" in car_reservation["attributes"]:
-                calendar_item_start = car_reservation["attributes"]["start_time"]
+            calendar_item_start = car_reservation["attributes"].get("start_time", None)
             if calendar_item_start is not None:
                 calendar_item_start = isodate.parse_datetime(calendar_item_start.replace(" ", "T")).astimezone(
                     pytz.timezone("Europe/Amsterdam")).isoformat()

@@ -378,6 +378,7 @@ flexmeasures-client:
   car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
   car_min_soc_in_percent: !secret car_min_soc_in_percent
   car_max_soc_in_percent: !secret car_max_soc_in_percent
+  # ToDo: prevent duplicate value with v2g_liberty.
   wallbox_plus_car_roundtrip_efficiency: 0.85
 
   fm_car_reservation_calendar: !secret car_calendar_name
@@ -410,6 +411,8 @@ v2g_liberty:
   wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
   car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
   car_min_soc_in_percent: !secret car_min_soc_in_percent
+  # ToDo: prevent duplicate value with flexmeasures_client.
+  wallbox_plus_car_roundtrip_efficiency: 0.85
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
 

@@ -299,7 +299,7 @@ class FlexMeasuresClient(hass.Hass):
 
         if schedule_id is None:
             self.log_failed_response(res, url)
-            self.handle_response_errors(message, res, url, self.trigger_schedule, *args, **fnc_kwargs)
+            self.try_solve_authentication_error(message, res, url, self.trigger_schedule, *args, **fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
             return None
 
@@ -307,20 +307,13 @@ class FlexMeasuresClient(hass.Hass):
         self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
         return schedule_id
 
-    def handle_response_errors(self, message, res, description, fnc, **fnc_kwargs):
+    def try_solve_authentication_error(self, message, res, description, fnc, **fnc_kwargs):
         if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
             self.log(f"Failed to {description} on authorization (possibly the token expired); attempting to "
                      f"reauthenticate once.")
             self.authenticate_with_fm()
             fnc_kwargs["retry_auth_once"] = False
             fnc(**fnc_kwargs)
-            self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
-        else:
-            self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
-            if res.json is not None:
-                self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
-            else:
-                self.log(f"Failed to {description} (status {res.status_code}) as response to {message}")
 
 
 # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?

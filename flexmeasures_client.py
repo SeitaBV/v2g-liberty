@@ -299,7 +299,7 @@ class FlexMeasuresClient(hass.Hass):
 
         if schedule_id is None:
             self.log_failed_response(res, url)
-            self.try_solve_authentication_error(message, res, url, self.trigger_schedule, *args, **fnc_kwargs)
+            self.try_solve_authentication_error(res, url, self.trigger_schedule, *args, **fnc_kwargs)
             self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
             return None
 
@@ -307,13 +307,13 @@ class FlexMeasuresClient(hass.Hass):
         self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
         return schedule_id
 
-    def try_solve_authentication_error(self, message, res, description, fnc, **fnc_kwargs):
+    def try_solve_authentication_error(self, res, url, fnc, *fnc_args, **fnc_kwargs):
         if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
-            self.log(f"Failed to {description} on authorization (possibly the token expired); attempting to "
+            self.log(f"Call to {url} failed on authorization (possibly the token expired); attempting to "
                      f"reauthenticate once.")
             self.authenticate_with_fm()
             fnc_kwargs["retry_auth_once"] = False
-            fnc(**fnc_kwargs)
+            fnc(*fnc_args, **fnc_kwargs)
 
 
 # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?

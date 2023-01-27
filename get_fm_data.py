@@ -93,7 +93,8 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         # Authorisation error, retry authoristion.
         if res.status_code == 401:
-            self.handle_response_errors(url_params, res, "get EPEX prices", self.get_epex_prices, *args, **kwargs)
+            self.log_failed_response(res, "Get FM EPEX data")
+            self.try_solve_authentication_error(res, url, self.get_epex_prices, *args, **kwargs)
             return
 
         if res.status_code != 200:
@@ -172,7 +173,8 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         # Authorisation error, retry authorisation.
         if res.status_code == 401:
-            self.handle_response_errors(url_params, res, "get CO2 emissions", self.get_co2_emissions, *args, **kwargs)
+            self.log_failed_response(res, "get CO2 emissions")
+            self.try_solve_authentication_error(res, url, self.get_co2_emissions, *args, **kwargs)
             return
 
         if res.status_code != 200:
@@ -227,13 +229,10 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.log_failed_response(res, "requestAuthToken")
         self.fm_token = res.json()["auth_token"]
 
-    def handle_response_errors(self, message, res, description, fnc, *args, **fnc_kwargs):
+    def try_solve_authentication_error(self, res, url, fnc, *fnc_args, **fnc_kwargs):
         if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
-            self.log(
-                f"Failed to {description} on authorization (possibly the token expired); attempting to reauthenticate once")
+            self.log(f"Call to  {url} failed on authorization (possibly the token expired); "
+                     f"attempting to reauthenticate once")
             self.authenticate_with_fm()
             fnc_kwargs["retry_auth_once"] = False
-            fnc(*args, **fnc_kwargs)
-        else:
-            self.log(f"Failed to {description} (status {res.status_code}): {res} as response to {message}")
-            self.log(f"Failed to {description} (status {res.status_code}): {res.json()} as response to {message}")
+            fnc(*fnc_args, **fnc_kwargs)

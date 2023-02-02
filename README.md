@@ -23,6 +23,8 @@ This integration is a Python app and uses:
 - Home Assistant for automating local control over your Wallbox Quasar. V2G Liberty translates this into set points which it sends to the Wallbox Quasar via modbus.
 - The AppDaemon plugin for Home Assistant for running the Python app.
 
+![V2G Liberty Architecture](https://user-images.githubusercontent.com/6270792/216368533-aa07dfa7-6e20-47cb-8778-aa2b8ba8b6e1.png)
+
 ### Prerequisites
  
 At the time of writing, 2022-11, only the [Wallbox Quasar 1 charger](https://wallbox.com/en_uk/quasar-dc-charger) is supported.

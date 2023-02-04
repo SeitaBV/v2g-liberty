@@ -503,10 +503,10 @@ HA can be restarted by `Settings > System > Restart (top right)`.
 AppDaemon can be (re-)started via `Settings > Add-ons > AppDaemon > (Re-)start`.
 
 Now the system needs 5 to 10 minutes before it runs nicely. If a car is connected you should see a schedule comming in soon after.
-<style 
+<!-- <style 
   type="text/css">
   body {
     max-width: 50em;
     margin: 4em;
   }
-</style>
+</style> -->

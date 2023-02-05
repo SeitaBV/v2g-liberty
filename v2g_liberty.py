@@ -114,7 +114,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.set_charger_action("stop")
         self.set_charger_control("give")
         # ToDo: Remove all schedules?
-        self.notify_user("Charger disconnected charger.")
+        self.notify_user("Charger is disconnected.")
 
     def restart_charger(self, *args, **kwargs):
         """ Function to (forcefully) restart the charger.
@@ -124,29 +124,31 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.set_charger_action("restart")
         self.notify_user("Restart of charger initiated by user. Please check charger.")
 
-    # TODO: combine with same function in other modules??
-    def notify_user(self, message: str, critical=False):
+    # ToDo: Make generic function in utils? See get_fm_data.py for equivalent.
+    def notify_user(self, in_message: str, critical=False, in_title=""):
         """ Utility function to send notifications to the user via HA"""
 
-        self.log(f"Notify_user a:{self.ADMIN_MOBILE_NAME}, b:{self.ADMIN_MOBILE_PLATFORM}")
+        self.log(f"Notify device '{self.ADMIN_MOBILE_NAME}', on platform '{self.ADMIN_MOBILE_PLATFORM}'.")
         if self.ADMIN_MOBILE_NAME is None or self.ADMIN_MOBILE_NAME == "":
             # If no device to send to then follow normal flow.
             critical = False
-
+        out_title = "V2G Liberty"
+        if in_title != "":
+            out_title = out_title + ": " + in_title
         if critical:
             device_address = "notify/mobile_app_" + self.ADMIN_MOBILE_NAME
             if self.ADMIN_MOBILE_PLATFORM == "ios":
                 self.call_service(device_address,
-                                  title="V2G Liberty",
-                                  message=message,
+                                  title=out_title,
+                                  message=in_message,
                                   data={"push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}})
             elif self.ADMIN_MOBILE_PLATFORM == "android":
                 self.call_service(device_address,
-                                  title="V2G Liberty",
-                                  message=message,
+                                  title=out_title,
+                                  message=in_message,
                                   data={"ttl": 0, "priority": "high"})
         else:
-            self.notify(message, title="V2G Liberty")
+            self.notify(in_message, title=out_title)
 
     def decide_whether_to_ask_for_new_schedule(self):
         """
@@ -317,15 +319,17 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 # Intended for the situation where the car returns from a trip with a low battery.
                 # An SoC below the minimum SoC is considered "unhealthy" for the battery,
                 # this is why the battery should be charged to this minimum asap.
-
-                self.log(f"Starting max charge now and not requesting schedule based on SoC below"
-                         f" minimum ({self.CAR_MIN_SOC_IN_PERCENT}%).")
+                message = f"Car battery state of charge ({self.connected_car_soc}%) is too low. " \
+                          f"Charging with maximum power until minimum of ({self.CAR_MIN_SOC_IN_PERCENT}%) is reached."
+                self.log(message)
                 # Cancel previous scheduling timers as they might have discharging instructions as well
                 self.cancel_charging_timers()
                 self.start_max_charge_now()
+                self.notify_user(message, False, "Car battery is too low")
                 self.in_boost_to_reach_min_soc = True
                 return
-            elif self.connected_car_soc > self.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
+
+            if self.connected_car_soc > self.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
                 self.log(f"Stopping max charge now, SoC above minimum ({self.CAR_MIN_SOC_IN_PERCENT}%) again.")
                 self.in_boost_to_reach_min_soc = False
                 self.set_power_setpoint(0)

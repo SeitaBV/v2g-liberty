@@ -42,6 +42,9 @@ class FlexMeasuresClient(hass.Hass):
     previous_trigger_message: str
 
     def initialize(self):
+        self.previous_trigger_message = ""
+        self.fm_busy_getting_schedule = False
+
         self.FM_API = self.args["fm_api"]
         self.FM_URL = self.FM_API + "/" + \
                       self.args["fm_api_version"] + "/sensors/" + \
@@ -70,9 +73,6 @@ class FlexMeasuresClient(hass.Hass):
         self.CAR_MAX_SOC_IN_KWH = self.CAR_MAX_CAPACITY_IN_KWH * self.CAR_MAX_SOC_IN_PERCENT / 100
 
         self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = float(self.args["wallbox_plus_car_roundtrip_efficiency"])
-
-        self.previous_trigger_message = ""
-        self.fm_busy_getting_schedule = False
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.

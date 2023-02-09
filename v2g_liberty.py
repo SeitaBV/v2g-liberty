@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from itertools import accumulate
 import time
 import pytz
-from typing import AsyncGenerator, List
+from typing import AsyncGenerator, List, Optional
 
 import appdaemon.plugins.hass.hassapi as hass
 import isodate
@@ -125,30 +125,33 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.notify_user("Restart of charger initiated by user. Please check charger.")
 
     # ToDo: Make generic function in utils? See get_fm_data.py for equivalent.
-    def notify_user(self, in_message: str, critical=False, in_title=""):
+    def notify_user(self, message: str, critical: bool = False, title: Optional[str] = None):
         """ Utility function to send notifications to the user via HA"""
 
-        self.log(f"Notify device '{self.ADMIN_MOBILE_NAME}', on platform '{self.ADMIN_MOBILE_PLATFORM}'.")
+        self.log(f"Notify device '{self.ADMIN_MOBILE_NAME}' on platform '{self.ADMIN_MOBILE_PLATFORM}' "
+                 f"with message'{message}'.")
         if self.ADMIN_MOBILE_NAME is None or self.ADMIN_MOBILE_NAME == "":
             # If no device to send to then follow normal flow.
             critical = False
-        out_title = "V2G Liberty"
-        if in_title != "":
-            out_title = out_title + ": " + in_title
+        if title:
+            title = "V2G Liberty: " + title
+        else:
+            title = "V2G Liberty"
+
         if critical:
             device_address = "notify/mobile_app_" + self.ADMIN_MOBILE_NAME
             if self.ADMIN_MOBILE_PLATFORM == "ios":
                 self.call_service(device_address,
-                                  title=out_title,
-                                  message=in_message,
+                                  title=title,
+                                  message=message,
                                   data={"push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}})
             elif self.ADMIN_MOBILE_PLATFORM == "android":
                 self.call_service(device_address,
-                                  title=out_title,
-                                  message=in_message,
+                                  title=title,
+                                  message=message,
                                   data={"ttl": 0, "priority": "high"})
         else:
-            self.notify(in_message, title=out_title)
+            self.notify(message, title=title)
 
     def decide_whether_to_ask_for_new_schedule(self):
         """
@@ -321,7 +324,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 # this is why the battery should be charged to this minimum asap.
                 message = f"Car battery state of charge ({self.connected_car_soc}%) is too low. " \
                           f"Charging with maximum power until minimum of ({self.CAR_MIN_SOC_IN_PERCENT}%) is reached."
-                self.log(message)
                 # Cancel previous scheduling timers as they might have discharging instructions as well
                 self.cancel_charging_timers()
                 self.start_max_charge_now()

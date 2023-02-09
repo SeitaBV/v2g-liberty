@@ -48,6 +48,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.log(f"Done setting up get_fm_data: check daily at {self.first_try_time_price_data} for new data with FM.")
 
+    # ToDo: Make generic function in utils? See v2g_liberty.py for equivalent.
     def notify_user(self, message: str):
         """ Utility function to notify the user
         """

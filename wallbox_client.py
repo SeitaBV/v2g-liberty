@@ -403,12 +403,19 @@ class WallboxModbusMixin:
         self.connected_car_soc = round(reported_soc, 0)
         self.connected_car_soc_kwh = round(reported_soc * float(self.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
         self.log(f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%.")
+
+        # Notify user of reaching 80% charge while charging (not dis-charging).
+        # ToDo: Discuss with users if this is useful.
+        # ToDo: Replace 80 with max soc setting from yaml.
+        notify_soc_setting = 80
+        if self.connected_car_soc == notify_soc_setting and self.is_charging():
+            self.notify_user(f"Car battery state of charge has reached {notify_soc_setting}%.")
         return True
 
     def handle_charger_in_error(self):
         # If charger remains in error state more than 7 minutes restart the charger.
         # We wait 7 minutes as the charger might be return an error state up until 5 minutes after a restart.
-        # The default charger_in_error_since is filled with the refrence date.
+        # The default charger_in_error_since is filled with the reference date.
         # At the registration of an error charger_in_error_since is set to now.
         # This way we know "checking for error" is in progress if the charger_in_error_since is
         # not equal to the reference date.

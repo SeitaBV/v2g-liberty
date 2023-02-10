@@ -96,6 +96,10 @@ configuration of V2G Liberty secrets.yaml.
 Now that you have a running Home Assistant, you're ready to install V2G Liberty in Home Assistant.
 We'll take you through the process step by step.
 
+### Install the file editor
+
+From the addons install the basic file editor or the visual studio IDE. You'll need this to edit some files later.
+
 ### Install HACS
 
 The Home Assistant Community Store (HACS) has loads of integrations that are not in the official store of HA.
@@ -108,8 +112,9 @@ As a reference you might find this [instruction video](https://www.youtube.com/w
 Add the following modules to HA through HACS:
 - [ApexChart-card](https://github.com/RomRider/apexcharts-card)<br>
   This is needed for graphs in the user interface.
-- [Custom-card](https://github.com/thomasloven/lovelace-card-mod)<br>
+- [card-mod](https://github.com/thomasloven/lovelace-card-mod)<br>
   This is needed for a better UI.
+
 
 There are other modules that might look interesting, like Leaf Spy, but you do not need any of these for V2G-L.
 After installation the reference to these resources has to be added through menu:
@@ -117,206 +122,29 @@ After installation the reference to these resources has to be added through menu
 2. Navigate to Settings -> Dashboards -> from the top right menu (&vellip;) select resources.
 3. Click (+ ADD RESOURCE) button and enter URL `/hacsfiles/apexcharts-card/apexcharts-card.js` and select type "JavaScript Module".
 4. Repeat for `/hacsfiles/lovelace-card-mod/card-mod.js`
-4. Restart Home Assistant.
-
-
-## Configure HA
-
-This is not complicated, but you'll need to work precise. The configuration of HA is stored in .yaml files, these can be edited in the HA file editor (in the left main menu).
-
-  > If you have installed V2G Liberty before, please remove any changes made during that installation to the .yaml files.
-
-After completion of this step you'll end up with a these files and folders (others might be there but are not shown here). Some might be already present and only need editing. Others files or folders might need to added. The files you'll have to edit are marked with *.
-
-```
-. (root = HA config folder)
-├── appdaemon
-│   ├── apps
-│   │   ├── v2g-liberty
-│   │   │   ├── app_config
-│   │   │   │   ├── v2g-liberty-dashboard.yaml
-│   │   │   │   ├── v2g-liberty-package.yaml
-│   │   │   │   └── wallbox_modbus_registers.yaml
-│   │   │   ├── flexmeasures_client.py
-│   │   │   ├── get_fm_data.py
-│   │   │   ├── LICENSE
-│   │   │   ├── README.md
-│   │   │   ├── set_fm_data.py
-│   │   │   ├── util_functions.py
-│   │   │   ├── v2g_liberty.py
-│   │   │   └── wallbox_client.py
-│   │   └ apps.yaml *
-│   └ appdaemon.yaml *
-├── configuration.yaml *
-└── secrets.yaml *
-```
-
-### Secrets
-
-HA stores secrets in the file `secrets.yaml` and V2G Liberty expects this file to be in the default location, the config folder.
-We store both secrets and configuration values in this file as this is the most conveniant way for storing these.
-Open this file in the HA file editor and add the following code. You'll need to replace secrets/values for your custom setting.
-If you have installed the Studio Code Server addon (not mandatory!), you can use that.
-
-
-```yaml
-################################################################################
-#                                                                              #
-#    V2G Liberty Configuration                                                 #
-#    Contains all settings that need to be set for you, usually secrets        #
-#    such as passwords, usernames, ip-addresses and entity addresses.          #
-#                                                                              #
-#    It is also used for storing variables for use in the app configuration.   #
-#                                                                              #
-#    After changes have been saved restart HA and AppDaemon.                   #
-#                                                                              #
-################################################################################
-
-#############   BASIC HA CONFIG   ##############################################
-## ALWAYS CHANGE ##
-# Provide the coordinates of the location.
-# Typical: lat. 52.xxxxxx,  lon. 4.xxxxxx, elevation in meters.
-ha_latitude: xx.xxxxxxx
-ha_longitude: x.xxxxxxx
-ha_elevation: x
-ha_time_zone: Europe/Amsterdam
-
-# To which mobile device must (critial) platform notifications be send
-# Can be found in the home assistant companion app under:
-# Settings > Companion App > (Top item) your name and server > Device name
-# Replace any spaces, minus (-), dots(.) with underscores (_)
-admin_mobile_name: "your_device_name"
-#Should be iOS or Android, others are not supported.
-admin_mobile_platform: "your platform name: iOS or Android"
-
-#############   FLEXMEASURES CONFIGURATION   ###################################
-
-## ALWAYS CHANGE ##
-fm_user_email: "your FM e-mail here (use quotes)"
-fm_user_password: "your FM password here (use quotes)"
-
-# This looks like ea1.2022-03.nl.seita.flexmeasures:fmX.X 
-fm_quasar_entity_address: "your FM entity adres here"
-
-# This is an integer number
-fm_quasar_sensor_id: X
-
-# This looks like dev/sensor/XX/chart_data/
-fm_data_api_epex: "your FM api epex here"
-
-# These looks like ea1.2022-03.nl.seita.flexmeasures:fmX.X 
-fm_availability_entity_address: "your FM availability entity adres here"
-fm_soc_entity_address: "your FM soc entity adres here"
-
-## VERY RARELY CHANGE ##
-fm_api: https://flexmeasures.seita.nl/api
-fm_data_api: https://flexmeasures.seita.nl/api/
-fm_api_version: v3_0
-fm_data_api_post_sensor_data: v3_0/sensors/data
-
-# This represents how far ahead the schedule should look. Keep at this setting.
-fm_schedule_duration: "PT27H"
-# This represents how often schedules should refresh. Keep at this setting.
-fm_quasar_event_resolution_in_minutes: 5
-
-#############   CHARGER CONFIGURATION   ########################################
-
-## ALWAYS CHANGE ##
-# This usually is an IP address but can be a named URL as well.
-wallbox_host: "your charger host here"
-wallbox_port: XXX
-
-#############   CAR & POWER-CONNECTION CONFIGURATION   #########################
-## ALWAYS CHECK/CHANGE ##
-
-# The maximum usable energy storage capacity of the battery of the car, as an integer.
-# For the Nissan Leaf this is usually 21, 36 or 56 kWh 
-car_max_capacity_in_kwh: 56
-
-# What would you like to be the minimum charge in your battery?
-# The scheduling will not discharge below this value and if the car returns with
-# and SoC below this value, the battery will be charged to this minimum asap
-# before regular scheduling.
-# A high value results in always having a greater driving range available, even 
-# when not planned, but less capacity available for dis-charge and so lesser
-# earnings.
-# A lower value reults in sometimes a smaller driving range available for
-# un-planned drives but there is always more capacity for discharge and so more
-# earnings.
-# Some research suggests battery life is shorter if min SoC is below 15%.
-# In some cars the SoC every now and then skips a number, eg. from 21 to 19%, 
-# skipping 20%. This might result in toggling charging behaviour around this
-# minimum SoC. If this happens try a value 1 higher or lower.
-# The setting must be an integer between 10 and 30%, default is 20%.
-car_min_soc_in_percent: 18
-
-# What would you like to be the maximum charge in your car battery?
-# The schedule will use this for regular scheduling. It can be used to further
-# protect the battery from degredation as a 100% charge (for longer periods) may
-# reduce battery health/life time. 
-# When a calendar item is present, the schedule will ignore this setting and
-# try to charge to 100% (or if the calendar item has a target use that).
-# A low setting reduces schedule flexibility and so the capability to earn
-# money and reduce emissions.
-# The setting must be an integer value between 60 and 100, default is 100.
-car_max_soc_in_percent: 85 
-
-# Max (dis-)charge rate in Watt.
-# If a load-balancer (Power Boost for WB) is installed it is safe to use maximum
-# amperage of the phase * 233 (Volt). So for 25 A, this is 5825 W.
-# If there is no load-balancer, please ask your installer what max power can be
-# used by the wallbox. It's very rare that discharge- differs from charge power.
-wallbox_max_charging_power: XXXX
-wallbox_max_discharging_power: XXXX
-
-# For transforming the raw EPEX (from FM) to net price to be shown in UI.
-VAT: 1.21
-# FOR NL: Energiebelasting 2023 is € 0,12599 (ODE is now included in Energiebelasting).
-# Source: 
-# https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/overige_belastingen/belastingen_op_milieugrondslag/tarieven_milieubelastingen/tabellen_tarieven_milieubelastingen
-markup_per_kWh: 0.12599
-
-#############   CALENDAR CONFIGURATION   #######################################
-
-# Configuration for the calendar for making reservations for the car #
-# This is mandatory!
-# It can be a Google calendar (please use the Google calendar integration for HomeAssistant)
-
-car_calendar_name: calendar.car_reservation
-# This normally matches the ha_time_zone setting.
-car_calendar_timezone: Europe/Amsterdam
-
-## Remove these if another calendar is used.
-## Please also remove the calendar related entities in v2g_liberty_package.yaml
-caldavUN: "your caldav username here (use quotes)"
-caldavPWD: "your caldav password here (use quotes)"
-caldavURL: "your caldav URL here (use quotes)"
-
-git_ard_UN: "your github username here (use quotes)"
-git_ard_PWD: "your github password here (use quotes)"
-
-```
-
-### Copy & edit files
-
-In your Home Assistant file editor, go to `/config/appdaemon/apps/` and create a new folder `v2g-liberty`.
-Within the v2g-liberty folder create a new folder `app-config`.
-From this GitHub project copy all files to the respective folders.
+5. Restart Home Assistant (or wait with this until the end).
 
 ## Install the AppDaemon 4 add-on
 
 AppDaemon is an official add-on for HA and thus can be installed from within HA.
-Please go to Settings -> Add-ons -> Add-on store and find the AppDaemon add-on.
-When installed AppDaemon needs to be configured, look for (`Supervisor -> AppDaemon 4 -> Configuration`) and add the following Python packages:
+Go to Settings -> Add-ons -> Add-on store and find the AppDaemon add-on.
+
+### AppDaemon configuration
+
+When installed AppDaemon needs to be configured, look for (`Settings -> Addons -> AppDaemon 4 -> Configuration`).
+There, add the following Python packages (there is also an option to set this in yaml, copy the following):
 
 ```yaml
 python_packages:
   - isodate
   - pyModbusTCP
 ```
-### AppDaemon configuration
+If set, return tot the appdaemon page and make two useful settings can be made to make the system more reliable.
++ Switch on "watch dog"
++ Switch on "auto update"
 
-To configure AppDaemon you'll need to add the following to the appdaemon.yaml file.
+AppDaemon does not have to be started yet, more config is needed. To further configure AppDaemon add the following to 
+the appdaemon.yaml file (copy - paste, no alterations needed.)
 
 ```yaml
 ---
@@ -463,6 +291,195 @@ set_fm_data:
   wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
 ```
 
+## Configure HA
+
+This is not complicated, but you'll need to work precise. The configuration of HA is stored in .yaml files, these can be edited in the HA file editor (in the left main menu).
+
+  > If you have installed V2G Liberty before, please remove any changes made during that installation to the .yaml files.
+
+After completion of this step you'll end up with a these files and folders (others might be there but are not shown here). Some might be already present and only need editing. Others files or folders might need to added. The files you'll have to edit are marked with *.
+
+```
+. (root = HA config folder)
+├── appdaemon
+│   ├── apps
+│   │   ├── v2g-liberty
+│   │   │   ├── app_config
+│   │   │   │   ├── v2g_liberty_dashboard.yaml
+│   │   │   │   ├── v2g_liberty_package.yaml
+│   │   │   │   └── wallbox_modbus_registers.yaml
+│   │   │   ├── flexmeasures_client.py
+│   │   │   ├── get_fm_data.py
+│   │   │   ├── LICENSE
+│   │   │   ├── README.md
+│   │   │   ├── set_fm_data.py
+│   │   │   ├── util_functions.py
+│   │   │   ├── v2g_liberty.py
+│   │   │   └── wallbox_client.py
+│   │   └ apps.yaml *
+│   ├── appdaemon.yaml *
+│   └── logs
+├── configuration.yaml *
+└── secrets.yaml *
+```
+
+### Secrets
+
+HA stores secrets in the file `secrets.yaml` and V2G Liberty expects this file to be in the default location, the config folder.
+We store both secrets and configuration values in this file as this is the most convenient way for storing these.
+Open this file in the HA file editor and add the following code. You'll need to replace secrets/values for your custom setting.
+If you have installed the Studio Code Server addon (not mandatory!), you can use that.
+
+
+```yaml
+################################################################################
+#                                                                              #
+#    V2G Liberty Configuration                                                 #
+#    Contains all settings that need to be set for you, usually secrets        #
+#    such as passwords, usernames, ip-addresses and entity addresses.          #
+#                                                                              #
+#    It is also used for storing variables for use in the app configuration.   #
+#                                                                              #
+#    After changes have been saved restart HA and AppDaemon.                   #
+#                                                                              #
+################################################################################
+
+#############   BASIC HA CONFIG   ##############################################
+## ALWAYS CHANGE ##
+# Provide the coordinates of the location.
+# Typical: lat. 52.xxxxxx,  lon. 4.xxxxxx, elevation in meters.
+ha_latitude: xx.xxxxxxx
+ha_longitude: x.xxxxxxx
+ha_elevation: x
+ha_time_zone: Europe/Amsterdam
+
+# To which mobile device must (critial) platform notifications be send
+# Can be found in the home assistant companion app under:
+# Settings > Companion App > (Top item) your name and server > Device name
+# Replace any spaces, minus (-), dots(.) with underscores (_)
+admin_mobile_name: "your_device_name"
+#Should be iOS or Android, others are not supported.
+admin_mobile_platform: "your platform name: iOS or Android"
+
+#############   FLEXMEASURES CONFIGURATION   ###################################
+
+## ALWAYS CHANGE ##
+fm_user_email: "your FM e-mail here (use quotes)"
+fm_user_password: "your FM password here (use quotes)"
+
+# This looks like ea1.2022-03.nl.seita.flexmeasures:fm1.X 
+fm_quasar_entity_address: "your FM entity adres here"
+
+# This is an integer number (also the power_entity_address)
+fm_quasar_sensor_id: X
+
+# These looks like ea1.2022-03.nl.seita.flexmeasures:fmX.X 
+fm_availability_entity_address: "your FM availability entity adres here"
+fm_soc_entity_address: "your FM soc entity adres here"
+
+## VERY RARELY CHANGE ##
+fm_api: https://flexmeasures.seita.nl/api
+fm_data_api: https://flexmeasures.seita.nl/api/
+fm_api_version: v3_0
+fm_data_api_post_sensor_data: v3_0/sensors/data
+fm_data_api_epex: "dev/sensor/14/chart_data/"
+fm_data_api_co2: "dev/sensor/27/chart_data/"
+
+# This represents how far ahead the schedule should look. Keep at this setting.
+fm_schedule_duration: "PT27H"
+# This represents how often schedules should refresh. Keep at this setting.
+fm_quasar_event_resolution_in_minutes: 5
+
+#############   CHARGER CONFIGURATION   ########################################
+
+## ALWAYS CHANGE ##
+# This usually is an IP address but can be a named URL as well.
+wallbox_host: "your charger host here"
+wallbox_port: XXX
+
+#############   CAR & POWER-CONNECTION CONFIGURATION   #########################
+## ALWAYS CHECK/CHANGE ##
+
+# The maximum usable energy storage capacity of the battery of the car, as an integer.
+# For the Nissan Leaf this is usually 21, 36 or 56 kWh 
+car_max_capacity_in_kwh: 56
+
+# What would you like to be the minimum charge in your battery?
+# The scheduling will not discharge below this value and if the car returns with
+# and SoC below this value, the battery will be charged to this minimum asap
+# before regular scheduling.
+# A high value results in always having a greater driving range available, even 
+# when not planned, but less capacity available for dis-charge and so lesser
+# earnings.
+# A lower value reults in sometimes a smaller driving range available for
+# un-planned drives but there is always more capacity for discharge and so more
+# earnings.
+# Some research suggests battery life is shorter if min SoC is below 15%.
+# In some cars the SoC every now and then skips a number, eg. from 21 to 19%, 
+# skipping 20%. This might result in toggling charging behaviour around this
+# minimum SoC. If this happens try a value 1 higher or lower.
+# The setting must be an integer between 10 and 30%, default is 20%.
+car_min_soc_in_percent: 18
+
+# What would you like to be the maximum charge in your car battery?
+# The schedule will use this for regular scheduling. It can be used to further
+# protect the battery from degredation as a 100% charge (for longer periods) may
+# reduce battery health/life time. 
+# When a calendar item is present, the schedule will ignore this setting and
+# try to charge to 100% (or if the calendar item has a target use that).
+# A low setting reduces schedule flexibility and so the capability to earn
+# money and reduce emissions.
+# The setting must be an integer value between 60 and 100, default is 100.
+car_max_soc_in_percent: 85 
+
+# Max (dis-)charge rate in Watt.
+# If a load-balancer (Power Boost for WB) is installed it is safe to use maximum
+# amperage of the phase * 233 (Volt). So for 25 A, this is 5825 W.
+# If there is no load-balancer, please ask your installer what max power can be
+# used by the wallbox. It's very rare that discharge- differs from charge power.
+wallbox_max_charging_power: XXXX
+wallbox_max_discharging_power: XXXX
+
+# For transforming the raw EPEX (from FM) to net price to be shown in UI.
+VAT: 1.21
+# FOR NL: Energiebelasting 2023 is € 0,12599 (ODE is now included in Energiebelasting).
+# Source: 
+# https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/overige_belastingen/belastingen_op_milieugrondslag/tarieven_milieubelastingen/tabellen_tarieven_milieubelastingen
+markup_per_kWh: 0.12599
+
+#############   CALENDAR CONFIGURATION   #######################################
+
+# Configuration for the calendar for making reservations for the car #
+# This is highly recommended!
+# By default this is a caldav compatible calendar, e.g. Nextcloud or iCloud
+# It can also be a Google calendar (please use the Google calendar integration for HomeAssistant)
+
+car_calendar_name: calendar.car_reservation
+# This normally matches the ha_time_zone setting.
+car_calendar_timezone: Europe/Amsterdam
+
+## Remove these if another calendar is used.
+## Please then also remove the calendar related entities in v2g_liberty_package.yaml
+caldavUN: "your caldav username here (use quotes)"
+caldavPWD: "your caldav password here (use quotes)"
+caldavURL: "your caldav URL here (use quotes)"
+
+git_ard_UN: "your github username here (use quotes)"
+git_ard_PWD: "your github password here (use quotes)"
+
+```
+
+### Copy & edit files
+
+In your Home Assistant file editor, go to `/config/appdaemon/` and create a new folder `logs`.
+Open the folder `apps/` and create a new folder `v2g-liberty`.
+Within the v2g-liberty folder create a new folder `app-config`.
+
+Now download the files from this project. Start on top of this page (on Github) and find the green button (Code).
+Click it and then choose the download zip file option. Unpack the zipf file on your machine.
+Now in the file editor upload these files to the respective folders.
+
+
 ## Configure HA to use v2g-liberty
 
 This (nearly last) step will combine the work you've done so far: it adds V2G Liberty to HA.
@@ -474,39 +491,51 @@ homeassistant:
     v2g_pack: !include appdaemon/apps/v2g-liberty/app_config/v2g_liberty_package.yaml
 ```
 
-### Convenient HA optimisations
+# :fire: Fire it up
+
+It is time to "get this thing going"!
+
+Now that so many files have changed/been added a restart of both Home Assistant and AppDaemon is needed.
++ HA can be restarted by `Settings > System > Restart (top right)`.
++ AppDaemon can be (re-)started via `Settings > Add-ons > AppDaemon > (Re-)start`.
+
+Now the system needs 5 to 10 minutes before it runs nicely.
+
+### :checkered_flag: FINISHED :checkered_flag:
+
+### You are a :superhero:!
+
+After the restart you should find the V2G Liberty dashboard in the sidebar. 
+Go there, and you'll see the interface as in the image in this readme.
+The only thing left to do is to start V2G Liberty by setting it to [Automatic] (click the button, and it will become yellow).
+If a car is connected you should see a schedule coming in within another 5 minutes or so.
+
+# Convenient HA optimisations
 
 These are "out of the box" super handy HA features that are highly recommended.
 
-#### Add users
+## Add users
 
 This is optional but is highly recommended.
 This lets all persons in the household operate the charger.
 
-#### Install the HA app on your mobile
+## Install the HA app on your mobile
 
 This is optional but highly recommended.
 You can get it from the official app store of your phone platform.
 If you’ve logged in, the mobile can later be used to receive notifications.
 
-#### Make V2G Liberty your default dashboard
+## Make V2G Liberty your default dashboard
 
-After the restart (next step) you'll find the V2G Liberty dashboard in the sidebar. 
-Probably underneath "Overview", which then likely is the current default dashboard. To make the V2G Liberty dashboard 
-your default go to `Settings > Dashboards`. Select the V2G Liberty dashboard row and click th link "SET AS DEFAULT IN THIS DEVICE".
-
-
-
-## Start it up
-Now that so many files have changed/been added a restart of both Home Assistant and AppDaemon is needed.
-HA can be restarted by `Settings > System > Restart (top right)`.
-AppDaemon can be (re-)started via `Settings > Add-ons > AppDaemon > (Re-)start`.
-
-Now the system needs 5 to 10 minutes before it runs nicely. If a car is connected you should see a schedule comming in soon after.
-<!-- <style 
+The V2G Liberty dashboard sits the sidebar, probably underneath "Overview", which then likely is the current default 
+dashboard. To make the V2G Liberty dashboard  your default go to `Settings > Dashboards`. Select the V2G Liberty 
+dashboard row and click th link "SET AS DEFAULT IN THIS DEVICE".
+<!--
+<style 
   type="text/css">
   body {
     max-width: 50em;
     margin: 4em;
   }
-</style> -->
+</style>
+-->

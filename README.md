@@ -139,7 +139,7 @@ python_packages:
   - isodate
   - pyModbusTCP
 ```
-If set, return tot the appdaemon page and make two useful settings can be made to make the system more reliable.
+If set, return to the appdaemon page and make two useful settings to make the system more reliable.
 + Switch on "watch dog"
 + Switch on "auto update"
 
@@ -168,9 +168,9 @@ admin:
 api:
 hadashboard:
 
-# Setting logging is optional but usefull. The software is in use for quite some
+# Setting logging is optional but useful. The software is in use for quite some
 # time but not bullit-proof yet. So every now and then you'll need to see what
-# happend.
+# happened.
 log_thread_actions: 1
 logs:
   main_log:
@@ -198,8 +198,10 @@ flexmeasures-client:
   fm_schedule_duration: !secret fm_schedule_duration
   fm_quasar_entity_address: !secret fm_quasar_entity_address
   fm_quasar_sensor_id: !secret fm_quasar_sensor_id
+  fm_optimisation_mode: !secret fm_optimisation_mode
 
-  reschedule_on_soc_changes_only: false # Whether to skip requesting a new schedule when the SOC has been updated, but hasn't changed
+  # Whether to skip requesting a new schedule when the SOC has been updated, but hasn't changed
+  reschedule_on_soc_changes_only: false
   fm_quasar_soc_event_resolution_in_minutes: !secret fm_quasar_event_resolution_in_minutes
   max_number_of_reattempts_to_retrieve_schedule: 4
   delay_for_reattempts_to_retrieve_schedule: 30
@@ -368,7 +370,7 @@ fm_user_email: "your FM e-mail here (use quotes)"
 fm_user_password: "your FM password here (use quotes)"
 
 # This looks like ea1.2022-03.nl.seita.flexmeasures:fm1.X 
-fm_quasar_entity_address: "your FM entity adres here"
+fm_quasar_entity_address: "your FM entity address here"
 
 # This is an integer number (also the power_entity_address)
 fm_quasar_sensor_id: X
@@ -376,6 +378,8 @@ fm_quasar_sensor_id: X
 # These looks like ea1.2022-03.nl.seita.flexmeasures:fmX.X 
 fm_availability_entity_address: "your FM availability entity adres here"
 fm_soc_entity_address: "your FM soc entity adres here"
+# Choices are: price (default) or emissions
+fm_optimisation_mode: emissions
 
 ## VERY RARELY CHANGE ##
 fm_api: https://flexmeasures.seita.nl/api
@@ -471,14 +475,18 @@ git_ard_PWD: "your github password here (use quotes)"
 
 ### Copy & edit files
 
-In your Home Assistant file editor, go to `/config/appdaemon/` and create a new folder `logs`.
-Open the folder `apps/` and create a new folder `v2g-liberty`.
-Within the v2g-liberty folder create a new folder `app-config`.
+If your familiar with the terminal and github you could also use [git clone](!https://github.com/git-guides/git-clone). 
+Use the V2G Liberty URL `https://github.com/SeitaBV/v2g-liberty` and maybe the `--sparce` option.
+
+If terminal and/or github are not your thing, you can easily download and copy the files manually here. In your Home 
+Assistant file editor, go to `/config/appdaemon/` and:
+ + Create a new folder `logs`.
+ + Open the folder `apps/` and create a new folder `v2g-liberty`.
+ + Within the v2g-liberty folder create a new folder `app-config`.
 
 Now download the files from this project. Start on top of this page (on Github) and find the green button (Code).
-Click it and then choose the download zip file option. Unpack the zipf file on your machine.
+Click it and then choose the download zip file option. Unpack the zip file on your machine.
 Now in the file editor upload these files to the respective folders.
-
 
 ## Configure HA to use v2g-liberty
 
@@ -527,9 +535,9 @@ If you’ve logged in, the mobile can later be used to receive notifications.
 
 ## Make V2G Liberty your default dashboard
 
-The V2G Liberty dashboard sits the sidebar, probably underneath "Overview", which then likely is the current default 
-dashboard. To make the V2G Liberty dashboard  your default go to `Settings > Dashboards`. Select the V2G Liberty 
-dashboard row and click th link "SET AS DEFAULT IN THIS DEVICE".
+The V2G Liberty dashboard sits in/under the sidebar, probably underneath "Overview", which then likely is the current 
+default dashboard. To make the V2G Liberty dashboard  your default go to `Settings > Dashboards`. Select the V2G Liberty 
+dashboard row and click the link "SET AS DEFAULT IN THIS DEVICE".
 <!--
 <style 
   type="text/css">

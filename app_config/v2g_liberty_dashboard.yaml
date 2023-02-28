@@ -186,6 +186,20 @@ views:
                 opposite: true
                 min: '|-2|'
                 max: '|+2|'
+          - type: conditional
+            conditions:
+              - entity: input_select.optimisation_mode
+                state: Price
+            card:
+              type: markdown
+              content: Optimised on ***price***/kWh
+          - type: conditional
+            conditions:
+              - entity: input_select.optimisation_mode
+                state: Emissions
+            card:
+              type: markdown
+              content: Optimised on ***emissions***/kWh
       - type: vertical-stack
         title: Charge mode
         cards:

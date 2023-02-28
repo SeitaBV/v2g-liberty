@@ -37,6 +37,15 @@ input_select:
     icon: mdi:battery-charging-medium
     # ToDo: check if initial: Automatic is useful
 
+  # Helper, set by V2G Liberty.py based upon setting fm_optimisation_mode in secrets.
+  # Used only for setting text in dashboard.
+  optimisation_mode:
+    name: Optimisation mode
+    options:
+      - Price
+      - Emissions
+    initial: Price
+
 input_boolean:
   error_epex_prices_cannot_be_retrieved:
     name: "Error: EPEX prices cannot be retrieved"

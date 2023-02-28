@@ -207,6 +207,8 @@ fm_data_api_epex: "your FM api epex here"
 # These looks like ea1.2022-03.nl.seita.flexmeasures:fmX.X 
 fm_availability_entity_address: "your FM availability entity adres here"
 fm_soc_entity_address: "your FM soc entity adres here"
+# Choices are: price (default) or emissions
+fm_optimisation_mode: emissions
 
 ## VERY RARELY CHANGE ##
 fm_api: https://flexmeasures.seita.nl/api

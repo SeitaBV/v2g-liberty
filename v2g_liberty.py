@@ -276,6 +276,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             self.log("Stop charging (if in action) and give control based on chargemode = Stop")
             # Cancel previous scheduling timers
             self.cancel_charging_timers()
+            self.in_boost_to_reach_min_soc = False
             self.set_power_setpoint(0)  # this will also stop the charger.
             self.set_charger_control("give")
 

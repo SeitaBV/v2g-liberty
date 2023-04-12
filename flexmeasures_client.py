@@ -38,12 +38,19 @@ class FlexMeasuresClient(hass.Hass):
     fm_token: str
     # Helper to prevent parallel calls to FM for getting a schedule
     fm_busy_getting_schedule: bool
+    # Helper to prevent blocking the sequence of getting schedules.
+    # Sometimes the previous bool is not reset (why we don't know), then it needs a timed reset.
+    # stores the date_time of the last successful received schedule
+    fm_date_time_last_schedule: datetime
+    fm_max_seconds_between_schedules: int
+
     # Helper to prevent sending the same trigger message twice.
     previous_trigger_message: str
 
     def initialize(self):
         self.previous_trigger_message = ""
         self.fm_busy_getting_schedule = False
+        self.fm_date_time_last_schedule = self.get_now()
 
         self.FM_API = self.args["fm_api"]
         self.FM_URL = self.FM_API + "/" + \
@@ -56,6 +63,10 @@ class FlexMeasuresClient(hass.Hass):
         self.DELAY_FOR_REATTEMPTS = int(self.args["delay_for_reattempts_to_retrieve_schedule"])
         self.MAX_NUMBER_OF_REATTEMPTS = int(self.args["max_number_of_reattempts_to_retrieve_schedule"])
         self.DELAY_FOR_INITIAL_ATTEMPT = int(self.args["delay_for_initial_attempt_to_retrieve_schedule"])
+
+        # Add an extra attempt to prevent the last attempt not being able to finish.
+        self.fm_max_seconds_between_schedules = \
+            self.DELAY_FOR_REATTEMPTS * (self.MAX_NUMBER_OF_REATTEMPTS + 1) + self.DELAY_FOR_INITIAL_ATTEMPT
         self.CAR_RESERVATION_CALENDAR = self.args["fm_car_reservation_calendar"]
 
         self.CAR_MAX_CAPACITY_IN_KWH = float(self.args["car_max_capacity_in_kwh"])
@@ -127,8 +138,13 @@ class FlexMeasuresClient(hass.Hass):
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
         """
         if self.fm_busy_getting_schedule:
-            self.log("Not getting new schedule, still processing previous request.")
-            return
+            seconds_since_last_schedule = int((self.get_now() - self.fm_date_time_last_schedule).total_seconds())
+            if seconds_since_last_schedule > self.fm_max_seconds_between_schedules:
+                self.log("Retrieving previous schedule is taking too long,"
+                         " assuming call got 'lost'. Getting new schedule.")
+            else:
+                self.log("Not getting new schedule, still processing previous request.")
+                return
 
         # This has to be set here instead of in get_schedule because that function is called with a delay
         # and during this delay this get_new_schedule could be called.
@@ -182,6 +198,7 @@ class FlexMeasuresClient(hass.Hass):
 
         self.log(f"GET schedule success: retrieved {res.status_code}")
         self.fm_busy_getting_schedule = False
+        self.fm_date_time_last_schedule = self.get_now()
 
         schedule = res.json()
         self.log(f"Schedule {schedule}")
@@ -206,7 +223,10 @@ class FlexMeasuresClient(hass.Hass):
 
         url = self.FM_URL + "trigger"
 
-        # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
+        # AJO 2022-02-26:
+        # ToDo: Getting target should be in v2g_liberty module.
+        # AJO 2023-03-31:
+        # ToDo: Would it be more efficient to determine the target every 15/30/60? minutes instead of at every schedule
         # Set default target_soc to 100% one week from now
         target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
         target_soc = self.CAR_MAX_CAPACITY_IN_KWH

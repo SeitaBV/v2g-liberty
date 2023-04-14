@@ -190,6 +190,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         for h in self.scheduling_timer_handles:
             self.cancel_timer(h)
 
+        # Also remove any visible schedule from the graph in the UI..
+        self.set_soc_prognosis_in_ui(None)
+
+
     def set_charging_timers(self, handles):
         # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles
         self.scheduling_timer_handles = handles
@@ -234,7 +238,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 handles.append(h)
             else:
                 self.log(f"Cannot time a charging scheduling in the past, specifically, at {t}."
-                         f" Setting it immediately instead.")
+                        f" Setting it immediately instead.")
                 self.send_control_signal(kwargs=dict(charge_rate=value * 1000))
         self.set_charging_timers(handles)
         self.log(f"{len(handles)} charging timers set.")
@@ -244,16 +248,39 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         if int(soc) != int(self.connected_car_soc):
             # todo: consider calling try_get_new_soc() and then using accumulate(self.connected_car_soc) below instead
             self.log(f"input_number.car_state_of_charge ({soc}) is not equal to self.connected_car_soc"
-                     f" ({self.connected_car_soc}), consider calling try_get_new_soc()")
-        exp_soc_values = list(
-            accumulate([soc] + convert_MW_to_percentage_points(values, resolution, self.CAR_MAX_CAPACITY_IN_KWH, self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY)))
+                    f" ({self.connected_car_soc}), consider calling try_get_new_soc()")
+        exp_soc_values = list(accumulate([soc] + convert_MW_to_percentage_points(values,
+                                resolution,
+                                self.CAR_MAX_CAPACITY_IN_KWH,
+                                self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY)))
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [dict(time=t.isoformat(), soc=round(v, 2)) for v, t in
-                                                   zip(exp_soc_values, exp_soc_datetimes)]
-        # self.log(f"Expected soc values: {self.expected_soc_based_on_scheduled_charges}")
-        new_state = "SoC prognosis based on schedule available at " + now.isoformat()
-        result = dict(records=expected_soc_based_on_scheduled_charges)
+                                                    zip(exp_soc_values, exp_soc_datetimes)]
+        self.set_soc_prognosis_in_ui(expected_soc_based_on_scheduled_charges)
+
+    def set_soc_prognosis_in_ui(self, records: Optional[dict] = None):
+        """Write or remove SoC prognosis in graph via HA entity input_text.soc_prognosis
+
+            If records = None the SoC line will be removed from the graph,
+            e.g. when the car gets disconnected and the SoC prognosis is not relevant (anymore)
+
+            Parameters:
+                records(Optional[dict] = None): a dictionary of time (isoformat) + SoC (%) records
+
+            Returns:
+                Nothing
+        """
+        if records is None:
+            # There seems to be no way to hide the SoC sesries from the graph,
+            # so it is filled with "empty" data, one record of 0.
+            # Set it at a week from now, so it's not visible in the default view.
+            records = [dict(time=(self.get_now() + timedelta(days=7)).isoformat(), soc=0.0)]
+
+        # To make sure the new attributes are treated as new we set a new state aswell
+        new_state = "SoC prognosis based on schedule available at " + self.get_now().isoformat()
+        result = dict(records=records)
         self.set_state("input_text.soc_prognosis", state=new_state, attributes=result)
+
 
     def update_charge_mode(self, entity, attribute, old, new, kwargs):
         """Function to handle updates in the charge mode"""
@@ -383,16 +410,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         res = False
         if setting == "Automatic":
-            # Comment block Tobe removed if new code is bug-free.
-            # This is a somewhat clumsy way to set the mode to automatic but HA does not support radio buttons, so
-            # the UI needed to be setup rather complicated. Setting the charge mode to automatic is not doing the job.
-            # Then the UI does not match the actual status.
-            # Further the set_state needs to re-apply the icon and friendly name for some odd reason.
-            # Otherwise, the icon changes to the default toggle...
-            # res = self.set_state("input_boolean.chargemodeautomatic", state="on",
-            #                      attributes={'friendly_name': 'ChargeModeAutomatic',
-            #                                  'icon': 'mdi:battery-charging-80'})
-
             # Used when car gets disconnected and ChargeMode was MaxBoostNow.
             res = self.turn_on("input_boolean.chargemodeautomatic")
         elif setting == "MaxBoostNow":

@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timedelta
 from itertools import accumulate
 import time
@@ -21,6 +22,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     CAR_MAX_CAPACITY_IN_KWH: float
     WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float
     CAR_MIN_SOC_IN_PERCENT: int
+    CHARGER_MAX_POWER: int
     ADMIN_MOBILE_NAME: str
     ADMIN_MOBILE_PLATFORM: str
 
@@ -51,6 +53,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.MIN_RESOLUTION = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
         self.CAR_MAX_CAPACITY_IN_KWH = float(self.args["car_max_capacity_in_kwh"])
         self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = float(self.args["wallbox_plus_car_roundtrip_efficiency"])
+        self.CHARGER_MAX_POWER = self.args["wallbox_max_charging_power"]
 
         # ToDo: AJO 2022-12-30: This code is copied in several modules: combine!
         self.CAR_MIN_SOC_IN_PERCENT = int(float(self.args["car_min_soc_in_percent"]))
@@ -85,6 +88,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")
         self.scheduling_timer_handles = []
+
+        # Set to initial 'empty' values, makes rendering of graph faster.
+        self.set_soc_prognosis_boost_in_ui()
+        self.set_soc_prognosis_in_ui()
 
         if self.is_car_connected():
             self.log("Car is connected. Trying to get a reliable SoC reading.")
@@ -193,7 +200,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         # Also remove any visible schedule from the graph in the UI..
         self.set_soc_prognosis_in_ui(None)
 
-
     def set_charging_timers(self, handles):
         # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles
         self.scheduling_timer_handles = handles
@@ -238,7 +244,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 handles.append(h)
             else:
                 self.log(f"Cannot time a charging scheduling in the past, specifically, at {t}."
-                        f" Setting it immediately instead.")
+                         f" Setting it immediately instead.")
                 self.send_control_signal(kwargs=dict(charge_rate=value * 1000))
         self.set_charging_timers(handles)
         self.log(f"{len(handles)} charging timers set.")
@@ -248,14 +254,15 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         if int(soc) != int(self.connected_car_soc):
             # todo: consider calling try_get_new_soc() and then using accumulate(self.connected_car_soc) below instead
             self.log(f"input_number.car_state_of_charge ({soc}) is not equal to self.connected_car_soc"
-                    f" ({self.connected_car_soc}), consider calling try_get_new_soc()")
+                     f" ({self.connected_car_soc}), consider calling try_get_new_soc()")
+
         exp_soc_values = list(accumulate([soc] + convert_MW_to_percentage_points(values,
-                                resolution,
-                                self.CAR_MAX_CAPACITY_IN_KWH,
-                                self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY)))
+                                                                                 resolution,
+                                                                                 self.CAR_MAX_CAPACITY_IN_KWH,
+                                                                                 self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY)))
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [dict(time=t.isoformat(), soc=round(v, 2)) for v, t in
-                                                    zip(exp_soc_values, exp_soc_datetimes)]
+                                                   zip(exp_soc_values, exp_soc_datetimes)]
         self.set_soc_prognosis_in_ui(expected_soc_based_on_scheduled_charges)
 
     def set_soc_prognosis_in_ui(self, records: Optional[dict] = None):
@@ -271,7 +278,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 Nothing
         """
         if records is None:
-            # There seems to be no way to hide the SoC sesries from the graph,
+            # There seems to be no way to hide the SoC series from the graph,
             # so it is filled with "empty" data, one record of 0.
             # Set it at a week from now, so it's not visible in the default view.
             records = [dict(time=(self.get_now() + timedelta(days=7)).isoformat(), soc=0.0)]
@@ -281,6 +288,32 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         result = dict(records=records)
         self.set_state("input_text.soc_prognosis", state=new_state, attributes=result)
 
+    def set_soc_prognosis_boost_in_ui(self, records: Optional[dict] = None):
+        """Write or remove SoC prognosis boost in graph via HA entity input_text.soc_prognosis_boost
+            Boost is in action when SoC is below minimum.
+            The only difference with normal SoC prognosis is the line color.
+            We do not use APEX chart color_threshold feature on SoC prognosis as
+            it is experimental and the min_soc is a setting and can change.
+
+            If records = None the SoC boost line will be removed from the graph,
+            e.g. when the car gets disconnected and the SoC prognosis boost is not relevant (anymore)
+
+            Parameters:
+                records(Optional[dict] = None): a dictionary of time (isoformat) + SoC (%) records
+
+            Returns:
+                Nothing
+        """
+        if records is None:
+            # There seems to be no way to hide the SoC sesries from the graph,
+            # so it is filled with "empty" data, one record of 0.
+            # Set it at a week from now so it's not visible in the default view.
+            records = [dict(time=(self.get_now() + timedelta(days=7)).isoformat(), soc=0.0)]
+
+        # To make sure the new attributes are treated as new we set a new state aswell
+        new_state = "SoC prognosis boost based on boost 'schedule' available at " + self.get_now().isoformat()
+        result = dict(records=records)
+        self.set_state("input_text.soc_prognosis_boost", state=new_state, attributes=result)
 
     def update_charge_mode(self, entity, attribute, old, new, kwargs):
         """Function to handle updates in the charge mode"""
@@ -350,19 +383,39 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 # Intended for the situation where the car returns from a trip with a low battery.
                 # An SoC below the minimum SoC is considered "unhealthy" for the battery,
                 # this is why the battery should be charged to this minimum asap.
-                message = f"Car battery state of charge ({self.connected_car_soc}%) is too low. " \
-                          f"Charging with maximum power until minimum of ({self.CAR_MIN_SOC_IN_PERCENT}%) is reached."
                 # Cancel previous scheduling timers as they might have discharging instructions as well
                 self.cancel_charging_timers()
                 self.start_max_charge_now()
-                self.notify_user(message, False, "Car battery is too low")
                 self.in_boost_to_reach_min_soc = True
+
+                # Create a minimal schedule to show in graph that gives user an estimation of when the min. SoC will
+                # be reached. The schedule starts now with current SoC
+                boost_schedule = [dict(time=(self.get_now()).isoformat(), soc=self.connected_car_soc)]
+
+                # How much energy (wh) is needed, taking roundtrip efficiency into account
+                # For % /100, for kwh to wh * 1000 results in *10..
+                delta_to_min_soc_wh = (self.CAR_MIN_SOC_IN_PERCENT - self.connected_car_soc) * self.CAR_MAX_CAPACITY_IN_KWH * 10
+                delta_to_min_soc_wh = delta_to_min_soc_wh / (self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY ** 0.5)
+
+                # How long will it take to charge this amount with max power, we use ceil to avoid 0 minutes as
+                # this would not show in graph.
+                minutes_to_reach_min_soc = int(math.ceil((delta_to_min_soc_wh / self.CHARGER_MAX_POWER * 60)))
+                expected_min_soc_time = (self.get_now() + timedelta(minutes=minutes_to_reach_min_soc)).isoformat()
+                boost_schedule.append(dict(time=expected_min_soc_time, soc=self.CAR_MIN_SOC_IN_PERCENT))
+                self.set_soc_prognosis_boost_in_ui(boost_schedule)
+
+                message = f"Car battery state of charge ({self.connected_car_soc}%) is too low. " \
+                          f"Charging with maximum power until minimum of ({self.CAR_MIN_SOC_IN_PERCENT}%) is reached. " \
+                          f"This is expected around {expected_min_soc_time}."
+                self.notify_user(message, False, "Car battery is too low")
                 return
 
             if self.connected_car_soc > self.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
                 self.log(f"Stopping max charge now, SoC above minimum ({self.CAR_MIN_SOC_IN_PERCENT}%) again.")
                 self.in_boost_to_reach_min_soc = False
                 self.set_power_setpoint(0)
+                # Remove "boost schedule" from graph.
+                self.set_soc_prognosis_boost_in_ui(None)
             elif self.connected_car_soc <= (self.CAR_MIN_SOC_IN_PERCENT + 1) and self.is_discharging():
                 # Failsafe, this should not happen...
                 self.log(f"Stopped discharging as SoC has reached minimum ({self.CAR_MIN_SOC_IN_PERCENT}%).")

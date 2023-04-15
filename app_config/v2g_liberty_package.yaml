@@ -16,7 +16,7 @@ lovelace:
   #     type: module
   #   - url: /hacsfiles/apexcharts-card/apexcharts-card.js
   #     type: module
- 
+
   dashboards:
     lovelace-yaml:
       mode: yaml
@@ -36,6 +36,15 @@ input_select:
     # "Stop" used to be "Off" but this triggers HA to see it as False..
     icon: mdi:battery-charging-medium
     # ToDo: check if initial: Automatic is useful
+
+  # Helper, set by V2G Liberty.py based upon setting fm_optimisation_mode in secrets.
+  # Used only for setting text in dashboard.
+  optimisation_mode:
+    name: Optimisation mode
+    options:
+      - Price
+      - Emissions
+    initial: Price
 
 input_boolean:
   error_epex_prices_cannot_be_retrieved:
@@ -106,9 +115,18 @@ input_text:
 
   # Based on the current SoC and the schedule a prognosis (list of values) is
   # calculated and this (serialised list) is stored in this variable. This is Used
-  # in the graph,shown as yellow prognosis line.
+  # in the graph, shown as yellow prognosis line.
   soc_prognosis:
     name: SoC Prognosis
+    max: 10000
+    mode: text
+    min: 0
+
+  # Based on the current SoC and max boost function (when SoC is below minimum).
+  # This contains two values current SoC and min. SoC at expected time.
+  # This is shown in the graph as a red prognosis line.
+  soc_prognosis_boost:
+    name: SoC Prognosis Boost
     max: 10000
     mode: text
     min: 0

@@ -16,12 +16,12 @@ views:
               - entity: input_text.charger_state
               - entity: sensor.charger_real_charging_power
             content: >-
-                <ha-icon icon="mdi:ev-station"></ha-icon>
-                <table><tbody><tr><th>
-                {{ states('input_text.charger_state') }}
-                </th><td>
-                {{ states('sensor.charger_real_charging_power') }}&nbsp;Watt
-                </td></tr></tbody></table>
+              <ha-icon icon="mdi:ev-station"></ha-icon>
+              <table><tbody><tr><th>
+              {{ states('input_text.charger_state') }}
+              </th><td>
+              {{ states('sensor.charger_real_charging_power') }}&nbsp;Watt
+              </td></tr></tbody></table>
             card_mod:
               style:
                 .: |
@@ -48,7 +48,7 @@ views:
               service: script.disconnectnow
               service_data: {}
               target: {}
-            entity: ''
+            entity: ""
             name: Disconnect now
             icon: mdi:power-plug-off
             icon_height: 40px
@@ -72,13 +72,13 @@ views:
               yellow: 80
               red: 100
             needle: true
-            unit: '%'
+            unit: "%"
           - type: conditional
             conditions:
               - entity: input_boolean.error_schedule_cannot_be_retrieved
-                state: 'on'
+                state: "on"
               - entity: binary_sensor.is_flexmeasures_live
-                state: 'on'
+                state: "on"
             card:
               type: markdown
               content: >-
@@ -96,9 +96,9 @@ views:
           - type: conditional
             conditions:
               - entity: input_boolean.error_epex_prices_cannot_be_retrieved
-                state: 'on'
+                state: "on"
               - entity: binary_sensor.is_flexmeasures_live
-                state: 'on'
+                state: "on"
             card:
               type: markdown
               content: >-
@@ -116,9 +116,11 @@ views:
             graph_span: 24h
             span:
               start: hour
-              offset: '-4h'
+              offset: "-4h"
             now:
               show: true
+            show:
+              last_updated: true
             header:
               show: true
               title: Car State of Charge (%)
@@ -136,7 +138,7 @@ views:
                     reset: true
             series:
               - entity: input_text.epex_prices
-                color: '#666666'
+                color: "#666666"
                 extend_to: false
                 stroke_width: 1
                 curve: stepline
@@ -147,8 +149,8 @@ views:
                   });
                 type: line
               - entity: input_text.co2_emissions
-                transform: "return x / 10;"
-                color: '#339933'
+                transform: "return x / 6;"
+                color: "#43a047"
                 extend_to: false
                 stroke_width: 1
                 curve: stepline
@@ -159,14 +161,34 @@ views:
                   });
                 type: line
               - entity: input_number.car_state_of_charge
-                color: '#009be5'
+                color: "#009be5"
                 stroke_width: 2
                 type: line
                 extend_to: now
                 yaxis_id: SoC
+              - entity: input_text.soc_prognosis_boost
+                type: line
+                color: "#e48628"
+                stroke_width: 2
+                extend_to: false
+                yaxis_id: SoC
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.soc];
+                  });
               - entity: input_text.soc_prognosis
                 type: line
-                color: '#fea602'
+                color: "#fea602"
+                stroke_width: 2
+                extend_to: false
+                yaxis_id: SoC
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.soc];
+                  });
+              - entity: input_text.soc_prognosis_boost
+                type: line
+                color: "#e48628"
                 stroke_width: 2
                 extend_to: false
                 yaxis_id: SoC
@@ -184,8 +206,22 @@ views:
               - id: EPEXprice
                 decimals: 0
                 opposite: true
-                min: '|-2|'
-                max: '|+2|'
+                min: "|-2|"
+                max: "|+2|"
+          - type: conditional
+            conditions:
+              - entity: input_select.optimisation_mode
+                state: Price
+            card:
+              type: markdown
+              content: Optimised on ***price***/kWh
+          - type: conditional
+            conditions:
+              - entity: input_select.optimisation_mode
+                state: Emissions
+            card:
+              type: markdown
+              content: Optimised on ***emissions***/kWh
       - type: vertical-stack
         title: Charge mode
         cards:
@@ -217,7 +253,7 @@ views:
                       padding: 10% 0 !important;
                     }
               - type: button
-                name: 'Off'
+                name: "Off"
                 hold_action:
                   action: none
                 entity: input_boolean.chargemodeoff
@@ -234,7 +270,7 @@ views:
               - entity: input_text.charger_state
                 state: No car connected
               - entity: input_boolean.chargemodemaxboostnow
-                state: 'on'
+                state: "on"
             card:
               type: markdown
               content: |-
@@ -251,7 +287,7 @@ views:
           - type: conditional
             conditions:
               - entity: binary_sensor.is_flexmeasures_live
-                state: 'off'
+                state: "off"
             card:
               type: markdown
               content: >-

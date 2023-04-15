@@ -47,12 +47,23 @@ input_select:
     initial: Price
 
 input_boolean:
+  # Used for signaling in the UI that the EPEX prices temporarily cannot be retrieved from FM
   error_epex_prices_cannot_be_retrieved:
     name: "Error: EPEX prices cannot be retrieved"
 
-  #Used for signaling in the UI that the schedule cannot be retrieved from FM
+  # Used for signaling in the UI that the schedule temporarily cannot be retrieved from FM
   error_schedule_cannot_be_retrieved:
     name: "Error: Schedule cannot be retrieved"
+
+  # Used for signaling in the UI that the charger has Modbus error_codes
+  charger_in_error:
+    name: "Error: charger error detected"
+
+  # Used for signaling in the UI that Modbus communication with the charger is no longer possible
+  # This usually indicates the Modbus Module in the charger has crashed and the charger should be restarted externally.
+  charger_modbus_communication_fault:
+    name: "Error: charger Modbus communication fault"
+
 
   #Three booleans to mimic a radiobutton group for the chargemode the user can set in the UI
   chargemodeautomatic:
@@ -109,17 +120,17 @@ input_text:
   # get_fm_data code from FM daily. This then is shown in the UI in the graph.
   co2_emissions:
     name: CO2 emissions
+    mode: text
     max: 10000
     min: 0
-    mode: text
 
   # Based on the current SoC and the schedule a prognosis (list of values) is
   # calculated and this (serialised list) is stored in this variable. This is Used
   # in the graph, shown as yellow prognosis line.
   soc_prognosis:
     name: SoC Prognosis
-    max: 10000
     mode: text
+    max: 10000
     min: 0
 
   # Based on the current SoC and max boost function (when SoC is below minimum).
@@ -127,8 +138,8 @@ input_text:
   # This is shown in the graph as a red prognosis line.
   soc_prognosis_boost:
     name: SoC Prognosis Boost
-    max: 10000
     mode: text
+    max: 10000
     min: 0
 
   # Used for setting an error in the UI when V2G Liberty app cannot retrieve EPEX data.

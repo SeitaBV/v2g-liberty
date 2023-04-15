@@ -6,7 +6,6 @@ import appdaemon.plugins.hass.hassapi as hass
 from pyModbusTCP.client import ModbusClient
 
 
-
 class WallboxModbusMixin:
     """ This class manages the communication with the Wallbox charger, using Modbus."""
 
@@ -33,7 +32,11 @@ class WallboxModbusMixin:
             auto_open=True,
             auto_close=True,
         )
+        # Make sure that after a restart of V2G Liberty (needed after a charger crash)
+        # the error in the UI is removed.
+        self.turn_off("input_boolean.charger_modbus_communication_fault")
         self.registers = self.args["wallbox_modbus_registers"]
+
         return client
 
     def get_charger_state(self) -> int:
@@ -64,11 +67,12 @@ class WallboxModbusMixin:
                 # Assume the charger has crashed.
                 self.log(f"get_charger_state has reached max attempts ({attempts}), the charger probably crashed. "
                          f"Set charge_mode to Stop, notify user and try restarting charger.")
-                self.notify_user("Charger not responding (crashed?). Automatic charging has been stopped. "
-                                 "Please restart charger manually (via the Wallbox app on bluetooth or my.wallbox.com)."
-                                 " Then wait 5 minutes and switch to automatic again.", critical=True)
+                self.notify_user("Critical error. Automatic charging has been stopped. "
+                                 "Please open the V2G Liberty App to solve this problem.", critical=True)
+                self.turn_on("input_boolean.charger_modbus_communication_fault")
                 self.set_chargemode_in_ui("Stop")
-                self.set_charger_action("restart")
+                # This is futile, Modbus has stopped so a restart will not work anyhow.
+                # self.set_charger_action("restart")
                 self.busy_getting_charger_state = False
                 return
             cs = self.client.read_holding_registers(register)
@@ -77,6 +81,8 @@ class WallboxModbusMixin:
                 time.sleep(2)
                 attempts += 1
                 continue
+            # Just in case the charger communication self-restores.
+            self.turn_off("input_boolean.charger_modbus_communication_fault")
             cs = cs[0]
 
             if isinstance(cs, str) and not cs.isnumeric():

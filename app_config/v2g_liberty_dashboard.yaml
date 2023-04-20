@@ -42,6 +42,38 @@ views:
                     text-align: right;
                     vertical-align: top;
                   }
+          - type: conditional
+            conditions:
+              - entity: input_boolean.charger_modbus_communication_fault
+                state: "on"
+            card:
+              type: markdown
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -28px;
+                  }
+              content: >-
+                <ha-alert alert-type="error" title="The charger is not responding.">Automatic charging has been stopped.</ha-alert>
+
+                Please follow these instructions:
+
+                1. Restart the charger manually<br/>Via the Wallbox app or my.wallbox.com<br/>`Settings > Advanced options > Restart`
+
+                2. Wait 5 minutes
+
+                3. Restart AppDaemon<br/>`Settings > Addons > AppDaemon > Restart`
+
+                4. Wait 2 minutes
+
+                5. Switch chargemode to automatic
+
+
+                This should restore automatic charging functionality.
+
           - type: button
             tap_action:
               action: call-service
@@ -73,45 +105,6 @@ views:
               red: 100
             needle: true
             unit: "%"
-          - type: conditional
-            conditions:
-              - entity: input_boolean.error_schedule_cannot_be_retrieved
-                state: "on"
-              - entity: binary_sensor.is_flexmeasures_live
-                state: "on"
-            card:
-              type: markdown
-              content: >-
-                The FlexMeasures server is online but there is no automated
-                charging schedule available. Set charging manually. Please check
-                with system administrator.
-              title: No charging schedule available
-              card_mod:
-                style: |
-                  ha-card {
-                    background-color: #FEF0EA;
-                    color: #000000;
-                    border: solid 2px #E14D0E;
-                  }
-          - type: conditional
-            conditions:
-              - entity: input_boolean.error_epex_prices_cannot_be_retrieved
-                state: "on"
-              - entity: binary_sensor.is_flexmeasures_live
-                state: "on"
-            card:
-              type: markdown
-              content: >-
-                The FlexMeasures server is online but there are no EPEX prices
-                available. Please check with system administrator.
-              title: EPEX prices not available
-              card_mod:
-                style: |
-                  ha-card {
-                    background-color: #FEF0EA;
-                    color: #000000;
-                    border: solid 2px #E14D0E;
-                  }
           - type: custom:apexcharts-card
             graph_span: 24h
             span:
@@ -186,16 +179,6 @@ views:
                   return entity.attributes.records.map((record, index) => {
                     return [new Date(record.time).getTime(), record.soc];
                   });
-              - entity: input_text.soc_prognosis_boost
-                type: line
-                color: "#e48628"
-                stroke_width: 2
-                extend_to: false
-                yaxis_id: SoC
-                data_generator: |
-                  return entity.attributes.records.map((record, index) => {
-                    return [new Date(record.time).getTime(), record.soc];
-                  });
             yaxis:
               - id: SoC
                 min: 0
@@ -215,6 +198,14 @@ views:
             card:
               type: markdown
               content: Optimised on ***price***/kWh
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -22px;
+                  }
           - type: conditional
             conditions:
               - entity: input_select.optimisation_mode
@@ -222,6 +213,50 @@ views:
             card:
               type: markdown
               content: Optimised on ***emissions***/kWh
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -22px;
+                  }
+          - type: conditional
+            conditions:
+              - entity: input_boolean.error_schedule_cannot_be_retrieved
+                state: "on"
+              - entity: binary_sensor.is_flexmeasures_live
+                state: "on"
+            card:
+              type: markdown
+              content: >-
+                <ha-alert alert-type="warning">Temporarily no charging schedule available.</ha-alert>
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -22px;
+                  }
+          - type: conditional
+            conditions:
+              - entity: input_boolean.error_epex_prices_cannot_be_retrieved
+                state: "on"
+              - entity: binary_sensor.is_flexmeasures_live
+                state: "on"
+            card:
+              type: markdown
+              content: >-
+                <ha-alert alert-type="warning">Temporarily no EPEX prices available.</ha-alert>
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -22px;
+                  }
       - type: vertical-stack
         title: Charge mode
         cards:

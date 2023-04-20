@@ -113,9 +113,9 @@ class FlexMeasuresDataImporter(hass.Hass):
         prices = res.json()
 
         # From FM format (€/MWh) to user desired format (€ct/kWh) 
-        # = * 100/1000 = 1/10. Also include VAT
+        # = * 100/1000 = 1/10.
         VAT = float(self.args["VAT"])
-        conversion = 1 / 10 * VAT
+        conversion = 1 / 10
         # For NL electricity is a markup for transport and sustainability
         markup = float(self.args["markup_per_kWh"])
         epex_price_points = []
@@ -123,7 +123,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         for price in prices:
             data_point = {}
             data_point['time'] = datetime.fromtimestamp(price['event_start'] / 1000).isoformat()
-            data_point['price'] = round((price['event_value'] * conversion) + markup, 2)
+            data_point['price'] = round(((price['event_value'] * conversion) + markup) * VAT, 2)
             if data_point['price'] < 0:
                 has_negative_prices = True
             epex_price_points.append(data_point)

@@ -444,12 +444,19 @@ car_max_soc_in_percent: 85
 wallbox_max_charging_power: XXXX
 wallbox_max_discharging_power: XXXX
 
+# Value Added Tax.
 # For transforming the raw EPEX (from FM) to net price to be shown in UI.
+# Use a calculation factor (100 + VAT / 100)
+# E.g. for NL VAT is 21%, so factor is 1.21. Use dot (.) not comma (,).
 VAT: 1.21
-# FOR NL: Energiebelasting 2023 is € 0,12599 (ODE is now included in Energiebelasting).
-# Source: 
+
+# Energy Tax
+# FOR NL: Energiebelasting 2023 is 12.599 €ct/kWh ex. VAT (ODE is now included in Energiebelasting).
+# Source:
 # https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/overige_belastingen/belastingen_op_milieugrondslag/tarieven_milieubelastingen/tabellen_tarieven_milieubelastingen
-markup_per_kWh: 0.12599
+# Tibber e.g. adds 1.8 €ct/kWh ex. VAT for in-balance and GvO's.
+# Markup in €ct/kWh, Use dot (.) not comma (,).
+markup_per_kWh: 14.399
 
 #############   CALENDAR CONFIGURATION   #######################################
 

@@ -415,26 +415,38 @@ car_max_capacity_in_kwh: 56
 # A high value results in always having a greater driving range available, even 
 # when not planned, but less capacity available for dis-charge and so lesser
 # earnings.
-# A lower value reults in sometimes a smaller driving range available for
+# A lower value results in sometimes a smaller driving range available for
 # un-planned drives but there is always more capacity for discharge and so more
 # earnings.
 # Some research suggests battery life is shorter if min SoC is below 15%.
 # In some cars the SoC every now and then skips a number, eg. from 21 to 19%, 
 # skipping 20%. This might result in toggling charging behaviour around this
 # minimum SoC. If this happens try a value 1 higher or lower.
+#
+# Check if the charger (and car?) respects these limits.
+# In the Wallbox Quasar app goto:
+#  settings > advanced options > battery range
+# The set minimum there should be equal to or lower than the setting here.
+#
 # The setting must be an integer between 10 and 30%, default is 20%.
 car_min_soc_in_percent: 18
 
 # What would you like to be the maximum charge in your car battery?
 # The schedule will use this for regular scheduling. It can be used to further
-# protect the battery from degredation as a 100% charge (for longer periods) may
-# reduce battery health/life time. 
+# protect the battery from degradation as a 100% charge (for longer periods) may
+# reduce battery health/lifetime. 
 # When a calendar item is present, the schedule will ignore this setting and
 # try to charge to 100% (or if the calendar item has a target use that).
 # A low setting reduces schedule flexibility and so the capability to earn
 # money and reduce emissions.
+#
+# Check if the charger (and car?) respects these limits.
+# In the Wallbox Quasar app goto:
+#  settings > advanced options > battery range
+# The set maximum there should be equal to or higher than the setting here.
+#
 # The setting must be an integer value between 60 and 100, default is 100.
-car_max_soc_in_percent: 85 
+car_max_soc_in_percent: 100
 
 # Max (dis-)charge rate in Watt.
 # If a load-balancer (Power Boost for WB) is installed it is safe to use maximum

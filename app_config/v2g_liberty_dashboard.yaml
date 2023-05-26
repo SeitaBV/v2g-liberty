@@ -42,6 +42,30 @@ views:
                     text-align: right;
                     vertical-align: top;
                   }
+
+          - type: conditional
+            conditions:
+              - entity: sensor.charger_charger_state
+                state: "0"
+              - entity: sensor.charger_locked
+                state: "1"
+            card:
+              type: markdown
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -28px;
+                  }
+              content: >-
+                <ha-alert alert-type="warning" title="The charger is locked">V2G Liberty cannot charge</ha-alert>
+
+                Unlock the charger manually via the Wallbox app or -if used- the RFID card.
+
+                This should restore automatic charging functionality.
+
           - type: conditional
             conditions:
               - entity: input_boolean.charger_modbus_communication_fault
@@ -99,10 +123,15 @@ views:
             min: 0
             max: 100
             name: Car SoC
-            severity:
-              green: 20
-              yellow: 80
-              red: 100
+            segments:
+              - from: 0
+                color: var(--error-color)
+              - from: 5
+                color: var(--warning-color)
+              - from: 20
+                color: var(--success-color)
+              - from: 80
+                color: var(--warning-color)
             needle: true
             unit: "%"
           - type: custom:apexcharts-card
@@ -112,8 +141,6 @@ views:
               offset: "-4h"
             now:
               show: true
-            show:
-              last_updated: true
             header:
               show: true
               title: Car State of Charge (%)

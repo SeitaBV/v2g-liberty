@@ -119,7 +119,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         """
         self.log("************* Disconnect charger requested *************")
         self.set_charger_action("stop")
-        self.set_charger_control("give")
+        # Control is not given to user, this is only relevant if chargemode is "Off" (stop).
         # ToDo: Remove all schedules?
         self.notify_user("Charger is disconnected.")
 

@@ -138,6 +138,7 @@ There, add the following Python packages (there is also an option to set this in
 python_packages:
   - isodate
   - pyModbusTCP
+  - flexmeasures-client
 ```
 If set, return to the appdaemon page and make two useful settings to make the system more reliable.
 + Switch on "watch dog"

@@ -64,7 +64,6 @@ input_boolean:
   charger_modbus_communication_fault:
     name: "Error: charger Modbus communication fault"
 
-
   #Three booleans to mimic a radiobutton group for the chargemode the user can set in the UI
   chargemodeautomatic:
     name: ChargeModeAutomatic
@@ -120,17 +119,17 @@ input_text:
   # get_fm_data code from FM daily. This then is shown in the UI in the graph.
   co2_emissions:
     name: CO2 emissions
-    mode: text
     max: 10000
     min: 0
+    mode: text
 
   # Based on the current SoC and the schedule a prognosis (list of values) is
   # calculated and this (serialised list) is stored in this variable. This is Used
   # in the graph, shown as yellow prognosis line.
   soc_prognosis:
     name: SoC Prognosis
-    mode: text
     max: 10000
+    mode: text
     min: 0
 
   # Based on the current SoC and max boost function (when SoC is below minimum).
@@ -138,8 +137,8 @@ input_text:
   # This is shown in the graph as a red prognosis line.
   soc_prognosis_boost:
     name: SoC Prognosis Boost
-    mode: text
     max: 10000
+    mode: text
     min: 0
 
   # Used for setting an error in the UI when V2G Liberty app cannot retrieve EPEX data.
@@ -164,12 +163,28 @@ modbus:
     host: !secret wallbox_host
     port: !secret wallbox_port
     sensors:
-      - name: charger_real_charging_power
-        address: 526
+      - name: firmware_version
+        address: 1
         input_type: holding
         data_type: int16
         scan_interval: 15
-        unit_of_measurement: "Watt"
+        slave: 1
+      - name: serial_number_high
+        address: 2
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        slave: 1
+      - name: serial_number_low
+        address: 3
+        input_type: holding
+        data_type: int16
+        scan_interval: 15
+        slave: 1
+      - name: charger_locked
+        address: 256
+        input_type: holding
+        scan_interval: 15
         slave: 1
       - name: charger_charger_state
         address: 537
@@ -207,23 +222,12 @@ modbus:
         data_type: int16
         scan_interval: 15
         slave: 1
-      - name: firmware_version
-        address: 1
+      - name: charger_real_charging_power
+        address: 526
         input_type: holding
         data_type: int16
         scan_interval: 15
-        slave: 1
-      - name: serial_number_high
-        address: 2
-        input_type: holding
-        data_type: int16
-        scan_interval: 15
-        slave: 1
-      - name: serial_number_low
-        address: 3
-        input_type: holding
-        data_type: int16
-        scan_interval: 15
+        unit_of_measurement: "Watt"
         slave: 1
 
 # Not needed if a calendar integration (e.g. google) is used.
@@ -476,7 +480,7 @@ automation:
                 target:
                   entity_id: input_text.charger_state
                 data:
-                  value: Disconnected locked
+                  value: "Disconnected locked"
           - conditions:
               - condition: state
                 entity_id: sensor.charger_charger_state

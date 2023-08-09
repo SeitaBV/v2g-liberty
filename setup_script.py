@@ -16,6 +16,15 @@ from flexmeasures_client import FlexMeasuresClient as Client
 EMAIL = "toy-user@flexmeasures.io"
 PASSWORD = "toy-password"
 
+MARKET_ID = 14
+# Eg. Tibber = 14, ANWB = 15, etc. as administered in FlexMeasures
+ASSET_NAME = "Asset of toy-user"
+LATITUDE = 51.999
+LONGITUDE = 4.4833
+MAX_CHARGE_POWER_MW = 0.0070
+CAR_BATTERY_CAPACITY_MWH = 0.03
+MIN_CAR_BATTERY_CHARGE_MWH = 0.010
+
 client = Client(
     email=EMAIL,
     password=PASSWORD,
@@ -55,7 +64,7 @@ async def create_asset_and_sensors(
 
 account_id = 2
 asset = dict(
-    name="Test Name Asset14", generic_asset_type_id=5, latitude=51.999, longitude=4.4833
+    name=ASSET_NAME, generic_asset_type_id=5, latitude=LATITUDE, longitude=LONGITUDE
 )
 
 market_id = 14
@@ -66,10 +75,10 @@ power_sensor = dict(
     timezone="Europe/Amsterdam",
     attributes=json.dumps(
         {
-            "capacity_in_mw": 0.0070,
-            "max_soc_in_mwh": 0.03,
-            "min_soc_in_mwh": 0.010,
-            "market_id": market_id,
+            "capacity_in_mw": MAX_CHARGE_POWER_MW,
+            "max_soc_in_mwh": CAR_BATTERY_CAPACITY_MWH,
+            "min_soc_in_mwh": MIN_CAR_BATTERY_CHARGE_MWH,
+            "market_id": MARKET_ID,
         }
     ),
 )

@@ -20,6 +20,7 @@ class FlexMeasuresClient(hass.Hass):
     # Constants
     FM_API: str
     FM_URL: str
+    FM_OPTIMISATION_SENSOR: int
     FM_SCHEDULE_DURATION: str
     FM_USER_EMAIL: str
     FM_USER_PASSWORD: str
@@ -53,6 +54,14 @@ class FlexMeasuresClient(hass.Hass):
         self.fm_date_time_last_schedule = self.get_now()
 
         self.FM_API = self.args["fm_api"]
+
+        # Default sensor is 14 based on mode = prices
+        self.FM_OPTIMISATION_SENSOR = 14
+        if self.args["fm_optimisation_mode"].strip().lower() == "emissions":
+            self.FM_OPTIMISATION_SENSOR = 27
+            # Show this in the UI:
+            self.select_option("input_select.optimisation_mode", "Emissions")
+
         self.FM_URL = self.FM_API + "/" + \
                       self.args["fm_api_version"] + "/sensors/" + \
                       str(self.args["fm_quasar_sensor_id"]) + "/schedules/"
@@ -296,6 +305,10 @@ class FlexMeasuresClient(hass.Hass):
                     }
                 ],
                 "roundtrip-efficiency": self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY
+            },
+            "flex-context": {
+                "consumption-price-sensor": self.FM_OPTIMISATION_SENSOR,
+                "production-price-sensor": self.FM_OPTIMISATION_SENSOR,
             }
         }
 

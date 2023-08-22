@@ -9,6 +9,14 @@ from util_functions import time_round
 import appdaemon.plugins.hass.hassapi as hass
 
 
+DEFAULT_FM_OPTIMISATION_MODES = {
+    "Emissions": {"consumption-price-sensor": 27, "production-price-sensor": 27},
+    "Price": {"consumption-price-sensor": 14, "production-price-sensor": 14},  # EPEX prices
+    "ANWB Energie": {"consumption-price-sensor": 60, "production-price-sensor": 71},
+    "Tibber": {"consumption-price-sensor": 58, "production-price-sensor": 70},
+}
+
+
 class FlexMeasuresClient(hass.Hass):
     """ This class manages the communication with the FlexMeasures platform, which delivers the charging schedules.
 
@@ -20,7 +28,7 @@ class FlexMeasuresClient(hass.Hass):
     # Constants
     FM_API: str
     FM_URL: str
-    FM_OPTIMISATION_SENSOR: int
+    FM_OPTIMISATION_CONTEXT: dict
     FM_SCHEDULE_DURATION: str
     FM_USER_EMAIL: str
     FM_USER_PASSWORD: str
@@ -55,12 +63,16 @@ class FlexMeasuresClient(hass.Hass):
 
         self.FM_API = self.args["fm_api"]
 
-        # Default sensor is 14 based on mode = prices
-        self.FM_OPTIMISATION_SENSOR = 14
-        if self.args["fm_optimisation_mode"].strip().lower() == "emissions":
-            self.FM_OPTIMISATION_SENSOR = 27
-            # Show this in the UI:
-            self.select_option("input_select.optimisation_mode", "Emissions")
+        # The default optimisation mode is to use EPEX prices
+        optimisation_mode = self.args["fm_optimisation_mode"].strip().lower()
+        self.FM_OPTIMISATION_CONTEXT = {
+            k.lower(): v for k, v in DEFAULT_FM_OPTIMISATION_MODES.items()
+        }.get(
+            optimisation_mode,
+            DEFAULT_FM_OPTIMISATION_MODES["Price"],
+        )
+        # Show the optimisation mode in the UI
+        self.select_option("input_select.optimisation_mode", self.args["fm_optimisation_mode"])
 
         self.FM_URL = self.FM_API + "/" + \
                       self.args["fm_api_version"] + "/sensors/" + \
@@ -306,10 +318,7 @@ class FlexMeasuresClient(hass.Hass):
                 ],
                 "roundtrip-efficiency": self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY
             },
-            "flex-context": {
-                "consumption-price-sensor": self.FM_OPTIMISATION_SENSOR,
-                "production-price-sensor": self.FM_OPTIMISATION_SENSOR,
-            }
+            "flex-context": self.FM_OPTIMISATION_CONTEXT,
         }
 
         # Prevent triggering the same message twice. This sometimes happens when ??

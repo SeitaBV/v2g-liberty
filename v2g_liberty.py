@@ -22,6 +22,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     # Fail-safe for processing schedules that might have schedule with too high update frequency
     MIN_RESOLUTION: timedelta
     CHARGER_MAX_POWER: int
+    CAR_AVARAGE_WH_PER_KM: int
     ADMIN_MOBILE_NAME: str
     ADMIN_MOBILE_PLATFORM: str
 
@@ -49,16 +50,12 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
     def initialize(self):
         self.log("Initializing V2Gliberty")
-        # while c.INIT_HAS_FINISHED == False:
-        #     self.log("V2Gliberty: Waiting for v2g_globals to finish initializing.")
-        #     time.sleep(5)
 
         self.MIN_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
         self.CHARGER_MAX_POWER = self.args["wallbox_max_charging_power"]
-
+        self.CAR_AVARAGE_WH_PER_KM = int(float(self.args["car_avarage_wh_per_km"]))
         # Show the optimisation mode in the UI
-        # self.select_option("input_select.optimisation_mode", c.OPTIMISATION_MODE)
-        self.select_option("input_select.optimisation_mode", "emissions")
+        self.select_option("input_select.optimisation_mode", c.OPTIMISATION_MODE)
         # ToDo: Show electricity provider in UI, c.UTILITY_CONTEXT_DISPLAY_NAME
 
         self.ADMIN_MOBILE_NAME = self.args["admin_mobile_name"].lower()

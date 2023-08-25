@@ -414,7 +414,10 @@ class WallboxModbusMixin:
             return False
         self.connected_car_soc = round(reported_soc, 0)
         self.connected_car_soc_kwh = round(reported_soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
+        tmp = int(round((self.connected_car_soc_kwh*1000/self.CAR_AVARAGE_WH_PER_KM), 0))
+        self.set_value("input_number.car_remaining_range", tmp)
         self.log(f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%.")
+        self.log(f"New SoC processed, car_remaining_range is now set to: {tmp} km.")
 
         # Notify user of reaching 80% charge while charging (not dis-charging).
         # ToDo: Discuss with users if this is useful.

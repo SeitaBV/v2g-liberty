@@ -134,6 +134,17 @@ views:
                 color: var(--warning-color)
             needle: true
             unit: "%"
+          - type: markdown
+            content: 'Range ≈ **{{ states("input_number.car_remaining_range")|round(0)}}** km'
+            card_mod:
+              style: |
+                ha-card {
+                  text-align: center;
+                  border-top: none;
+                  border-top-left-radius: 0;
+                  border-top-right-radius: 0;
+                  margin-top: -52px;
+                }
           - type: custom:apexcharts-card
             graph_span: 24h
             span:
@@ -397,6 +408,7 @@ views:
         title: "Quasar"
       - type: entities
         entities:
+          - input_number.car_remaining_range
           - input_number.car_state_of_charge
           - input_select.charge_mode
           - update.appdaemon_update

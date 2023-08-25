@@ -304,6 +304,12 @@ car_min_soc_in_percent: 18
 # The setting must be an integer value between 60 and 100, default is 100.
 car_max_soc_in_percent: 100
 
+# What is the avarage electricity usage of your car in watt-hour (Wh) per km?
+# In most cars you can find historical data in the menu's. Normally this is somewhere
+# between 140 (very efficient!) and 300 (rather in-efficient vans)
+# Make sure you use the right "unit of measure", use a dot not a comma.
+car_avarage_wh_per_km: 180
+
 # Max (dis-)charge_power in Watt
 #   Be safe:
 #   Please consult a certified electrician what max power can be set on
@@ -440,6 +446,8 @@ v2g_liberty:
 
   admin_mobile_name: !secret admin_mobile_name
   admin_mobile_platform: !secret admin_mobile_platform
+
+  car_avarage_wh_per_km: !secret car_avarage_wh_per_km
 
   fm_car_reservation_calendar: calendar.car_reservation
   wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml

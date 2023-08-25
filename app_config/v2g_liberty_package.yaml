@@ -78,7 +78,7 @@ input_boolean:
     icon: mdi:battery-off
 
 input_number:
-  # Used in both UI and in code. Formerly known as leaf_state_of_charge?
+  # Used in both UI and in code.
   car_state_of_charge:
     name: Car State of Charge
     icon: mdi:battery-medium
@@ -87,6 +87,16 @@ input_number:
     unit_of_measurement: "%"
     step: 1.0
     mode: slider
+
+  # Used in both UI and in code.
+  car_remaining_range:
+    name: Car Remaining Range
+    icon: mdi:ev-station
+    min: 0
+    max: 1000
+    unit_of_measurement: "km"
+    step: 100
+    mode: box
 
 input_text:
   # Used to show a user understandable version of the states in the UI.

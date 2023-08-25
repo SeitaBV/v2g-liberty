@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from itertools import accumulate
 import time
 import pytz
+import constants as c
+from v2g_globals import V2GLibertyGlobals
 from typing import AsyncGenerator, List, Optional
 
 import appdaemon.plugins.hass.hassapi as hass
@@ -19,9 +21,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     # CONSTANTS
     # Fail-safe for processing schedules that might have schedule with too high update frequency
     MIN_RESOLUTION: timedelta
-    CAR_MAX_CAPACITY_IN_KWH: float
-    WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float
-    CAR_MIN_SOC_IN_PERCENT: int
     CHARGER_MAX_POWER: int
     ADMIN_MOBILE_NAME: str
     ADMIN_MOBILE_PLATFORM: str
@@ -49,16 +48,18 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     try_get_new_soc_in_process: bool
 
     def initialize(self):
-        self.log("Initializing FlexMeasures integration for the Wallbox Quasar")
-        self.MIN_RESOLUTION = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
-        self.CAR_MAX_CAPACITY_IN_KWH = float(self.args["car_max_capacity_in_kwh"])
-        self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = float(self.args["wallbox_plus_car_roundtrip_efficiency"])
+        self.log("Initializing V2Gliberty")
+        # while c.INIT_HAS_FINISHED == False:
+        #     self.log("V2Gliberty: Waiting for v2g_globals to finish initializing.")
+        #     time.sleep(5)
+
+        self.MIN_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
         self.CHARGER_MAX_POWER = self.args["wallbox_max_charging_power"]
 
-        # ToDo: AJO 2022-12-30: This code is copied in several modules: combine!
-        self.CAR_MIN_SOC_IN_PERCENT = int(float(self.args["car_min_soc_in_percent"]))
-        # Make sure this value is between 10 en 30
-        self.CAR_MIN_SOC_IN_PERCENT = max(min(30, self.CAR_MIN_SOC_IN_PERCENT), 10)
+        # Show the optimisation mode in the UI
+        # self.select_option("input_select.optimisation_mode", c.OPTIMISATION_MODE)
+        self.select_option("input_select.optimisation_mode", "emissions")
+        # ToDo: Show electricity provider in UI, c.UTILITY_CONTEXT_DISPLAY_NAME
 
         self.ADMIN_MOBILE_NAME = self.args["admin_mobile_name"].lower()
         self.ADMIN_MOBILE_PLATFORM = self.args["admin_mobile_platform"].lower()
@@ -111,7 +112,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             # self.start_max_charge_now()
             self.set_next_action()
 
-        self.log("Done setting up")
+        self.log("Completed Initializing V2Gliberty")
 
     def disconnect_charger(self, *args, **kwargs):
         """ Function te disconnect the charger.
@@ -224,6 +225,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         start = isodate.parse_datetime(schedule["start"])
 
         # Check against expected control signal resolution
+        # TODO: can we compare int with timedelta object ?
         if resolution < self.MIN_RESOLUTION:
             self.log(f"Stopped processing schedule; the resolution ({resolution}) is below "
                      f"the set minimum ({self.MIN_RESOLUTION}).")
@@ -258,8 +260,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         exp_soc_values = list(accumulate([soc] + convert_MW_to_percentage_points(values,
                                                                                  resolution,
-                                                                                 self.CAR_MAX_CAPACITY_IN_KWH,
-                                                                                 self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY)))
+                                                                                 c.CAR_MAX_CAPACITY_IN_KWH,
+                                                                                 c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY)))
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [dict(time=t.isoformat(), soc=round(v, 2)) for v, t in
                                                    zip(exp_soc_values, exp_soc_datetimes)]
@@ -379,7 +381,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         if charge_mode == "Automatic":
             self.set_charger_control("take")
-            if self.connected_car_soc < self.CAR_MIN_SOC_IN_PERCENT and not self.in_boost_to_reach_min_soc:
+            if self.connected_car_soc < c.CAR_MIN_SOC_IN_PERCENT and not self.in_boost_to_reach_min_soc:
                 # Intended for the situation where the car returns from a trip with a low battery.
                 # An SoC below the minimum SoC is considered "unhealthy" for the battery,
                 # this is why the battery should be charged to this minimum asap.
@@ -394,31 +396,31 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
                 # How much energy (wh) is needed, taking roundtrip efficiency into account
                 # For % /100, for kwh to wh * 1000 results in *10..
-                delta_to_min_soc_wh = (self.CAR_MIN_SOC_IN_PERCENT - self.connected_car_soc) * self.CAR_MAX_CAPACITY_IN_KWH * 10
-                delta_to_min_soc_wh = delta_to_min_soc_wh / (self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY ** 0.5)
+                delta_to_min_soc_wh = (c.CAR_MIN_SOC_IN_PERCENT - self.connected_car_soc) * c.CAR_MAX_CAPACITY_IN_KWH * 10
+                delta_to_min_soc_wh = delta_to_min_soc_wh / (c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY ** 0.5)
 
                 # How long will it take to charge this amount with max power, we use ceil to avoid 0 minutes as
                 # this would not show in graph.
                 minutes_to_reach_min_soc = int(math.ceil((delta_to_min_soc_wh / self.CHARGER_MAX_POWER * 60)))
                 expected_min_soc_time = (self.get_now() + timedelta(minutes=minutes_to_reach_min_soc)).isoformat()
-                boost_schedule.append(dict(time=expected_min_soc_time, soc=self.CAR_MIN_SOC_IN_PERCENT))
+                boost_schedule.append(dict(time=expected_min_soc_time, soc=c.CAR_MIN_SOC_IN_PERCENT))
                 self.set_soc_prognosis_boost_in_ui(boost_schedule)
 
                 message = f"Car battery state of charge ({self.connected_car_soc}%) is too low. " \
-                          f"Charging with maximum power until minimum of ({self.CAR_MIN_SOC_IN_PERCENT}%) is reached. " \
+                          f"Charging with maximum power until minimum of ({c.CAR_MIN_SOC_IN_PERCENT}%) is reached. " \
                           f"This is expected around {expected_min_soc_time}."
                 self.notify_user(message, False, "Car battery is too low")
                 return
 
-            if self.connected_car_soc > self.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
-                self.log(f"Stopping max charge now, SoC above minimum ({self.CAR_MIN_SOC_IN_PERCENT}%) again.")
+            if self.connected_car_soc > c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
+                self.log(f"Stopping max charge now, SoC above minimum ({c.CAR_MIN_SOC_IN_PERCENT}%) again.")
                 self.in_boost_to_reach_min_soc = False
                 self.set_power_setpoint(0)
                 # Remove "boost schedule" from graph.
                 self.set_soc_prognosis_boost_in_ui(None)
-            elif self.connected_car_soc <= (self.CAR_MIN_SOC_IN_PERCENT + 1) and self.is_discharging():
+            elif self.connected_car_soc <= (c.CAR_MIN_SOC_IN_PERCENT + 1) and self.is_discharging():
                 # Failsafe, this should not happen...
-                self.log(f"Stopped discharging as SoC has reached minimum ({self.CAR_MIN_SOC_IN_PERCENT}%).")
+                self.log(f"Stopped discharging as SoC has reached minimum ({c.CAR_MIN_SOC_IN_PERCENT}%).")
                 self.set_power_setpoint(0)
 
             # Not checking for > max charge (97%) because we could also want to discharge based on schedule

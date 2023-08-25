@@ -2,10 +2,11 @@ from datetime import datetime, timedelta
 import json
 import math
 import requests
+import constants as c
 from typing import List, Union
 import appdaemon.plugins.hass.hassapi as hass
 from wallbox_client import WallboxModbusMixin
-from util_functions import time_round, time_ceil
+from v2g_globals import time_round, time_ceil
 
 
 # ToDo:
@@ -36,14 +37,11 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     the SoC does not change very often in an interval.
     """
 
-    # Availability = false below minimum SoC
-    CAR_MIN_SOC_IN_PERCENT: int
+    # CONSTANTS
 
+    # Variables
     # Access token for FM
     fm_token: str
-
-    # At what time intervals is the all data is resampled (minutes)
-    readings_resolution: int
 
     # Data for separate is sent in separate calls.
     # As a call might fail we keep track of when the data (times-) series has started
@@ -76,28 +74,19 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
     soc_readings: List[Union[int, None]]
     connected_car_soc: Union[int, None]
 
+    FM_ENTITY_ADDRESS_POWER: str
+    FM_ENTITY_ADDRESS_AVAILABILITY: str
+    FM_ENTITY_ADDRESS_SOC: str
+
+    RESOLUTION_TIMEDELTA: datetime
+
+
     def initialize(self):
-        # ToDo: AJO 2022-12-30: This code is copied in several modules: combine!
-        self.CAR_MIN_SOC_IN_PERCENT = int(float(self.args["car_min_soc_in_percent"]))
-        # Make sure this value is between 10 en 30
-        notification_message = ""
-        if self.CAR_MIN_SOC_IN_PERCENT < 10:
-            notification_message = f"Setting for minimum SoC (car_min_soc_in_percent) {self.CAR_MIN_SOC_IN_PERCENT} " \
-                                   f"in secrets.yaml too low. Using minimum value 10."
-            self.CAR_MIN_SOC_IN_PERCENT = 10
-        elif self.CAR_MIN_SOC_IN_PERCENT > 30:
-            notification_message = f"Setting for minimum SoC (car_min_soc_in_percent) {self.CAR_MIN_SOC_IN_PERCENT}" \
-                                   f" in secrets.yaml too high. Using maximum value 30."
-            self.CAR_MIN_SOC_IN_PERCENT = 30
+        self.log("Initializing SetFMdata")
+        self.FM_ENTITY_ADDRESS_POWER = self.args["fm_base_entity_address_power"] + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
+        self.FM_ENTITY_ADDRESS_AVAILABILITY = self.args["fm_base_entity_address_availability"] + str(c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID)
+        self.FM_ENTITY_ADDRESS_SOC =  self.args["fm_base_entity_address_soc"] + str(c.FM_ACCOUNT_SOC_SENSOR_ID)
 
-        if notification_message:
-            self.call_service('persistent_notification/create', message=notification_message,
-                              title="V2G Liberty configuration", notification_id="v2g_liberty_config_error")
-            self.log(f"Config error, notified user with: {notification_message}")
-        else:
-            self.call_service('persistent_notification/dismiss', notification_id="v2g_liberty_config_error")
-
-        self.readings_resolution = self.args["fm_chargepower_resolution_in_minutes"]
         self.client = self.configure_charger_client()
         local_now = self.get_now()
 
@@ -129,18 +118,19 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         # Most likely this first run will not be a complete cycle (for resolution and hour)
         # so this is ignored, that's why the start of the power_readings is set at the
         # end of the initial period conclusion
-        resolution = timedelta(minutes=self.readings_resolution)
-        runtime = time_ceil(local_now, resolution)
+        self.RESOLUTION_TIMEDELTA = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
+
+        runtime = time_ceil(local_now, self.RESOLUTION_TIMEDELTA)
         self.hourly_power_readings_since = runtime
         self.hourly_availability_readings_since = runtime
         self.hourly_soc_readings_since = runtime
-        self.run_every(self.conclude_interval, runtime, self.readings_resolution * 60)
+        self.run_every(self.conclude_interval, runtime, c.FM_EVENT_RESOLUTION_IN_MINUTES * 60)
 
         # Reuse variables for starting hourly "send data to FM"
         resolution = timedelta(minutes=60)
         runtime = time_ceil(runtime, resolution)
         self.run_hourly(self.try_send_data, runtime)
-        self.log("setFMdata, done setting up.")
+        self.log("Completed initializing SetFMdata")
 
     def handle_soc_change(self, entity, attribute, old, new, kwargs):
         """ Handle changes in the car's state_of_charge"""
@@ -221,7 +211,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
 
     def conclude_interval(self, *args):
         """ Conclude a regular interval.
-            Called every self.readings_resolution minutes (usually 5 minutes)
+            Called every c.FM_EVENT_RESOLUTION_IN_MINUTES minutes (usually 5 minutes)
         """
         self.proces_power_change(self.current_power)
         self.record_availability(True)
@@ -229,7 +219,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         # At initialise there might be an incomplete period,
         # duration must be not more than 5% smaller than readings_resolution * 60
         total_interval_duration = self.availability_duration_in_current_interval + self.un_availability_duration_in_current_interval
-        if total_interval_duration > (self.readings_resolution * 60 * 0.95):
+        if total_interval_duration > (c.FM_EVENT_RESOLUTION_IN_MINUTES * 60 * 0.95):
             # Power related processing
             # Conversion from Watt to MegaWatt
             average_period_power = round((self.period_power_x_duration / self.power_period_duration) / 1000000, 5)
@@ -270,8 +260,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
 
         local_now = self.get_now()
 
-        resolution = timedelta(minutes=self.readings_resolution)
-        start_from = time_round(local_now, resolution)
+        start_from = time_round(local_now, self.RESOLUTION_TIMEDELTA)
         self.authenticate_with_fm()
         res = self.post_power_data()
         if res is True:
@@ -310,15 +299,14 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             self.log("List of soc readings is 0 length..")
             return False
 
-        duration = len(self.soc_readings) * self.readings_resolution
+        duration = len(self.soc_readings) * c.FM_EVENT_RESOLUTION_IN_MINUTES
         hours = math.floor(duration / 60)
         minutes = duration - hours * 60
         str_duration = "PT" + str(hours) + "H" + str(minutes) + "M"
-        url = self.args["fm_data_api"] + self.args["fm_data_api_post_sensor_data"]
 
         message = {
             "type": "PostSensorDataRequest",
-            "sensor": self.args["fm_soc_entity_address"],
+            "sensor": self.FM_ENTITY_ADDRESS_SOC,
             "values": self.soc_readings,
             "start": self.hourly_soc_readings_since.isoformat(),
             "duration": str_duration,
@@ -326,7 +314,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         }
         self.log(f"Post_soc_data message: {message}")
         res = requests.post(
-            url,
+            c.FM_SET_DATA_URL,
             json=message,
             headers={"Authorization": self.fm_token},
         )
@@ -346,16 +334,14 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             self.log("List of availability readings is 0 length..")
             return False
 
-        duration = len(self.availability_readings) * self.readings_resolution
+        duration = len(self.availability_readings) * c.FM_EVENT_RESOLUTION_IN_MINUTES
         hours = math.floor(duration / 60)
         minutes = duration - hours * 60
         str_duration = "PT" + str(hours) + "H" + str(minutes) + "M"
 
-        url = self.args["fm_data_api"] + self.args["fm_data_api_post_sensor_data"]
-
         message = {
             "type": "PostSensorDataRequest",
-            "sensor": self.args["fm_availability_entity_address"],
+            "sensor": self.FM_ENTITY_ADDRESS_AVAILABILITY,
             "values": self.availability_readings,
             "start": self.hourly_availability_readings_since.isoformat(),
             "duration": str_duration,
@@ -363,7 +349,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         }
         # self.log(f"Post_availability_data message: {message}")
         res = requests.post(
-            url,
+            c.FM_SET_DATA_URL,
             json=message,
             headers={"Authorization": self.fm_token},
         )
@@ -382,16 +368,14 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             self.log("List of power readings is 0 length..")
             return False
 
-        duration = len(self.power_readings) * self.readings_resolution
+        duration = len(self.power_readings) * c.FM_EVENT_RESOLUTION_IN_MINUTES
         hours = math.floor(duration / 60)
         minutes = duration - hours * 60
         str_duration = "PT" + str(hours) + "H" + str(minutes) + "M"
 
-        url = self.args["fm_data_api"] + self.args["fm_data_api_post_sensor_data"]
-
         message = {
             "type": "PostSensorDataRequest",
-            "sensor": self.args["fm_power_entity_address"],
+            "sensor": self.FM_ENTITY_ADDRESS_POWER,
             "values": self.power_readings,
             "start": self.hourly_power_readings_since.isoformat(),
             "duration": str_duration,
@@ -399,7 +383,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         }
         self.log(message)
         res = requests.post(
-            url,
+            c.FM_SET_DATA_URL,
             json=message,
             headers={"Authorization": self.fm_token},
         )
@@ -420,16 +404,16 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
                 # SoC is unknown, assume availability
                 return True
             else:
-                return self.connected_car_soc >= self.CAR_MIN_SOC_IN_PERCENT
+                return self.connected_car_soc >= c.CAR_MIN_SOC_IN_PERCENT
         return False
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.
         Hint: the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
         """
-        self.log("Authenticating with FlexMeasures")
+        self.log(f"Authenticating with FlexMeasures on URL '{c.FM_AUTHENTICATION_URL}'.")
         res = requests.post(
-            self.args["fm_data_api"] + "requestAuthToken",
+            c.FM_AUTHENTICATION_URL,
             json=dict(
                 email=self.args["fm_data_user_email"],
                 password=self.args["fm_data_user_password"],

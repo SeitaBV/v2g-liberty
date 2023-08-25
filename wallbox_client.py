@@ -1,6 +1,7 @@
 from datetime import timedelta
 import adbase as ad
 import time
+import constants as c
 import appdaemon.plugins.hass.hassapi as hass
 
 from pyModbusTCP.client import ModbusClient
@@ -21,6 +22,8 @@ class WallboxModbusMixin:
     def configure_charger_client(self):
         """Configure the Wallbox Modbus client and return it."""
         # Assume that a restart of this code is the same as last restart of the charger.
+        self.log("Initializing WallboxModbusMixin")
+
         self.last_restart = self.get_now()
 
         host = self.args["wallbox_host"]
@@ -36,6 +39,8 @@ class WallboxModbusMixin:
         # the error in the UI is removed.
         self.turn_off("input_boolean.charger_modbus_communication_fault")
         self.registers = self.args["wallbox_modbus_registers"]
+
+        self.log("Completed Initializing WallboxModbusMixin")
 
         return client
 
@@ -400,6 +405,7 @@ class WallboxModbusMixin:
         :param reported_soc: string representation of the SoC (in %) as reported by the charger (e.g. "42" denotes 42%)
         :returns: True if a realistic numeric SoC was reported, False otherwise.
         """
+        # todo: move to main app?
         try:
             reported_soc = float(reported_soc)
             assert 0 < reported_soc <= 100
@@ -407,7 +413,7 @@ class WallboxModbusMixin:
             self.log(f"New SoC '{reported_soc}' ignored.")
             return False
         self.connected_car_soc = round(reported_soc, 0)
-        self.connected_car_soc_kwh = round(reported_soc * float(self.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
+        self.connected_car_soc_kwh = round(reported_soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
         self.log(f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%.")
 
         # Notify user of reaching 80% charge while charging (not dis-charging).

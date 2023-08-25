@@ -42,11 +42,9 @@ input_select:
   optimisation_mode:
     name: Optimisation mode
     options:
-      - Price
-      - Emissions
-      - ANWB Energie
-      - Tibber
-    initial: Price
+      - price
+      - emissions
+    initial: price
 
 input_boolean:
   # Used for signaling in the UI that the EPEX prices temporarily cannot be retrieved from FM

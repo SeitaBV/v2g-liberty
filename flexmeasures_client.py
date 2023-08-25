@@ -1,20 +1,14 @@
 from datetime import datetime, timedelta
+import time
 import json
 import pytz
 import re
 import requests
 import isodate
-from util_functions import time_round
+import constants as c
+from v2g_globals import time_round
 
 import appdaemon.plugins.hass.hassapi as hass
-
-
-DEFAULT_FM_OPTIMISATION_MODES = {
-    "Emissions": {"consumption-price-sensor": 27, "production-price-sensor": 27},
-    "Price": {"consumption-price-sensor": 14, "production-price-sensor": 14},  # EPEX prices
-    "ANWB Energie": {"consumption-price-sensor": 60, "production-price-sensor": 71},
-    "Tibber": {"consumption-price-sensor": 58, "production-price-sensor": 70},
-}
 
 
 class FlexMeasuresClient(hass.Hass):
@@ -26,8 +20,8 @@ class FlexMeasuresClient(hass.Hass):
     """
 
     # Constants
-    FM_API: str
     FM_URL: str
+    FM_TIGGER_URL: str
     FM_OPTIMISATION_CONTEXT: dict
     FM_SCHEDULE_DURATION: str
     FM_USER_EMAIL: str
@@ -36,12 +30,9 @@ class FlexMeasuresClient(hass.Hass):
     DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
     DELAY_FOR_REATTEMPTS: int  # number of seconds
     CAR_RESERVATION_CALENDAR: str
-    CAR_MAX_CAPACITY_IN_KWH: float
-    CAR_MIN_SOC_IN_PERCENT: int
-    CAR_MAX_SOC_IN_PERCENT: int
+
     CAR_MIN_SOC_IN_KWH: float
     CAR_MAX_SOC_IN_KWH: float
-    WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float
 
     # FM Authentication token
     fm_token: str
@@ -57,27 +48,18 @@ class FlexMeasuresClient(hass.Hass):
     previous_trigger_message: str
 
     def initialize(self):
+        self.log("Initializing FlexMeasuresClient")
+        # while c.INIT_HAS_FINISHED == False:
+        #     self.log("FlexMeasuresClient: Waiting for v2g_globals to finish initializing.")
+        #     time.sleep(5)
+
         self.previous_trigger_message = ""
         self.fm_busy_getting_schedule = False
         self.fm_date_time_last_schedule = self.get_now()
 
-        self.FM_API = self.args["fm_api"]
-
-        # The default optimisation mode is to use EPEX prices
-        optimisation_mode = self.args["fm_optimisation_mode"].strip().lower()
-        self.FM_OPTIMISATION_CONTEXT = {
-            k.lower(): v for k, v in DEFAULT_FM_OPTIMISATION_MODES.items()
-        }.get(
-            optimisation_mode,
-            DEFAULT_FM_OPTIMISATION_MODES["Price"],
-        )
-        # Show the optimisation mode in the UI
-        self.select_option("input_select.optimisation_mode", self.args["fm_optimisation_mode"])
-
-        self.FM_URL = self.FM_API + "/" + \
-                      self.args["fm_api_version"] + "/sensors/" + \
-                      str(self.args["fm_quasar_sensor_id"]) + "/schedules/"
-        self.log(f"The FM_URL is: {self.FM_URL}.")
+        base_url = c.FM_SCHEDULE_URL + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
+        self.FM_URL = base_url + c.FM_SCHEDULE_SLUG
+        self.FM_TIGGER_URL = base_url + c.FM_SCHEDULE_TRIGGER_SLUG
         self.FM_SCHEDULE_DURATION = self.args["fm_schedule_duration"]
         self.FM_USER_EMAIL = self.args["fm_user_email"]
         self.FM_USER_PASSWORD = self.args["fm_user_password"]
@@ -90,21 +72,18 @@ class FlexMeasuresClient(hass.Hass):
             self.DELAY_FOR_REATTEMPTS * (self.MAX_NUMBER_OF_REATTEMPTS + 1) + self.DELAY_FOR_INITIAL_ATTEMPT
         self.CAR_RESERVATION_CALENDAR = self.args["fm_car_reservation_calendar"]
 
-        self.CAR_MAX_CAPACITY_IN_KWH = float(self.args["car_max_capacity_in_kwh"])
+        self.CAR_MIN_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
+        self.CAR_MAX_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
 
-        # ToDo: AJO 2022-12-30: This code is copied in several modules: combine!
-        self.CAR_MIN_SOC_IN_PERCENT = int(float(self.args["car_min_soc_in_percent"]))
-        # Make sure this value is between 10 en 30
-        self.CAR_MIN_SOC_IN_PERCENT = max(min(30, self.CAR_MIN_SOC_IN_PERCENT), 10)
+        if c.OPTIMISATION_MODE == "price":
+            self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID, "production-price-sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID}
+        else:
+            # Assumed optimisation = emissions
+            self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID, "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID}
+        self.log(f"Optimisation context: {self.FM_OPTIMISATION_CONTEXT}")
 
-        self.CAR_MAX_SOC_IN_PERCENT = int(float(self.args["car_max_soc_in_percent"]))
-        # Make sure this value is between 60 en 100
-        self.CAR_MAX_SOC_IN_PERCENT = max(min(100, self.CAR_MAX_SOC_IN_PERCENT), 60)
+        self.log("Completed initializing FlexMeasuresClient")
 
-        self.CAR_MIN_SOC_IN_KWH = self.CAR_MAX_CAPACITY_IN_KWH * self.CAR_MIN_SOC_IN_PERCENT / 100
-        self.CAR_MAX_SOC_IN_KWH = self.CAR_MAX_CAPACITY_IN_KWH * self.CAR_MAX_SOC_IN_PERCENT / 100
-
-        self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY = float(self.args["wallbox_plus_car_roundtrip_efficiency"])
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.
@@ -112,8 +91,8 @@ class FlexMeasuresClient(hass.Hass):
         Hint:
         the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
         """
-        self.log("Authenticating with FlexMeasures")
-        url = self.FM_API + "/requestAuthToken"
+        self.log(f"Authenticating with FlexMeasures on URL '{c.FM_AUTHENTICATION_URL}'.")
+        url = c.FM_AUTHENTICATION_URL
         res = requests.post(
             url,
             json=dict(
@@ -239,10 +218,10 @@ class FlexMeasuresClient(hass.Hass):
 
         # Snap to sensor resolution
         soc_datetime = datetime.now(tz=pytz.utc)
-        resolution = timedelta(minutes=self.args["fm_quasar_soc_event_resolution_in_minutes"])
+        resolution = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
         soc_datetime = time_round(soc_datetime, resolution).isoformat()
 
-        url = self.FM_URL + "trigger"
+        url = self.FM_TIGGER_URL
 
         # AJO 2022-02-26:
         # ToDo: Getting target should be in v2g_liberty module.
@@ -250,7 +229,7 @@ class FlexMeasuresClient(hass.Hass):
         # ToDo: Would it be more efficient to determine the target every 15/30/60? minutes instead of at every schedule
         # Set default target_soc to 100% one week from now
         target_datetime = (time_round(datetime.now(tz=pytz.utc), resolution) + timedelta(days=7)).isoformat()
-        target_soc = self.CAR_MAX_CAPACITY_IN_KWH
+        target_soc = c.CAR_MAX_CAPACITY_IN_KWH
 
         # Check if calendar has a relevant item that is within one week (*) from now.
         # (*) 7 days is the setting in v2g_liberty_package.yaml
@@ -289,17 +268,17 @@ class FlexMeasuresClient(hass.Hass):
                         found_target_soc_in_percentage = search_for_soc_target("%", text_to_search_in)
                         if found_target_soc_in_percentage is not None:
                             self.log(f"Target SoC from calendar: {found_target_soc_in_percentage} %.")
-                            target_soc = round(float(found_target_soc_in_percentage) / 100 * self.CAR_MAX_CAPACITY_IN_KWH, 2)
+                            target_soc = round(float(found_target_soc_in_percentage) / 100 * c.CAR_MAX_CAPACITY_IN_KWH, 2)
 
                     # Prevent target_soc above max_capacity
-                    if target_soc > self.CAR_MAX_CAPACITY_IN_KWH:
+                    if target_soc > c.CAR_MAX_CAPACITY_IN_KWH:
                         self.log(f"Target SoC from calendar too high: {target_soc}, "
-                                 f"adjusted to {self.CAR_MAX_CAPACITY_IN_KWH}kWh.")
-                        target_soc = self.CAR_MAX_CAPACITY_IN_KWH
+                                 f"adjusted to {c.CAR_MAX_CAPACITY_IN_KWH}kWh.")
+                        target_soc = c.CAR_MAX_CAPACITY_IN_KWH
                     else:
                         # A targets in a calendar item below 30% are not acceptable (not relevant)
                         min_acceptable_target_in_percent = 30
-                        min_acceptable_target_in_kwh = self.CAR_MAX_CAPACITY_IN_KWH * min_acceptable_target_in_percent / 100
+                        min_acceptable_target_in_kwh = c.CAR_MAX_CAPACITY_IN_KWH * min_acceptable_target_in_percent / 100
                         if target_soc < min_acceptable_target_in_kwh:
                             self.log(f"Target SoC from calendar too low: {target_soc}, "
                                      f"adjusted to {min_acceptable_target_in_kwh}kWh.")
@@ -310,13 +289,13 @@ class FlexMeasuresClient(hass.Hass):
             "flex-model": {
                 "soc-at-start": current_soc_kwh,
                 "soc-unit": "kWh",
-                "soc-targets": [
+                "soc-minima": [
                     {
                         "value": target_soc,
                         "datetime": target_datetime,
                     }
                 ],
-                "roundtrip-efficiency": self.WALLBOX_PLUS_CAR_ROUNDTRIP_EFFICIENCY
+                "roundtrip-efficiency": c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
             },
             "flex-context": self.FM_OPTIMISATION_CONTEXT,
         }

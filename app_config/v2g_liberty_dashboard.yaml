@@ -221,7 +221,7 @@ views:
           - type: conditional
             conditions:
               - entity: input_select.optimisation_mode
-                state: Price
+                state: price
             card:
               type: markdown
               content: Optimised on ***price***/kWh
@@ -236,7 +236,7 @@ views:
           - type: conditional
             conditions:
               - entity: input_select.optimisation_mode
-                state: Emissions
+                state: emissions
             card:
               type: markdown
               content: Optimised on ***emissions***/kWh

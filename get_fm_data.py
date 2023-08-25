@@ -4,6 +4,7 @@ import pytz
 import re
 import requests
 import time
+import constants as c
 from typing import AsyncGenerator, List, Optional
 
 import appdaemon.plugins.hass.hassapi as hass
@@ -11,6 +12,7 @@ import isodate
 
 
 class FlexMeasuresDataImporter(hass.Hass):
+    # Variables
     fm_token: str
     first_try_time_price_data: str
     second_try_time_price_data: str
@@ -29,8 +31,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         The retrieved data is written to the HA input_text.epex_prices,
         HA handles this to render the price data in the UI (chart).
         """
-
-        self.log(f"get_fm_data, start setup")
+        self.log("Initializing FlexMeasuresDataImporter")
 
         # Price data should normally be available just after 13:00 when data can be
         # retrieved from its original source (ENTSO-E) but sometimes there is a delay of several hours.
@@ -46,7 +47,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         # At init also run this as (re-) start is not always around self.first_try_time
         self.daily_kickoff_emissions_data()
 
-        self.log(f"Done setting up get_fm_data: check daily at {self.first_try_time_price_data} for new data with FM.")
+        self.log(f"Completed initializing FlexMeasuresDataImporter: check daily at {self.first_try_time_price_data} for new data with FM.")
 
     # ToDo: Make generic function in utils? See v2g_liberty.py for equivalent.
     def notify_user(self, message: str):
@@ -82,7 +83,8 @@ class FlexMeasuresDataImporter(hass.Hass):
         # Getting prices since start of yesterday so that user can look back a little further than just current window.
         startEPEX = str((now + timedelta(days=-1)).date())
 
-        url = self.args["fm_data_api"] + self.args["fm_data_api_epex"]
+        url = c.FM_GET_DATA_URL + "14" + c.FM_GET_DATA_SLUG
+
         url_params = {
             "event_starts_after": startEPEX + "T00:00:00.000Z",
         }
@@ -112,12 +114,12 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         prices = res.json()
 
-        # From FM format (€/MWh) to user desired format (€ct/kWh) 
+        # From FM format (€/MWh) to user desired format (€ct/kWh)
         # = * 100/1000 = 1/10.
         VAT = float(self.args["VAT"])
         conversion = 1 / 10
         # For NL electricity is a markup for transport and sustainability
-        markup = float(self.args["markup_per_kWh"])
+        markup = float(self.args["markup_per_kwh"])
         epex_price_points = []
         has_negative_prices = False
         for price in prices:
@@ -162,7 +164,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         # Getting emissions since start of yesterday so that user can look back a little furter than just current window.
         start_co2: str = str((now + timedelta(days=-1)).date())
 
-        url = self.args["fm_data_api"] + self.args["fm_data_api_co2"]
+        url = c.FM_GET_DATA_URL + "27" + c.FM_GET_DATA_SLUG
         url_params = {
             "event_starts_after": start_co2 + "T00:00:00.000Z",
         }
@@ -218,9 +220,9 @@ class FlexMeasuresDataImporter(hass.Hass):
         """Authenticate with the FlexMeasures server and store the returned auth token.
         Hint: the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
         """
-        self.log("Authenticating with FlexMeasures")
+        self.log(f"Authenticating with FlexMeasures on URL '{c.FM_AUTHENTICATION_URL}'.")
         res = requests.post(
-            self.args["fm_data_api"] + "requestAuthToken",
+            c.FM_AUTHENTICATION_URL,
             json=dict(
                 email=self.args["fm_data_user_email"],
                 password=self.args["fm_data_user_password"],

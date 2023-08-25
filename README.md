@@ -96,10 +96,6 @@ configuration of V2G Liberty secrets.yaml.
 Now that you have a running Home Assistant, you're ready to install V2G Liberty in Home Assistant.
 We'll take you through the process step by step.
 
-### Install the file editor
-
-From the addons install the basic file editor or the visual studio IDE. You'll need this to edit some files later.
-
 ### Install HACS
 
 The Home Assistant Community Store (HACS) has loads of integrations that are not in the official store of HA.
@@ -112,9 +108,8 @@ As a reference you might find this [instruction video](https://www.youtube.com/w
 Add the following modules to HA through HACS:
 - [ApexChart-card](https://github.com/RomRider/apexcharts-card)<br>
   This is needed for graphs in the user interface.
-- [card-mod](https://github.com/thomasloven/lovelace-card-mod)<br>
+- [Custom-card](https://github.com/thomasloven/lovelace-card-mod)<br>
   This is needed for a better UI.
-
 
 There are other modules that might look interesting, like Leaf Spy, but you do not need any of these for V2G-L.
 After installation the reference to these resources has to be added through menu:
@@ -122,176 +117,8 @@ After installation the reference to these resources has to be added through menu
 2. Navigate to Settings -> Dashboards -> from the top right menu (&vellip;) select resources.
 3. Click (+ ADD RESOURCE) button and enter URL `/hacsfiles/apexcharts-card/apexcharts-card.js` and select type "JavaScript Module".
 4. Repeat for `/hacsfiles/lovelace-card-mod/card-mod.js`
-5. Restart Home Assistant (or wait with this until the end).
+4. Restart Home Assistant.
 
-## Install the AppDaemon 4 add-on
-
-AppDaemon is an official add-on for HA and thus can be installed from within HA.
-Go to Settings -> Add-ons -> Add-on store and find the AppDaemon add-on.
-
-### AppDaemon configuration
-
-When installed AppDaemon needs to be configured, look for (`Settings -> Addons -> AppDaemon 4 -> Configuration`).
-There, add the following Python packages (there is also an option to set this in yaml, copy the following):
-
-```yaml
-python_packages:
-  - isodate
-  - pyModbusTCP
-```
-If set, return to the appdaemon page and make two useful settings to make the system more reliable.
-+ Switch on "watch dog"
-+ Switch on "auto update"
-
-AppDaemon does not have to be started yet, more config is needed. To further configure AppDaemon add the following to 
-the appdaemon.yaml file (copy - paste, no alterations needed.)
-
-```yaml
----
-secrets: /config/secrets.yaml
-
-appdaemon:
-  latitude: !secret ha_latitude
-  longitude: !secret ha_longitude
-  elevation: !secret ha_elevation
-  time_zone: !secret ha_time_zone
-  production_mode: True
-  exclude_dirs:
-    - app_config
-  plugins:
-    HASS:
-      type: hass
-
-http:
-  url: http://127.0.0.1:5050
-admin:
-api:
-hadashboard:
-
-# Setting logging is optional but useful. The software is in use for quite some
-# time but not bullit-proof yet. So every now and then you'll need to see what
-# happened.
-log_thread_actions: 1
-logs:
-  main_log:
-    filename: /config/appdaemon/logs/appdaemon_main.log
-  error_log:
-    filename: /config/appdaemon/logs/appdaemon_error.log
-```
-
-### Apps.yaml
-
-In the same directory, add (or extend) `apps.yaml` with the following.
-Usually there is no need to change any of the values as all personal settings are referenced from the secrets file.
-
-```yaml
----
-flexmeasures-client:
-  module: flexmeasures_client
-  class: FlexMeasuresClient
-  dependencies:
-    - util_functions
-  fm_api: !secret fm_api
-  fm_api_version: !secret fm_api_version
-  fm_user_email: !secret fm_user_email
-  fm_user_password: !secret fm_user_password
-  fm_schedule_duration: !secret fm_schedule_duration
-  fm_quasar_entity_address: !secret fm_quasar_entity_address
-  fm_quasar_sensor_id: !secret fm_quasar_sensor_id
-  fm_optimisation_mode: !secret fm_optimisation_mode
-
-  # Whether to skip requesting a new schedule when the SOC has been updated, but hasn't changed
-  reschedule_on_soc_changes_only: false
-  fm_quasar_soc_event_resolution_in_minutes: !secret fm_quasar_event_resolution_in_minutes
-  max_number_of_reattempts_to_retrieve_schedule: 4
-  delay_for_reattempts_to_retrieve_schedule: 30
-  delay_for_initial_attempt_to_retrieve_schedule: 10
-
-  car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
-  car_min_soc_in_percent: !secret car_min_soc_in_percent
-  car_max_soc_in_percent: !secret car_max_soc_in_percent
-  # ToDo: prevent duplicate value with v2g_liberty.
-  wallbox_plus_car_roundtrip_efficiency: 0.85
-
-  fm_car_reservation_calendar: !secret car_calendar_name
-  fm_car_reservation_calendar_timezone: !secret car_calendar_timezone
-
-wallbox-client:
-  module: wallbox_client
-  class: RegisterModule
-  # The Wallbox Quasar needs processing time after a setting is done
-  # This is a waiting time between the actions in milliseconds
-  wait_between_charger_write_actions: 5000
-  timeout_charger_write_actions: 20000
-
-util_functions:
-  module: util_functions
-  class: RegisterUtilModule
-
-v2g_liberty:
-  module: v2g_liberty
-  class: V2Gliberty
-  dependencies:
-    - flexmeasures-client
-    - wallbox-client
-
-  admin_mobile_name: !secret admin_mobile_name
-  admin_mobile_platform: !secret admin_mobile_platform
-
-  fm_car_reservation_calendar: calendar.car_reservation
-  fm_quasar_soc_event_resolution_in_minutes: !secret fm_quasar_event_resolution_in_minutes
-  wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
-  car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
-  car_min_soc_in_percent: !secret car_min_soc_in_percent
-  # ToDo: prevent duplicate value with flexmeasures_client.
-  wallbox_plus_car_roundtrip_efficiency: 0.85
-  wallbox_host: !secret wallbox_host
-  wallbox_port: !secret wallbox_port
-
-  # The Wallbox Quasar needs processing time after a setting is done
-  # This is a waiting time between the actions in milliseconds
-  wait_between_charger_write_actions: 5000
-  timeout_charger_write_actions: 20000
-
-  wallbox_max_charging_power: !secret wallbox_max_charging_power
-  wallbox_max_discharging_power: !secret wallbox_max_discharging_power
-
-get_fm_data:
-  module: get_fm_data
-  class: FlexMeasuresDataImporter
-  fm_api: !secret fm_api
-  fm_data_api: !secret fm_data_api
-  fm_data_api_epex: !secret fm_data_api_epex
-  fm_data_api_co2: !secret fm_data_api_co2
-  fm_data_user_email: !secret fm_user_email
-  fm_data_user_password: !secret fm_user_password
-  fm_data_entity_address: !secret fm_quasar_entity_address
-  VAT: !secret VAT
-  markup_per_kWh: !secret markup_per_kWh
-
-set_fm_data:
-  module: set_fm_data
-  class: SetFMdata
-  dependencies:
-    - wallbox-client
-    - util_functions
-
-  fm_api: !secret fm_api
-  fm_data_api: !secret fm_data_api
-  fm_data_api_post_sensor_data: !secret fm_data_api_post_sensor_data
-  fm_data_user_email: !secret fm_user_email
-  fm_data_user_password: !secret fm_user_password
-  fm_power_entity_address: !secret fm_quasar_entity_address
-  fm_availability_entity_address: !secret fm_availability_entity_address
-  fm_soc_entity_address: !secret fm_soc_entity_address
-
-  fm_chargepower_resolution_in_minutes: !secret fm_quasar_event_resolution_in_minutes
-  car_min_soc_in_percent: !secret car_min_soc_in_percent
-
-  wallbox_host: !secret wallbox_host
-  wallbox_port: !secret wallbox_port
-  wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
-```
 
 ## Configure HA
 
@@ -307,20 +134,19 @@ After completion of this step you'll end up with a these files and folders (othe
 │   ├── apps
 │   │   ├── v2g-liberty
 │   │   │   ├── app_config
-│   │   │   │   ├── v2g_liberty_dashboard.yaml
-│   │   │   │   ├── v2g_liberty_package.yaml
+│   │   │   │   ├── v2g-liberty-dashboard.yaml
+│   │   │   │   ├── v2g-liberty-package.yaml
 │   │   │   │   └── wallbox_modbus_registers.yaml
 │   │   │   ├── flexmeasures_client.py
 │   │   │   ├── get_fm_data.py
 │   │   │   ├── LICENSE
 │   │   │   ├── README.md
 │   │   │   ├── set_fm_data.py
-│   │   │   ├── util_functions.py
+│   │   │   ├── v2g_globals.py
 │   │   │   ├── v2g_liberty.py
 │   │   │   └── wallbox_client.py
 │   │   └ apps.yaml *
-│   ├── appdaemon.yaml *
-│   └── logs
+│   └ appdaemon.yaml *
 ├── configuration.yaml *
 └── secrets.yaml *
 ```
@@ -328,7 +154,7 @@ After completion of this step you'll end up with a these files and folders (othe
 ### Secrets
 
 HA stores secrets in the file `secrets.yaml` and V2G Liberty expects this file to be in the default location, the config folder.
-We store both secrets and configuration values in this file as this is the most convenient way for storing these.
+We store both secrets and configuration values in this file as this is the most conveniant way for storing these.
 Open this file in the HA file editor and add the following code. You'll need to replace secrets/values for your custom setting.
 If you have installed the Studio Code Server addon (not mandatory!), you can use that.
 
@@ -369,120 +195,143 @@ admin_mobile_platform: "your platform name: iOS or Android"
 fm_user_email: "your FM e-mail here (use quotes)"
 fm_user_password: "your FM password here (use quotes)"
 
-# This looks like ea1.2022-03.nl.seita.flexmeasures:fm1.X 
-fm_quasar_entity_address: "your FM entity address here"
+fm_account_power_sensor_id: XX
+fm_account_availability_sensor_id: XX
+fm_account_soc_sensor_id: XX
 
-# This is an integer number (also the power_entity_address)
-fm_quasar_sensor_id: X
+# For electricity_provider the choices are:
+#   nl_generic (default) *
+#   no_generic *
+# Or one of the Dutch energy companies (VAT and markup are set in FlexMeasures):
+#   nl_anwb_energie
+#   nl_next_energy
+#   nl_tibber
+# If your energy company is missing, please let us know and we'l add it to the list.
+# If you send your own prices (and emmisions) data to FM through the API then use
+#   self_provided
+#
+# * In these cases it is assumed consumption and production price is the same.
+#   You'll also need to provide VAT, Energy tax and markup
+electricity_provider: "nl_generic"
 
-# These looks like ea1.2022-03.nl.seita.flexmeasures:fmX.X 
-fm_availability_entity_address: "your FM availability entity adres here"
-fm_soc_entity_address: "your FM soc entity adres here"
-# Choices are: price (default) or emissions
-fm_optimisation_mode: emissions
+# How would you'd like the charging / discharging to be optimised?
+# Choices are price or emmission
+fm_optimisation_mode: "price"
+
+# For option "own-prices" the FM account has it's onw sensor_id's
+fm_own_price_production_sensor_id: pp
+fm_own_price_consumption_sensor_id: cc
+fm_own_emissions_sensor_id: ee
+fm_own_context_display_name: "Own Prices and Emissions"
+
+# ****** Pricing data ********
+# Pricing data only needs to be provided if a generic electicity provider is used
+# For transforming the raw price data (from FM) to net price to be shown in UI.
+# Calculation:
+# (market_price_per_kwh + markup_per_kwh) * VAT
+
+# Value Added Tax.
+# Use a calculation factor (100 + VAT / 100)
+# E.g. for NL VAT is 21%, so factor is 1.21. Use dot (.) not comma (,).
+VAT: 1.21
+
+# Markup per kWh
+# This includes energy tax and provider markup
+#
+# Energy tax per kWh exclusding VAT.
+# FOR NL: Energiebelasting 2023 is 12.599 €ct/kWh.
+#
+# Energy provider markup excluding VAT
+# The markup your energy provider chargers per kWh excluding VAT.
+# Markup in €ct/kWh, Use dot (.) not comma (,).
+markup_per_kwh: 14.399
 
 ## VERY RARELY CHANGE ##
-fm_api: https://flexmeasures.seita.nl/api
-fm_data_api: https://flexmeasures.seita.nl/api/
-fm_api_version: v3_0
-fm_data_api_post_sensor_data: v3_0/sensors/data
-fm_data_api_epex: "dev/sensor/14/chart_data/"
-fm_data_api_co2: "dev/sensor/27/chart_data/"
+fm_base_entity_address_power: "ea1.2022-03.nl.seita.flexmeasures:fm1."
+fm_base_entity_address_availability: "ea1.2022-03.nl.seita.flexmeasures:fm1."
+fm_base_entity_address_soc: "ea1.2022-03.nl.seita.flexmeasures:fm1."
 
 # This represents how far ahead the schedule should look. Keep at this setting.
 fm_schedule_duration: "PT27H"
-# This represents how often schedules should refresh. Keep at this setting.
-fm_quasar_event_resolution_in_minutes: 5
 
 #############   CHARGER CONFIGURATION   ########################################
 
 ## ALWAYS CHANGE ##
-# This usually is an IP address but can be a named URL as well.
+# This usually is an IP adres but can be a named URL aswel.
 wallbox_host: "your charger host here"
-wallbox_port: XXX
+# Usually 502
+wallbox_port: 502
+
+## ALWAYS CHECK / SOME TIMES CHANGE ##
+# Research shows the roundtrip effcienty is around 85 % for a typical EV + charger.
+# This numberis taken in to account when calculating the optimal schedule.
+# Use an integer between 50 and 100.
+charger_plus_car_roundtrip_efficiency: 85
 
 #############   CAR & POWER-CONNECTION CONFIGURATION   #########################
 ## ALWAYS CHECK/CHANGE ##
 
-# The maximum usable energy storage capacity of the battery of the car, as an integer.
-# For the Nissan Leaf this is usually 21, 36 or 56 kWh 
+# The maximum energy storage capacity of the battery of the car, as an integer.
+# For the Nissan Leaf this is usually 24, 40 or 62
+# Use an integer between 10 and 200
 car_max_capacity_in_kwh: 56
 
 # What would you like to be the minimum charge in your battery?
 # The scheduling will not discharge below this value and if the car returns with
 # and SoC below this value, the battery will be charged to this minimum asap
 # before regular scheduling.
-# A high value results in always having a greater driving range available, even 
+# A high value results in always having a greater driving range available, even
 # when not planned, but less capacity available for dis-charge and so lesser
 # earnings.
-# A lower value results in sometimes a smaller driving range available for
+# A lower value reults in sometimes a smaller driving range available for
 # un-planned drives but there is always more capacity for discharge and so more
 # earnings.
 # Some research suggests battery life is shorter if min SoC is below 15%.
-# In some cars the SoC every now and then skips a number, eg. from 21 to 19%, 
+# In some cars the SoC every now and then skips a number, eg. from 21 to 19%,
 # skipping 20%. This might result in toggling charging behaviour around this
 # minimum SoC. If this happens try a value 1 higher or lower.
-#
-# Check if the charger (and car?) respects these limits.
-# In the Wallbox Quasar app goto:
-#  settings > advanced options > battery range
-# The set minimum there should be equal to or lower than the setting here.
-#
-# The setting must be an integer between 10 and 30%, default is 20%.
+# The setting must be an integer (without the % sign) between 10 and 30, default is 20.
 car_min_soc_in_percent: 18
 
 # What would you like to be the maximum charge in your car battery?
 # The schedule will use this for regular scheduling. It can be used to further
-# protect the battery from degradation as a 100% charge (for longer periods) may
-# reduce battery health/lifetime. 
+# protect the battery from degredation as a 100% charge (for longer periods) may
+# reduce battery health/life time.
 # When a calendar item is present, the schedule will ignore this setting and
 # try to charge to 100% (or if the calendar item has a target use that).
 # A low setting reduces schedule flexibility and so the capability to earn
 # money and reduce emissions.
-#
-# Check if the charger (and car?) respects these limits.
-# In the Wallbox Quasar app goto:
-#  settings > advanced options > battery range
-# The set maximum there should be equal to or higher than the setting here.
-#
 # The setting must be an integer value between 60 and 100, default is 100.
 car_max_soc_in_percent: 100
 
-# Max (dis-)charge rate in Watt.
-# If a load-balancer (Power Boost for WB) is installed it is safe to use maximum
-# amperage of the phase * 233 (Volt). So for 25 A, this is 5825 W.
-# If there is no load-balancer, please ask your installer what max power can be
-# used by the wallbox. It's very rare that discharge- differs from charge power.
+# Max (dis-)charge_power in Watt
+#   Be safe:
+#   Please consult a certified electrician what max power can be set on
+#   the charger. Electric safety must be provided by the hardware. Limits for over
+#   powering must be guarded by hardware.
+#   This software should not be the only fail-safe.
+#   It is recomended to use a loadbalancer.
+#
+# If a loadbalancer (powerboost for WB) is used:
+# Set this to "Amperage setting in charger" * grid voltage.
+# E.g. 25A * 233V = 5825W.
+# If there is no loadbalancer in use, use a lower setting.
+# Usually the discharge power is the same but in some cases the charger or
+# (gird operator) regulations requier a differnt (lower) dis-charge power.
 wallbox_max_charging_power: XXXX
 wallbox_max_discharging_power: XXXX
-
-# Value Added Tax.
-# For transforming the raw EPEX (from FM) to net price to be shown in UI.
-# Use a calculation factor (100 + VAT / 100)
-# E.g. for NL VAT is 21%, so factor is 1.21. Use dot (.) not comma (,).
-VAT: 1.21
-
-# Energy Tax
-# FOR NL: Energiebelasting 2023 is 12.599 €ct/kWh ex. VAT (ODE is now included in Energiebelasting).
-# Source:
-# https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/overige_belastingen/belastingen_op_milieugrondslag/tarieven_milieubelastingen/tabellen_tarieven_milieubelastingen
-# Tibber e.g. adds 1.8 €ct/kWh ex. VAT for in-balance and GvO's.
-# Markup in €ct/kWh, Use dot (.) not comma (,).
-markup_per_kWh: 14.399
 
 #############   CALENDAR CONFIGURATION   #######################################
 
 # Configuration for the calendar for making reservations for the car #
-# This is highly recommended!
-# By default this is a caldav compatible calendar, e.g. Nextcloud or iCloud
-# It can also be a Google calendar (please use the Google calendar integration for HomeAssistant)
-
+# This is mandatory
+# It can be a Google calendar (please use the Google calendar integration for HomeAssistant)
 car_calendar_name: calendar.car_reservation
 # This normally matches the ha_time_zone setting.
 car_calendar_timezone: Europe/Amsterdam
 
 ## Remove these if another calendar is used.
-## Please then also remove the calendar related entities in v2g_liberty_package.yaml
+## Please also remove the calendar related entities in v2g_liberty_package.yaml
 caldavUN: "your caldav username here (use quotes)"
 caldavPWD: "your caldav password here (use quotes)"
 caldavURL: "your caldav URL here (use quotes)"
@@ -494,18 +343,174 @@ git_ard_PWD: "your github password here (use quotes)"
 
 ### Copy & edit files
 
-If your familiar with the terminal and github you could also use [git clone](!https://github.com/git-guides/git-clone). 
-Use the V2G Liberty URL `https://github.com/SeitaBV/v2g-liberty` and maybe the `--sparce` option.
+In your Home Assistant file editor, go to `/config/appdaemon/apps/` and create a new folder `v2g-liberty`.
+Within the v2g-liberty folder create a new folder `app-config`.
+From this GitHub project copy all files to the respective folders.
 
-If terminal and/or github are not your thing, you can easily download and copy the files manually here. In your Home 
-Assistant file editor, go to `/config/appdaemon/` and:
- + Create a new folder `logs`.
- + Open the folder `apps/` and create a new folder `v2g-liberty`.
- + Within the v2g-liberty folder create a new folder `app-config`.
+## Install the AppDaemon 4 add-on
 
-Now download the files from this project. Start on top of this page (on Github) and find the green button (Code).
-Click it and then choose the download zip file option. Unpack the zip file on your machine.
-Now in the file editor upload these files to the respective folders.
+AppDaemon is an official add-on for HA and thus can be installed from within HA.
+Please go to Settings -> Add-ons -> Add-on store and find the AppDaemon add-on.
+When installed AppDaemon needs to be configured, look for (`Supervisor -> AppDaemon 4 -> Configuration`) and add the following Python packages:
+
+```yaml
+python_packages:
+  - isodate
+  - pyModbusTCP
+```
+### AppDaemon configuration
+
+To configure AppDaemon you'll need to add the following to the appdaemon.yaml file.
+
+```yaml
+---
+secrets: /config/secrets.yaml
+
+appdaemon:
+  latitude: !secret ha_latitude
+  longitude: !secret ha_longitude
+  elevation: !secret ha_elevation
+  time_zone: !secret ha_time_zone
+  production_mode: True
+  exclude_dirs:
+    - app_config
+  plugins:
+    HASS:
+      type: hass
+
+http:
+  url: http://127.0.0.1:5050
+admin:
+api:
+hadashboard:
+
+# Setting logging is optional but usefull. The software is in use for quite some
+# time but not bullit-proof yet. So every now and then you'll need to see what
+# happend.
+log_thread_actions: 1
+logs:
+  main_log:
+    filename: /config/appdaemon/logs/appdaemon_main.log
+  error_log:
+    filename: /config/appdaemon/logs/appdaemon_error.log
+```
+
+### Apps.yaml
+
+In the same directory, add (or extend) `apps.yaml` with the following.
+Usually there is no need to change any of the values as all personal settings are referenced from the secrets file.
+
+```yaml
+---
+v2g-globals:
+  module: v2g_globals
+  class: V2GLibertyGlobals
+  # This needs to load before all other modules
+  priority: 10
+
+  charger_plus_car_roundtrip_efficiency: !secret charger_plus_car_roundtrip_efficiency
+  car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
+  car_min_soc_in_percent: !secret car_min_soc_in_percent
+  car_max_soc_in_percent: !secret car_max_soc_in_percent
+
+  fm_account_power_sensor_id: !secret fm_account_power_sensor_id
+  fm_account_availability_sensor_id: !secret fm_account_availability_sensor_id
+  fm_account_soc_sensor_id: !secret fm_account_soc_sensor_id
+
+  fm_optimisation_mode: !secret fm_optimisation_mode
+  electricity_provider: !secret electricity_provider
+
+  # If electricity_provider is set to "self-provided"
+  fm_own_price_production_sensor_id: !secret fm_own_price_production_sensor_id
+  fm_own_price_consumption_sensor_id: !secret fm_own_price_consumption_sensor_id
+  fm_own_emissions_sensor_id: !secret fm_own_emissions_sensor_id
+  fm_own_context_display_name: !secret fm_own_context_display_name
+
+  # For later PR
+  #car_avarage_wh_per_km: !secret car_avarage_wh_per_km
+
+v2g_liberty:
+  module: v2g_liberty
+  class: V2Gliberty
+  priority: 50
+  dependencies:
+    - v2g-globals
+    - flexmeasures-client
+    - wallbox-client
+
+  admin_mobile_name: !secret admin_mobile_name
+  admin_mobile_platform: !secret admin_mobile_platform
+
+  fm_car_reservation_calendar: calendar.car_reservation
+  wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
+
+  wallbox_host: !secret wallbox_host
+  wallbox_port: !secret wallbox_port
+
+  # The Wallbox Quasar needs processing time after a setting is done
+  # This is a waiting time between the actions in milliseconds
+  wait_between_charger_write_actions: 5000
+  timeout_charger_write_actions: 20000
+
+  wallbox_max_charging_power: !secret wallbox_max_charging_power
+  wallbox_max_discharging_power: !secret wallbox_max_discharging_power
+
+flexmeasures-client:
+  module: flexmeasures_client
+  class: FlexMeasuresClient
+  priority: 50
+  dependencies:
+    - v2g-globals
+
+  fm_user_email: !secret fm_user_email
+  fm_user_password: !secret fm_user_password
+  fm_schedule_duration: !secret fm_schedule_duration
+
+  reschedule_on_soc_changes_only: false # Whether to skip requesting a new schedule when the SOC has been updated, but hasn't changed
+  max_number_of_reattempts_to_retrieve_schedule: 6
+  delay_for_reattempts_to_retrieve_schedule: 15
+  delay_for_initial_attempt_to_retrieve_schedule: 20
+
+  fm_car_reservation_calendar: !secret car_calendar_name
+  fm_car_reservation_calendar_timezone: !secret car_calendar_timezone
+
+wallbox-client:
+  module: wallbox_client
+  class: RegisterModule
+  priority: 50
+  # The Wallbox Quasar needs processing time after a setting is done
+  # This is a waiting time between the actions in milliseconds
+  wait_between_charger_write_actions: 5000
+  timeout_charger_write_actions: 20000
+
+get_fm_data:
+  module: get_fm_data
+  class: FlexMeasuresDataImporter
+  priority: 100
+  fm_data_user_email: !secret fm_user_email
+  fm_data_user_password: !secret fm_user_password
+  VAT: !secret VAT
+  markup_per_kwh: !secret markup_per_kwh
+
+set_fm_data:
+  module: set_fm_data
+  class: SetFMdata
+  priority: 100
+  dependencies:
+    - wallbox-client
+    - v2g-globals
+
+  fm_data_user_email: !secret fm_user_email
+  fm_data_user_password: !secret fm_user_password
+
+  fm_base_entity_address_power: !secret fm_base_entity_address_power
+  fm_base_entity_address_availability: !secret fm_base_entity_address_availability
+  fm_base_entity_address_soc: !secret fm_base_entity_address_soc
+
+  wallbox_host: !secret wallbox_host
+  wallbox_port: !secret wallbox_port
+  wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
+```
 
 ## Configure HA to use v2g-liberty
 
@@ -518,51 +523,39 @@ homeassistant:
     v2g_pack: !include appdaemon/apps/v2g-liberty/app_config/v2g_liberty_package.yaml
 ```
 
-# :fire: Fire it up
-
-It is time to "get this thing going"!
-
-Now that so many files have changed/been added a restart of both Home Assistant and AppDaemon is needed.
-+ HA can be restarted by `Settings > System > Restart (top right)`.
-+ AppDaemon can be (re-)started via `Settings > Add-ons > AppDaemon > (Re-)start`.
-
-Now the system needs 5 to 10 minutes before it runs nicely.
-
-### :checkered_flag: FINISHED :checkered_flag:
-
-### You are a :superhero:!
-
-After the restart you should find the V2G Liberty dashboard in the sidebar. 
-Go there, and you'll see the interface as in the image in this readme.
-The only thing left to do is to start V2G Liberty by setting it to [Automatic] (click the button, and it will become yellow).
-If a car is connected you should see a schedule coming in within another 5 minutes or so.
-
-# Convenient HA optimisations
+### Convenient HA optimisations
 
 These are "out of the box" super handy HA features that are highly recommended.
 
-## Add users
+#### Add users
 
 This is optional but is highly recommended.
 This lets all persons in the household operate the charger.
 
-## Install the HA app on your mobile
+#### Install the HA app on your mobile
 
 This is optional but highly recommended.
 You can get it from the official app store of your phone platform.
 If you’ve logged in, the mobile can later be used to receive notifications.
 
-## Make V2G Liberty your default dashboard
+#### Make V2G Liberty your default dashboard
 
-The V2G Liberty dashboard sits in/under the sidebar, probably underneath "Overview", which then likely is the current 
-default dashboard. To make the V2G Liberty dashboard  your default go to `Settings > Dashboards`. Select the V2G Liberty 
-dashboard row and click the link "SET AS DEFAULT IN THIS DEVICE".
-<!--
-<style 
+After the restart (next step) you'll find the V2G Liberty dashboard in the sidebar. 
+Probably underneath "Overview", which then likely is the current default dashboard. To make the V2G Liberty dashboard 
+your default go to `Settings > Dashboards`. Select the V2G Liberty dashboard row and click th link "SET AS DEFAULT IN THIS DEVICE".
+
+
+
+## Start it up
+Now that so many files have changed/been added a restart of both Home Assistant and AppDaemon is needed.
+HA can be restarted by `Settings > System > Restart (top right)`.
+AppDaemon can be (re-)started via `Settings > Add-ons > AppDaemon > (Re-)start`.
+
+Now the system needs 5 to 10 minutes before it runs nicely. If a car is connected you should see a schedule comming in soon after.
+<!-- <style 
   type="text/css">
   body {
     max-width: 50em;
     margin: 4em;
   }
-</style>
--->
+</style> -->

@@ -320,10 +320,10 @@ class WallboxModbusMixin:
             return
 
         # Make sure that discharging does not occur below minimum SoC.
-        if charge_rate < 0 and self.connected_car_soc <= self.CAR_MIN_SOC_IN_PERCENT:
+        if charge_rate < 0 and self.connected_car_soc <= c.CAR_MIN_SOC_IN_PERCENT:
             # Failsafe, this should never happen...
             self.log(f"A discharge is attempted while the current SoC is below the "
-                     f"minimum ({self.CAR_MIN_SOC_IN_PERCENT})%. Stopping discharging.")
+                     f"minimum ({c.CAR_MIN_SOC_IN_PERCENT})%. Stopping discharging.")
             charge_rate = 0
 
         # Clip values to min/max charging current
@@ -414,7 +414,7 @@ class WallboxModbusMixin:
             return False
         self.connected_car_soc = round(reported_soc, 0)
         self.connected_car_soc_kwh = round(reported_soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
-        tmp = int(round((self.connected_car_soc_kwh*1000/self.CAR_AVARAGE_WH_PER_KM), 0))
+        tmp = int(round((self.connected_car_soc_kwh*1000/self.CAR_AVERAGE_WH_PER_KM), 0))
         self.set_value("input_number.car_remaining_range", tmp)
         self.log(f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%.")
         self.log(f"New SoC processed, car_remaining_range is now set to: {tmp} km.")

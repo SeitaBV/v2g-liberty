@@ -74,8 +74,7 @@ CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float = 0.85
 # See remark for charger constants
 # Defaults to 24 (to be safe)
 CAR_MAX_CAPACITY_IN_KWH: int = 24
-# For later PR
-#CAR_AVARAGE_WH_PER_KM: float = 170
+
 
 # USER PREFRENCE CONSTANTS
 # See remark for charger constants

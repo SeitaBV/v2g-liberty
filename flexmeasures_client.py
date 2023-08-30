@@ -44,16 +44,9 @@ class FlexMeasuresClient(hass.Hass):
     fm_date_time_last_schedule: datetime
     fm_max_seconds_between_schedules: int
 
-    # Helper to prevent sending the same trigger message twice.
-    previous_trigger_message: str
-
     def initialize(self):
         self.log("Initializing FlexMeasuresClient")
-        # while c.INIT_HAS_FINISHED == False:
-        #     self.log("FlexMeasuresClient: Waiting for v2g_globals to finish initializing.")
-        #     time.sleep(5)
 
-        self.previous_trigger_message = ""
         self.fm_busy_getting_schedule = False
         self.fm_date_time_last_schedule = self.get_now()
 
@@ -299,14 +292,7 @@ class FlexMeasuresClient(hass.Hass):
             },
             "flex-context": self.FM_OPTIMISATION_CONTEXT,
         }
-
-        # Prevent triggering the same message twice. This sometimes happens when ??
-        if message == self.previous_trigger_message:
-            self.log(f"Not triggering schedule, message is exactly the same as previous.")
-            return None
-        else:
-            self.log(f"Trigger_schedule on url '{url}', with message: '{message}'.")
-            self.previous_trigger_message = message
+        self.log(f"Trigger_schedule on url '{url}', with message: '{message}'.")
 
         res = requests.post(
             url,

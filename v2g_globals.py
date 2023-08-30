@@ -82,10 +82,6 @@ class V2GLibertyGlobals(hass.Hass):
         self.log(f"v2g_globals FM_EMISSIONS_SENSOR_ID: {c.FM_EMISSIONS_SENSOR_ID}.")
         self.log(f"v2g_globals UTILITY_CONTEXT_DISPLAY_NAME: {c.UTILITY_CONTEXT_DISPLAY_NAME}.")
 
-
-        #For later PR..
-        #c.CAR_AVARAGE_WH_PER_KM = int(float(self.args["car_avarage_wh_per_km"]))
-        #self.log(f"v2g_globals CAR_AVARAGE_WH_PER_KM: {c.CAR_AVARAGE_WH_PER_KM}.")
         self.log("Completed initializing V2GLibertyGlobals")
 
 

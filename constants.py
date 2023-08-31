@@ -43,10 +43,6 @@ DEFAULT_UTILITY_CONTEXTS = {
 }
 
 
-## A bit of a hack i assume but i cant get it done otherwise.
-# The modules that use these consants should wait until init (by v2g_globals) has finished
-INIT_HAS_FINISHED: bool = False
-
 # These are set by v2g_globals, should be moved there...
 FM_PRICE_PRODUCTION_SENSOR_ID: int
 FM_PRICE_CONSUMPTION_SENSOR_ID: int
@@ -74,7 +70,8 @@ CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float = 0.85
 # See remark for charger constants
 # Defaults to 24 (to be safe)
 CAR_MAX_CAPACITY_IN_KWH: int = 24
-
+# For later PR
+CAR_AVERAGE_WH_PER_KM: float = 174
 
 # USER PREFRENCE CONSTANTS
 # See remark for charger constants

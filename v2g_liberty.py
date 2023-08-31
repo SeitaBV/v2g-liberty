@@ -12,7 +12,6 @@ import isodate
 
 from wallbox_client import WallboxModbusMixin
 
-
 class V2Gliberty(hass.Hass, WallboxModbusMixin):
     """ This class manages the communication with the Wallbox Quasar charger and
     the FlexMeasures platform (which delivers the charging schedules).
@@ -55,8 +54,9 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.CHARGER_MAX_POWER = self.args["wallbox_max_charging_power"]
         self.CAR_AVERAGE_WH_PER_KM = int(float(self.args["car_average_wh_per_km"]))
         # Show the optimisation mode in the UI
-        self.select_option("input_select.optimisation_mode", c.OPTIMISATION_MODE)
-        # ToDo: Show electricity provider in UI, c.UTILITY_CONTEXT_DISPLAY_NAME
+        self.set_value("input_text.optimisation_mode", c.OPTIMISATION_MODE)
+        self.set_value("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
+        self.log(f"Utility displayname: {c.UTILITY_CONTEXT_DISPLAY_NAME}")
 
         self.ADMIN_MOBILE_NAME = self.args["admin_mobile_name"].lower()
         self.ADMIN_MOBILE_PLATFORM = self.args["admin_mobile_platform"].lower()

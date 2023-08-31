@@ -37,15 +37,6 @@ input_select:
     icon: mdi:battery-charging-medium
     # ToDo: check if initial: Automatic is useful
 
-  # Helper, set by V2G Liberty.py based upon setting fm_optimisation_mode in secrets.
-  # Used only for setting text in dashboard.
-  optimisation_mode:
-    name: Optimisation mode
-    options:
-      - price
-      - emissions
-    initial: price
-
 input_boolean:
   # Used for signaling in the UI that the EPEX prices temporarily cannot be retrieved from FM
   error_epex_prices_cannot_be_retrieved:
@@ -108,7 +99,25 @@ input_text:
     mode: text
     min: 0
 
-  # Used to store the (serialised) charge schedule HA receives from the
+  # Helper, set by V2G Liberty.py based upon setting utility in secrets.
+  # Used only for setting text in dashboard.
+  utility_display_name:
+    name: Utility display name
+    icon: mdi:transmission-tower
+    max: 100
+    mode: text
+    min: 0
+
+  # Helper, set by V2G Liberty.py based upon setting fm_optimisation_mode in secrets.
+  # Used only for setting text in dashboard.
+  optimisation_mode:
+    name: Optimisation mode
+    icon: mdi:cog-transfer-outline
+    max: 100
+    mode: text
+    min: 0
+
+    # Used to store the (serialised) charge schedule HA receives from the
   # backend FM, not used in UI.
   chargeschedule:
     name: ChargeSchedule

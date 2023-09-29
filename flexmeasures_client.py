@@ -282,6 +282,8 @@ class FlexMeasuresClient(hass.Hass):
             "flex-model": {
                 "soc-at-start": current_soc_kwh,
                 "soc-unit": "kWh",
+                "soc-min": self.CAR_MIN_SOC_IN_KWH,
+                "soc-max": self.CAR_MAX_SOC_IN_KWH,
                 "soc-minima": [
                     {
                         "value": target_soc,

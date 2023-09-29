@@ -135,7 +135,7 @@ views:
             needle: true
             unit: "%"
           - type: markdown
-            content: 'Range ≈ **{{ states("input_number.car_remaining_range")|round(0)}}** km'
+            content: '≈ **{{ states("input_number.car_remaining_range")|round(0)}}** km'
             card_mod:
               style: |
                 ha-card {
@@ -229,36 +229,17 @@ views:
                 opposite: true
                 min: "|-2|"
                 max: "|+2|"
-          - type: conditional
-            conditions:
-              - entity: input_select.optimisation_mode
-                state: price
-            card:
-              type: markdown
-              content: Optimised on ***price***/kWh
-              card_mod:
-                style: |
-                  ha-card {
-                    border-top: none;
-                    border-top-left-radius: 0;
-                    border-top-right-radius: 0;
-                    margin-top: -22px;
-                  }
-          - type: conditional
-            conditions:
-              - entity: input_select.optimisation_mode
-                state: emissions
-            card:
-              type: markdown
-              content: Optimised on ***emissions***/kWh
-              card_mod:
-                style: |
-                  ha-card {
-                    border-top: none;
-                    border-top-left-radius: 0;
-                    border-top-right-radius: 0;
-                    margin-top: -22px;
-                  }
+          - type: markdown
+            content: >
+              Optimised on ***{{states("input_text.optimisation_mode")}}*** ({{states("input_text.utility_display_name")}})
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none;
+                  border-top-left-radius: 0;
+                  border-top-right-radius: 0;
+                  margin-top: -22px;
+                }
           - type: conditional
             conditions:
               - entity: input_boolean.error_schedule_cannot_be_retrieved

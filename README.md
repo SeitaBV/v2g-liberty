@@ -200,18 +200,18 @@ fm_account_availability_sensor_id: XX
 fm_account_soc_sensor_id: XX
 
 # For electricity_provider the choices are:
-#   nl_generic (default) *
-#   no_generic *
+#   nl_generic * †
+#   no_generic * †
 # Or one of the Dutch energy companies (VAT and markup are set in FlexMeasures):
 #   nl_anwb_energie
 #   nl_next_energy
 #   nl_tibber
 # If your energy company is missing, please let us know and we'l add it to the list.
-# If you send your own prices (and emmisions) data to FM through the API then use
-#   self_provided
+# If you send your own prices (and emmisions) data to FM through the API then use.
+#   self_provided †
 #
-# * In these cases it is assumed consumption and production price is the same.
-#   You'll also need to provide VAT, Energy tax and markup
+#  * In these cases it is assumed consumption and production price are the same.
+#  † For these you can/should provide VAT and Markup (see further down).
 electricity_provider: "nl_generic"
 
 # How would you'd like the charging / discharging to be optimised?
@@ -231,20 +231,20 @@ fm_own_context_display_name: "Own Prices and Emissions"
 # (market_price_per_kwh + markup_per_kwh) * VAT
 
 # Value Added Tax.
-# Use a calculation factor (100 + VAT / 100)
+# This is only taken into account for electricity_providers marked with †
+# Use a calculation factor (100 + VAT / 100).
 # E.g. for NL VAT is 21%, so factor is 1.21. Use dot (.) not comma (,).
+# If you'd like to effectively "not use VAT" you can set it to 1
 VAT: 1.21
 
 # Markup per kWh
-# This includes energy tax and provider markup
-#
-# Energy tax per kWh exclusding VAT.
-# FOR NL: Energiebelasting 2023 is 12.599 €ct/kWh.
-#
-# Energy provider markup excluding VAT
-# The markup your energy provider chargers per kWh excluding VAT.
+# This is only taken into account for electricity_providers marked with †
+# This usually includes energy tax and supplier markup
+# Energy tax per kWh excluding VAT.
 # Markup in €ct/kWh, Use dot (.) not comma (,).
+# If you'd like to effectively "not use a markup" you can set it to 0
 markup_per_kwh: 14.399
+
 
 ## VERY RARELY CHANGE ##
 fm_base_entity_address_power: "ea1.2022-03.nl.seita.flexmeasures:fm1."
@@ -271,10 +271,11 @@ charger_plus_car_roundtrip_efficiency: 85
 #############   CAR & POWER-CONNECTION CONFIGURATION   #########################
 ## ALWAYS CHECK/CHANGE ##
 
-# The maximum energy storage capacity of the battery of the car, as an integer.
-# For the Nissan Leaf this is usually 24, 40 or 62
+# The usable energy storage capacity of the battery of the car, as an integer.
+# For the Nissan Leaf this is usually 21, 39 or 59 (advertised as 24, 40 and 62).
+# See https://ev-database.org.
 # Use an integer between 10 and 200
-car_max_capacity_in_kwh: 56
+car_max_capacity_in_kwh: 59
 
 # What would you like to be the minimum charge in your battery?
 # The scheduling will not discharge below this value and if the car returns with
@@ -302,12 +303,12 @@ car_min_soc_in_percent: 18
 # A low setting reduces schedule flexibility and so the capability to earn
 # money and reduce emissions.
 # The setting must be an integer value between 60 and 100, default is 100.
-car_max_soc_in_percent: 100
+car_max_soc_in_percent: 97
 
 # What is the average electricity usage of your car in watt-hour (Wh) per km?
 # In most cars you can find historical data in the menu's. Normally this is somewhere
 # between 140 (very efficient!) and 300 (rather in-efficient vans)
-# Make sure you use the right "unit of measure", do not use a dot's or comma's.
+# Make sure you use the right "unit of measure", use a dot not a comma.
 car_average_wh_per_km: 174
 
 # Max (dis-)charge_power in Watt
@@ -323,7 +324,7 @@ car_average_wh_per_km: 174
 # E.g. 25A * 233V = 5825W.
 # If there is no loadbalancer in use, use a lower setting.
 # Usually the discharge power is the same but in some cases the charger or
-# (gird operator) regulations requier a differnt (lower) dis-charge power.
+# (gird operator) regulations requier a different (lower) dis-charge power.
 wallbox_max_charging_power: XXXX
 wallbox_max_discharging_power: XXXX
 

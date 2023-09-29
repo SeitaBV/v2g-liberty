@@ -12,6 +12,12 @@ import isodate
 
 
 class FlexMeasuresDataImporter(hass.Hass):
+    # CONSTANTS
+    VAT: float
+    MARKUP: float
+    EMISSIONS_URL: str
+    PRICES_URL: str
+
     # Variables
     fm_token: str
     first_try_time_price_data: str
@@ -32,6 +38,25 @@ class FlexMeasuresDataImporter(hass.Hass):
         HA handles this to render the price data in the UI (chart).
         """
         self.log("Initializing FlexMeasuresDataImporter")
+
+        # FM in some cases returns gross prices that need conversion for the UI.
+        # VAT and Markup are initialised with "no effect value".
+        self.VAT = 1
+        # Usually a markup per kWh for transport and sustainability
+        self.MARKUP = 0
+        # Only for these electricity_providers do we take the VAT and markup from the secrets into account.
+        # For others we expect netto prices (including VAT and Markup).
+        # If self_provided data also includes VAT and markup the values in secrets can
+        # be set to 1 and 0 respectivily to achieve the same result as here.
+        if c.ELECTRICITY_PROVIDER in ["self_provided", "nl_generic", "no_generic"]:
+            self.VAT = float(self.args["VAT"])
+            self.MARKUP = float(self.args["markup_per_kwh"])
+        self.log(f"Price calculation constants. VAT: {self.VAT}, Markup {self.MARKUP}.")
+
+        self.PRICES_URL = c.FM_GET_DATA_URL + str(c.FM_PRICE_CONSUMPTION_SENSOR_ID) + c.FM_GET_DATA_SLUG
+        self.EMISSIONS_URL = c.FM_GET_DATA_URL + str(c.FM_EMISSIONS_SENSOR_ID) + c.FM_GET_DATA_SLUG
+        self.log(f"PRICE and EMISSIONS urls to get data: '{self.PRICES_URL}' and '{self.EMISSIONS_URL}'.")
+
 
         # Price data should normally be available just after 13:00 when data can be
         # retrieved from its original source (ENTSO-E) but sometimes there is a delay of several hours.
@@ -83,13 +108,11 @@ class FlexMeasuresDataImporter(hass.Hass):
         # Getting prices since start of yesterday so that user can look back a little further than just current window.
         startEPEX = str((now + timedelta(days=-1)).date())
 
-        url = c.FM_GET_DATA_URL + "14" + c.FM_GET_DATA_SLUG
-
         url_params = {
             "event_starts_after": startEPEX + "T00:00:00.000Z",
         }
         res = requests.get(
-            url,
+            self.PRICES_URL,
             params=url_params,
             headers={"Authorization": self.fm_token},
         )
@@ -97,7 +120,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         # Authorisation error, retry authoristion.
         if res.status_code == 401:
             self.log_failed_response(res, "Get FM EPEX data")
-            self.try_solve_authentication_error(res, url, self.get_epex_prices, *args, **kwargs)
+            self.try_solve_authentication_error(res, self.PRICES_URL, self.get_epex_prices, *args, **kwargs)
             return
 
         if res.status_code != 200:
@@ -114,18 +137,17 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         prices = res.json()
 
+
         # From FM format (€/MWh) to user desired format (€ct/kWh)
         # = * 100/1000 = 1/10.
-        VAT = float(self.args["VAT"])
         conversion = 1 / 10
-        # For NL electricity is a markup for transport and sustainability
-        markup = float(self.args["markup_per_kwh"])
+
         epex_price_points = []
         has_negative_prices = False
         for price in prices:
             data_point = {}
             data_point['time'] = datetime.fromtimestamp(price['event_start'] / 1000).isoformat()
-            data_point['price'] = round(((price['event_value'] * conversion) + markup) * VAT, 2)
+            data_point['price'] = round(((price['event_value'] * conversion) + self.MARKUP) * self.VAT, 2)
             if data_point['price'] < 0:
                 has_negative_prices = True
             epex_price_points.append(data_point)
@@ -164,12 +186,11 @@ class FlexMeasuresDataImporter(hass.Hass):
         # Getting emissions since start of yesterday so that user can look back a little furter than just current window.
         start_co2: str = str((now + timedelta(days=-1)).date())
 
-        url = c.FM_GET_DATA_URL + "27" + c.FM_GET_DATA_SLUG
         url_params = {
             "event_starts_after": start_co2 + "T00:00:00.000Z",
         }
         res = requests.get(
-            url,
+            self.EMISSIONS_URL,
             params=url_params,
             headers={"Authorization": self.fm_token},
         )
@@ -177,7 +198,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         # Authorisation error, retry authorisation.
         if res.status_code == 401:
             self.log_failed_response(res, "get CO2 emissions")
-            self.try_solve_authentication_error(res, url, self.get_co2_emissions, *args, **kwargs)
+            self.try_solve_authentication_error(res, self.EMISSIONS_URL, self.get_co2_emissions, *args, **kwargs)
             return
 
         if res.status_code != 200:

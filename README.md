@@ -239,10 +239,10 @@ VAT: 1.21
 
 # Markup per kWh
 # This is only taken into account for electricity_providers marked with †
-# This usually includes energy tax and provider markup
+# This usually includes energy tax and supplier markup
 # Energy tax per kWh excluding VAT.
 # Markup in €ct/kWh, Use dot (.) not comma (,).
-# If you'd like to effectively "not use VAT" you can set it to 0
+# If you'd like to effectively "not use a markup" you can set it to 0
 markup_per_kwh: 14.399
 
 
@@ -271,10 +271,11 @@ charger_plus_car_roundtrip_efficiency: 85
 #############   CAR & POWER-CONNECTION CONFIGURATION   #########################
 ## ALWAYS CHECK/CHANGE ##
 
-# The maximum energy storage capacity of the battery of the car, as an integer.
-# For the Nissan Leaf this is usually 21, 36 or 56. See https://ev-database.org.
+# The usable energy storage capacity of the battery of the car, as an integer.
+# For the Nissan Leaf this is usually 21, 39 or 59 (advertised as 24, 40 and 62).
+# See https://ev-database.org.
 # Use an integer between 10 and 200
-car_max_capacity_in_kwh: 56
+car_max_capacity_in_kwh: 59
 
 # What would you like to be the minimum charge in your battery?
 # The scheduling will not discharge below this value and if the car returns with
@@ -302,9 +303,9 @@ car_min_soc_in_percent: 18
 # A low setting reduces schedule flexibility and so the capability to earn
 # money and reduce emissions.
 # The setting must be an integer value between 60 and 100, default is 100.
-car_max_soc_in_percent: 100
+car_max_soc_in_percent: 97
 
-# What is the avarage electricity usage of your car in watt-hour (Wh) per km?
+# What is the average electricity usage of your car in watt-hour (Wh) per km?
 # In most cars you can find historical data in the menu's. Normally this is somewhere
 # between 140 (very efficient!) and 300 (rather in-efficient vans)
 # Make sure you use the right "unit of measure", use a dot not a comma.
@@ -323,7 +324,7 @@ car_average_wh_per_km: 174
 # E.g. 25A * 233V = 5825W.
 # If there is no loadbalancer in use, use a lower setting.
 # Usually the discharge power is the same but in some cases the charger or
-# (gird operator) regulations requier a differnt (lower) dis-charge power.
+# (gird operator) regulations requier a different (lower) dis-charge power.
 wallbox_max_charging_power: XXXX
 wallbox_max_discharging_power: XXXX
 

@@ -230,16 +230,38 @@ views:
                 min: "|-2|"
                 max: "|+2|"
           - type: markdown
-            content: >
-              Optimised on ***{{states("input_text.optimisation_mode")}}*** ({{states("input_text.utility_display_name")}})
+            content: >-
+              <table><tbody><tr><th>
+              Optimised on <span>{{states("input_text.optimisation_mode")}}</span>
+              </th><td>
+              {{states("input_text.utility_display_name")}}
+              </td></tr></tbody></table>
             card_mod:
-              style: |
-                ha-card {
-                  border-top: none;
-                  border-top-left-radius: 0;
-                  border-top-right-radius: 0;
-                  margin-top: -22px;
-                }
+              style:
+                .: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -22px;
+                  }
+                ha-markdown$: |
+                  table {
+                    width: 100%;
+                    max-width: 100%;
+                    margin: 8px 0;
+                  }
+                  th {
+                    font-weight: normal;
+                    text-align: left;
+                  }
+                  td {
+                    text-align: right;
+                    vertical-align: top;
+                  }
+                  span {
+                    font-weight: bold;
+                  }
           - type: conditional
             conditions:
               - entity: input_boolean.error_schedule_cannot_be_retrieved
@@ -267,7 +289,7 @@ views:
             card:
               type: markdown
               content: >-
-                <ha-alert alert-type="warning">Temporarily no EPEX prices available.</ha-alert>
+                <ha-alert alert-type="warning">Temporarily no price data available.</ha-alert>
               card_mod:
                 style: |
                   ha-card {
@@ -327,17 +349,8 @@ views:
                 state: "on"
             card:
               type: markdown
-              content: |-
-                The car is not connected.
-                To start charging, please connect the car to the charger.
-              title: Charging not possible
-              card_mod:
-                style: |
-                  ha-card {
-                    background-color: #FEF0EA;
-                    color: #000000;
-                    border: solid 2px #E14D0E;
-                  }
+              content: >-
+                <ha-alert alert-type="warning" title="No car is connected">To start Max-charge-now, please connect the car to the charger.</ha-alert>
           - type: conditional
             conditions:
               - entity: binary_sensor.is_flexmeasures_live
@@ -345,17 +358,9 @@ views:
             card:
               type: markdown
               content: >-
-                It seems the FlexMeasures server is offline. It is not possible
-                to get an automated charging schedule. Set charging manually.
-                Please check with system administrator.
-              title: Server offline
-              card_mod:
-                style: |
-                  ha-card {
-                    background-color: #FEF0EA;
-                    color: #000000;
-                    border: solid 2px #E14D0E;
-                  }
+                <ha-alert alert-type="error" title="FlexMeasures seems to be offline">It now is not possible to get an automated charging schedule.</ha-alert>
+                Usually this problem is solved in a few minutes. If it remains over a longer period, please set charging 
+                manually and check with system administrator.
           - type: calendar
             entities:
               - calendar.car_reservation
@@ -369,7 +374,7 @@ views:
                   overflow: hidden;
                 }
                 ha-card.type-calendar div.header:after {
-                  content: "Target SoC is 100% 15 minutes before start";
+                  content: "Target SoC is 100% at start of each event.";
                   font-size: 50%;
                   color: #6f6f6f;
                   display: block;

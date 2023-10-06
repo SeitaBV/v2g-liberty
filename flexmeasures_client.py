@@ -48,6 +48,7 @@ class FlexMeasuresClient(hass.Hass):
         self.log("Initializing FlexMeasuresClient")
 
         self.fm_busy_getting_schedule = False
+        self.log(f"Init, fm_busy_getting_schedule: {self.fm_busy_getting_schedule}.")
         self.fm_date_time_last_schedule = self.get_now()
 
         base_url = c.FM_SCHEDULE_URL + str(c.FM_ACCOUNT_POWER_SENSOR_ID)

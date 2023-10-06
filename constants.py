@@ -24,6 +24,7 @@ FM_SCHEDULE_TRIGGER_SLUG = FM_SCHEDULE_SLUG + "trigger"
 # Where XX is the sensor_id
 FM_GET_DATA_URL = FM_BASE_URL + "dev/sensor/"
 FM_GET_DATA_SLUG = "/chart_data/"
+FM_CHARGING_COST_SENSOR_ID = 76
 
 # URL for sending metering data to FM:
 # https://flexmeasures.seita.nl/api/v3_0/sensors/data
@@ -70,8 +71,6 @@ CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float = 0.85
 # See remark for charger constants
 # Defaults to 24 (to be safe)
 CAR_MAX_CAPACITY_IN_KWH: int = 24
-# For later PR
-CAR_AVERAGE_WH_PER_KM: float = 174
 
 # USER PREFRENCE CONSTANTS
 # See remark for charger constants

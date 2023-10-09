@@ -65,7 +65,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.PRICES_URL = c.FM_GET_DATA_URL + str(c.FM_PRICE_CONSUMPTION_SENSOR_ID) + c.FM_GET_DATA_SLUG
         self.EMISSIONS_URL = c.FM_GET_DATA_URL + str(c.FM_EMISSIONS_SENSOR_ID) + c.FM_GET_DATA_SLUG
-        self.CHARGING_COST_URL = c.FM_GET_DATA_URL + str(c.FM_CHARGING_COST_SENSOR_ID) + c.FM_GET_DATA_SLUG
+        self.CHARGING_COST_URL = c.FM_GET_DATA_URL + str(c.FM_ACCOUNT_COST_SENSOR_ID) + c.FM_GET_DATA_SLUG
         self.CHARGE_POWER_URL = c.FM_GET_DATA_URL + str(c.FM_ACCOUNT_POWER_SENSOR_ID) + c.FM_GET_DATA_SLUG
 
         # Price data should normally be available just after 13:00 when data can be
@@ -180,13 +180,12 @@ class FlexMeasuresDataImporter(hass.Hass):
         now = self.get_now()
         # Getting data since start of yesterday so that user can look back a little further than just current window.
         startDataPeriod = str((now + timedelta(days=-7)).date())
-        endDataPeriod = str((now + timedelta(days=-1)).date())
+        endDataPeriod = str(now.date())
 
         url_params = {
             "event_starts_after": startDataPeriod + "T00:00:00.000Z",
-            "event_ends_before": endDataPeriod + "T23:59:59.999Z",
+            "event_ends_before": endDataPeriod + "T00:00:00.000Z",
         }
-        self.log(f"url_params: {url_params}")
 
         res = requests.get(
             self.CHARGE_POWER_URL,
@@ -212,7 +211,6 @@ class FlexMeasuresDataImporter(hass.Hass):
         total_minutes_charged = 0
         total_minutes_discharged = 0
         charging_energy_points = {}
-        charging_energy_points.clear
         resolution_in_miliseconds = c.FM_EVENT_RESOLUTION_IN_MINUTES * 60 * 1000
 
         for charge_power in charge_power_points:
@@ -226,8 +224,9 @@ class FlexMeasuresDataImporter(hass.Hass):
             if power is None:
                 continue
 
-            # Look up the emission mathcing with power['event_start'], this will be a match every 3 items
+            # Look up the emission matching with power['event_start'], this will be a match every 3 items
             # as emission has a resolution of 15 minutes and power of 5 min.
+            # ToDo: check if resolutions match X times, if not, raise an error.
             emission_intensity = 0
             i = 0
             while i < 3:
@@ -374,11 +373,13 @@ class FlexMeasuresDataImporter(hass.Hass):
         now = self.get_now()
         # Getting emissions since a week ago. This is needed for calculation of CO2 savings
         # and will be (more than) enough for the graph to show.
-        start_co2: str = str((now + timedelta(days=-7)).date())
+        # Because we want to show it in the graph we do not use an end url param.
+        start_emission_period: str = str((now + timedelta(days=-7)).date())
 
         url_params = {
-            "event_starts_after": start_co2 + "T00:00:00.000Z",
+            "event_starts_after": start_emission_period + "T00:00:00.000Z",
         }
+
         res = requests.get(
             self.EMISSIONS_URL,
             params=url_params,
@@ -401,7 +402,9 @@ class FlexMeasuresDataImporter(hass.Hass):
             return
 
         results = res.json()
+        # For use in graph
         emission_points = []
+        # For use in calculations, it is cleared as we collect new values.
         self.emission_intensities.clear()
         for emission in results:
             emission_value = emission['event_value']

@@ -307,7 +307,7 @@ views:
               <tr>
                 <th></th>
                 <th>duration</th>
-                <td>Emissions (kg CO<sub>2</sub>)</td>
+                <td>Emissions (kg CO₂)</td>
                 <td>Energy (kWh)</td>
               </tr></thead>
               <tbody><tr>

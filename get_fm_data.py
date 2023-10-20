@@ -124,14 +124,15 @@ class FlexMeasuresDataImporter(hass.Hass):
         Make costs total costs of this period available in HA by setting them in input_text.last week costs
         ToDo: Split cost in charging and dis-charging per day
         """
-
-        self.authenticate_with_fm()
         now = self.get_now()
-        # Getting data since start of yesterday so that user can look back a little further than just current window.
-        startDataPeriod = str((now + timedelta(days=-7)).date())
+        self.authenticate_with_fm()
+
+        # Getting data since a week ago so that user can look back a further than just current window.
+        dt = str(now + timedelta(days=-7))
+        start = dt[:10] + "T00:00:00" + dt[-6:]
 
         url_params = {
-            "event_starts_after": startDataPeriod + "T00:00:00.000Z",
+            "event_starts_after": start,
         }
 
         res = requests.get(
@@ -179,12 +180,15 @@ class FlexMeasuresDataImporter(hass.Hass):
         """
         now = self.get_now()
         # Getting data since start of yesterday so that user can look back a little further than just current window.
-        startDataPeriod = str((now + timedelta(days=-7)).date())
-        endDataPeriod = str(now.date())
+
+        dt = str(now + timedelta(days=-7))
+        startDataPeriod = dt[:10] + "T00:00:00" + dt[-6:]
+        dt = str(now)
+        endDataPeriod = dt[:10] + "T00:00:00" + dt[-6:]
 
         url_params = {
-            "event_starts_after": startDataPeriod + "T00:00:00.000Z",
-            "event_ends_before": endDataPeriod + "T00:00:00.000Z",
+            "event_starts_after": startDataPeriod,
+            "event_ends_before": endDataPeriod,
         }
 
         res = requests.get(
@@ -291,14 +295,14 @@ class FlexMeasuresDataImporter(hass.Hass):
         Make prices available in HA by setting them in input_text.epex_prices
         Notify user if there will be negative prices for next day
         """
-
-        self.authenticate_with_fm()
         now = self.get_now()
+        self.authenticate_with_fm()
         # Getting prices since start of yesterday so that user can look back a little further than just current window.
-        startEPEX = str((now + timedelta(days=-1)).date())
+        dt = str(now + timedelta(days=-1))
+        startDataPeriod = dt[:10] + "T00:00:00" + dt[-6:]
 
         url_params = {
-            "event_starts_after": startEPEX + "T00:00:00.000Z",
+            "event_starts_after": startDataPeriod,
         }
         res = requests.get(
             self.PRICES_URL,
@@ -369,15 +373,15 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.log("FMdata: get_emission_intensities called")
 
-        self.authenticate_with_fm()
         now = self.get_now()
+        self.authenticate_with_fm()
         # Getting emissions since a week ago. This is needed for calculation of CO2 savings
         # and will be (more than) enough for the graph to show.
         # Because we want to show it in the graph we do not use an end url param.
-        start_emission_period: str = str((now + timedelta(days=-7)).date())
-
+        dt = str(now + timedelta(days=-7))
+        startDataPeriod = dt[:10] + "T00:00:00" + dt[-6:]
         url_params = {
-            "event_starts_after": start_emission_period + "T00:00:00.000Z",
+            "event_starts_after": startDataPeriod,
         }
 
         res = requests.get(

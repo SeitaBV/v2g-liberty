@@ -176,6 +176,16 @@ class FlexMeasuresClient(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
         self.check_deprecation_and_sunset(url, res)
+        if res.status_code == 303):
+            new_url = res.headers.get("location")
+            if new_url is not None:
+                self.log(f"Redirecting from {url} to {new_url}")
+                url = new_url
+                res = requests.get(
+                    url,
+                    params=message,
+                    headers={"Authorization": self.fm_token},
+                )
         if (res.status_code != 200) or (res.json is None):
             self.log_failed_response(res, url)
             s = self.DELAY_FOR_REATTEMPTS

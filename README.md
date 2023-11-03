@@ -198,6 +198,7 @@ fm_user_password: "your FM password here (use quotes)"
 fm_account_power_sensor_id: XX
 fm_account_availability_sensor_id: XX
 fm_account_soc_sensor_id: XX
+fm_account_cost_sensor_id: XX
 
 # For electricity_provider the choices are:
 #   nl_generic * †
@@ -423,6 +424,7 @@ v2g-globals:
   fm_account_power_sensor_id: !secret fm_account_power_sensor_id
   fm_account_availability_sensor_id: !secret fm_account_availability_sensor_id
   fm_account_soc_sensor_id: !secret fm_account_soc_sensor_id
+  fm_account_cost_sensor_id: !secret fm_account_cost_sensor_id
 
   fm_optimisation_mode: !secret fm_optimisation_mode
   electricity_provider: !secret electricity_provider

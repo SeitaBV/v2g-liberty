@@ -53,6 +53,8 @@ class V2GLibertyGlobals(hass.Hass):
         self.log(f"v2g_globals FM_ACCOUNT_AVAILABILITY_SENSOR_ID: {c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID}.")
         c.FM_ACCOUNT_SOC_SENSOR_ID = int(float(self.args["fm_account_soc_sensor_id"]))
         self.log(f"v2g_globals FM_ACCOUNT_SOC_SENSOR_ID: {c.FM_ACCOUNT_SOC_SENSOR_ID}.")
+        c.FM_ACCOUNT_COST_SENSOR_ID = int(float(self.args["fm_account_cost_sensor_id"]))
+        self.log(f"v2g_globals FM_ACCOUNT_COST_SENSOR_ID: {c.FM_ACCOUNT_COST_SENSOR_ID}.")
 
         c.OPTIMISATION_MODE = self.args["fm_optimisation_mode"].strip().lower()
         self.log(f"v2g_globals OPTIMISATION_MODE: {c.OPTIMISATION_MODE}.")
@@ -82,9 +84,6 @@ class V2GLibertyGlobals(hass.Hass):
         self.log(f"v2g_globals FM_EMISSIONS_SENSOR_ID: {c.FM_EMISSIONS_SENSOR_ID}.")
         self.log(f"v2g_globals UTILITY_CONTEXT_DISPLAY_NAME: {c.UTILITY_CONTEXT_DISPLAY_NAME}.")
 
-
-        c.CAR_AVERAGE_WH_PER_KM = int(float(self.args["car_average_wh_per_km"]))
-        self.log(f"v2g_globals CAR_AVERAGE_WH_PER_KM: {c.CAR_AVERAGE_WH_PER_KM}.")
         self.log("Completed initializing V2GLibertyGlobals")
 
 

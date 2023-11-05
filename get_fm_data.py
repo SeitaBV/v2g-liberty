@@ -251,7 +251,7 @@ class FlexMeasuresDataImporter(hass.Hass):
                 total_minutes_discharged += c.FM_EVENT_RESOLUTION_IN_MINUTES
                 # We strangely add 5 min. periods as if they are hours, we later converty this
                 total_saved_emissions_last_7_days += power * emission_intensity
-            else:
+            elif power > 0:
                 # Strangly we add power to energy.. this is practical, we later convert this to energy.
                 total_charged_energy_last_7_days += power
                 total_minutes_charged += c.FM_EVENT_RESOLUTION_IN_MINUTES

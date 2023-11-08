@@ -65,6 +65,10 @@ FM_ACCOUNT_COST_SENSOR_ID: int
 
 # Defaults to 0.85
 CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float = 0.85
+# Defaults to min current setting of 6A * 240V = 1440W
+CHARGER_MAX_CHARGE_POWER: int = 1440
+# Defaults to min current setting of 6A * 240V = 1440W
+CHARGER_MAX_DIS_CHARGE_POWER: int = 1440
 
 # CAR CONSTANTS
 # See remark for charger constants

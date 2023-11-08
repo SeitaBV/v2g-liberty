@@ -304,7 +304,7 @@ car_min_soc_in_percent: 18
 # A low setting reduces schedule flexibility and so the capability to earn
 # money and reduce emissions.
 # The setting must be an integer value between 60 and 100, default is 100.
-car_max_soc_in_percent: 97
+car_max_soc_in_percent: 90
 
 # What is the average electricity usage of your car in watt-hour (Wh) per km?
 # In most cars you can find historical data in the menu's. Normally this is somewhere
@@ -417,6 +417,9 @@ v2g-globals:
   priority: 10
 
   charger_plus_car_roundtrip_efficiency: !secret charger_plus_car_roundtrip_efficiency
+  charger_max_charging_power: !secret wallbox_max_charging_power
+  charger_max_discharging_power: !secret wallbox_max_discharging_power
+
   car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
   car_min_soc_in_percent: !secret car_min_soc_in_percent
   car_max_soc_in_percent: !secret car_max_soc_in_percent
@@ -459,9 +462,6 @@ v2g_liberty:
   # This is a waiting time between the actions in milliseconds
   wait_between_charger_write_actions: 5000
   timeout_charger_write_actions: 20000
-
-  wallbox_max_charging_power: !secret wallbox_max_charging_power
-  wallbox_max_discharging_power: !secret wallbox_max_discharging_power
 
 flexmeasures-client:
   module: flexmeasures_client

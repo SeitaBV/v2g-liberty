@@ -20,6 +20,26 @@ class V2GLibertyGlobals(hass.Hass):
         c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = efficiency/100
         self.log(f"v2g_globals roundtrip-efficiency: {c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY}.")
 
+        power = int(float(self.args["charger_max_charging_power"]))
+        # Make sure this value is between 1440 en 22000
+        tmp = max(min(22000, power), 1440)
+        if power != tmp:
+            self.log(f"Max charge power is changed from {power} to {tmp} to stay within boundries.")
+            power = tmp
+        # set constant so that it can be used in calculations
+        c.CHARGER_MAX_CHARGE_POWER = power
+        self.log(f"v2g_globals max charge power: {c.CHARGER_MAX_CHARGE_POWER}.")
+
+        power = int(float(self.args["charger_max_discharging_power"]))
+        # Make sure this value is between 1440 en 22000
+        tmp = max(min(22000, power), 1440)
+        if power != tmp:
+            self.log(f"Max dis-charge power is changed from {power} to {tmp} to stay within boundries.")
+            power = tmp
+        # set constant so that it can be used in calculations
+        c.CHARGER_MAX_DIS_CHARGE_POWER = power
+        self.log(f"v2g_globals max dis-charge power: {c.CHARGER_MAX_DIS_CHARGE_POWER}.")
+
         max_capacity = int(float(self.args["car_max_capacity_in_kwh"]))
         # Make sure this value is between 10 en 200
         tmp = max(min(200, max_capacity), 10)

@@ -31,7 +31,7 @@ class FlexMeasuresClient(hass.Hass):
     DELAY_FOR_REATTEMPTS: int  # number of seconds
     CAR_RESERVATION_CALENDAR: str
 
-    ## Battery protection boundries ##
+    ## Battery protection boundaries ##
     # A hard setting that is always respected (and used for Max_Charge_Now when
     # car is connected with a SoC below this value)
     CAR_MIN_SOC_IN_KWH: float
@@ -187,7 +187,7 @@ class FlexMeasuresClient(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
         self.check_deprecation_and_sunset(url, res)
-        if res.status_code == 303):
+        if (res.status_code == 303):
             new_url = res.headers.get("location")
             if new_url is not None:
                 self.log(f"Redirecting from {url} to {new_url}")
@@ -307,8 +307,8 @@ class FlexMeasuresClient(hass.Hass):
                     # than the CAR_MAX_SOC_IN_KWH.
                     if target_soc > self.CAR_MAX_SOC_IN_KWH:
                         window_duration = math.ceil((target_soc - self.CAR_MAX_SOC_IN_KWH)/(c.CHARGER_MAX_CHARGE_POWER/1000)*60) + self.WINDOW_SLACK
-                        start_relaxation_window = time_round((target_datetime + timedelta(minutes=-window_duration)), resolution)
-                        self.log(f"Lifting the soc-maxima due to upcomming target, start_relaxation_window: {start_relaxation_window.isoformat()}.")
+                        start_relaxation_window = time_round((target_datetime - timedelta(minutes=window_duration)), resolution)
+                        self.log(f"Lifting the soc-maxima due to upcoming target, start_relaxation_window: {start_relaxation_window.isoformat()}.")
 
         rounded_now = time_round(self.get_now(), resolution)
 

@@ -322,7 +322,7 @@ car_average_wh_per_km: 174
 #
 # If a loadbalancer (powerboost for WB) is used:
 # Set this to "Amperage setting in charger" * grid voltage.
-# E.g. 25A * 233V = 5825W.
+# E.g. 25A * 230V = 5750W.
 # If there is no loadbalancer in use, use a lower setting.
 # Usually the discharge power is the same but in some cases the charger or
 # (gird operator) regulations requier a different (lower) dis-charge power.

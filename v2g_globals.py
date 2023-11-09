@@ -10,61 +10,22 @@ class V2GLibertyGlobals(hass.Hass):
     def initialize(self):
         self.log("Initializing V2GLibertyGlobals")
 
-        efficiency = int(float(self.args["charger_plus_car_roundtrip_efficiency"]))
-        # Make sure this value is between 50 en 100
-        tmp = max(min(100, efficiency), 50)
-        if efficiency != tmp:
-            self.log(f"Roundtrip efficienty is changed from {efficiency} to {tmp} to stay within boundries.")
-            efficiency = tmp
-        # set constant so that it can be used in calculations
-        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = efficiency/100
+        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = self.read_and_process_int_setting("charger_plus_car_roundtrip_efficiency", 50, 100)/100
         self.log(f"v2g_globals roundtrip-efficiency: {c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY}.")
 
-        power = int(float(self.args["charger_max_charging_power"]))
-        # Make sure this value is between 1440 en 22000
-        tmp = max(min(22000, power), 1440)
-        if power != tmp:
-            self.log(f"Max charge power is changed from {power} to {tmp} to stay within boundries.")
-            power = tmp
-        # set constant so that it can be used in calculations
-        c.CHARGER_MAX_CHARGE_POWER = power
-        self.log(f"v2g_globals max charge power: {c.CHARGER_MAX_CHARGE_POWER}.")
+        c.CHARGER_MAX_CHARGE_POWER = self.read_and_process_int_setting("charger_max_charging_power", 1380, 22000)
+        self.log(f"v2g_globals max charge power: {c.CHARGER_MAX_CHARGE_POWER} Watt.")
 
-        power = int(float(self.args["charger_max_discharging_power"]))
-        # Make sure this value is between 1440 en 22000
-        tmp = max(min(22000, power), 1440)
-        if power != tmp:
-            self.log(f"Max dis-charge power is changed from {power} to {tmp} to stay within boundries.")
-            power = tmp
-        # set constant so that it can be used in calculations
-        c.CHARGER_MAX_DIS_CHARGE_POWER = power
+        c.CHARGER_MAX_DIS_CHARGE_POWER = self.read_and_process_int_setting("charger_max_discharging_power", 1380, 22000)
         self.log(f"v2g_globals max dis-charge power: {c.CHARGER_MAX_DIS_CHARGE_POWER}.")
 
-        max_capacity = int(float(self.args["car_max_capacity_in_kwh"]))
-        # Make sure this value is between 10 en 200
-        tmp = max(min(200, max_capacity), 10)
-        if max_capacity != tmp:
-            self.log(f"Max_car_capacity is changed from {max_capacity} to {tmp} to stay within boundries.")
-            max_capacity = tmp
-        c.CAR_MAX_CAPACITY_IN_KWH = max_capacity
+        c.CAR_MAX_CAPACITY_IN_KWH = self.read_and_process_int_setting("car_max_capacity_in_kwh", 10, 200)
         self.log(f"v2g_globals max-car-capacity: {c.CAR_MAX_CAPACITY_IN_KWH} kWh.")
 
-        car_min_soc = int(float(self.args["car_min_soc_in_percent"]))
-        # Make sure this value is between 10 en 30
-        tmp = max(min(30, car_min_soc), 10)
-        if car_min_soc != tmp:
-            self.log(f"car_min_soc is changed from {car_min_soc} to {tmp} to stay within boundries.")
-            car_min_soc = tmp
-        c.CAR_MIN_SOC_IN_PERCENT = car_min_soc
+        c.CAR_MIN_SOC_IN_PERCENT = self.read_and_process_int_setting("car_min_soc_in_percent", 10, 30)
         self.log(f"v2g_globals car-min-soc: {c.CAR_MIN_SOC_IN_PERCENT} %.")
 
-        car_max_soc = int(float(self.args["car_max_soc_in_percent"]))
-        # Make sure this value is between 60 en 100
-        tmp = max(min(100, car_max_soc), 60)
-        if car_max_soc != tmp:
-            self.log(f"car_max_soc is changed from {car_max_soc} to {tmp} to stay within boundries.")
-            car_max_soc = tmp
-        c.CAR_MAX_SOC_IN_PERCENT = car_max_soc
+        c.CAR_MAX_SOC_IN_PERCENT = self.read_and_process_int_setting("car_max_soc_in_percent", 60, 100)
         self.log(f"v2g_globals car-max-soc: {c.CAR_MAX_SOC_IN_PERCENT} %.")
 
         c.FM_ACCOUNT_POWER_SENSOR_ID = int(float(self.args["fm_account_power_sensor_id"]))
@@ -106,6 +67,15 @@ class V2GLibertyGlobals(hass.Hass):
 
         self.log("Completed initializing V2GLibertyGlobals")
 
+    def read_and_process_int_setting(self, setting_name: str, lower_limit: int, upper_limit: int) -> int:
+        """Read and integer setting_name from HASS and guard the lower and upper limit"""
+        reading = int(float(self.args[setting_name]))
+        # Make sure this value is between lower_limit and upper_limit
+        tmp = max(min(upper_limit, reading), lower_limit)
+        if reading != tmp:
+            self.log(f"{setting_name} is changed from {reading} to {tmp} to stay within boundaries.")
+            reading = tmp
+        return reading
 
 
 def time_mod(time, delta, epoch=None):

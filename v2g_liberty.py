@@ -12,6 +12,7 @@ import isodate
 
 from wallbox_client import WallboxModbusMixin
 
+
 class V2Gliberty(hass.Hass, WallboxModbusMixin):
     """ This class manages the communication with the Wallbox Quasar charger and
     the FlexMeasures platform (which delivers the charging schedules).
@@ -20,7 +21,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     # CONSTANTS
     # Fail-safe for processing schedules that might have schedule with too high update frequency
     MIN_RESOLUTION: timedelta
-    CHARGER_MAX_POWER: int
     CAR_AVERAGE_WH_PER_KM: int
     ADMIN_MOBILE_NAME: str
     ADMIN_MOBILE_PLATFORM: str
@@ -51,8 +51,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.log("Initializing V2Gliberty")
 
         self.MIN_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
-        self.CHARGER_MAX_POWER = self.args["wallbox_max_charging_power"]
         self.CAR_AVERAGE_WH_PER_KM = int(float(self.args["car_average_wh_per_km"]))
+
         # Show the optimisation mode in the UI
         self.set_value("input_text.optimisation_mode", c.OPTIMISATION_MODE)
         self.set_value("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
@@ -398,7 +398,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
                 # How long will it take to charge this amount with max power, we use ceil to avoid 0 minutes as
                 # this would not show in graph.
-                minutes_to_reach_min_soc = int(math.ceil((delta_to_min_soc_wh / self.CHARGER_MAX_POWER * 60)))
+                minutes_to_reach_min_soc = int(math.ceil((delta_to_min_soc_wh / c.CHARGER_MAX_CHARGE_POWER * 60)))
                 expected_min_soc_time = (self.get_now() + timedelta(minutes=minutes_to_reach_min_soc)).isoformat()
                 boost_schedule.append(dict(time=expected_min_soc_time, soc=c.CAR_MIN_SOC_IN_PERCENT))
                 self.set_soc_prognosis_boost_in_ui(boost_schedule)

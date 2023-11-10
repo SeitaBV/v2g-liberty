@@ -336,7 +336,8 @@ class FlexMeasuresClient(hass.Hass):
                         "datetime": dt.isoformat(),
                     } for dt in [rounded_now + x * resolution for x in range(0, (start_relaxation_window - rounded_now) // resolution)]
                 ],
-                "roundtrip-efficiency": c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
+                "roundtrip-efficiency": c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
+                "power-capacity": str(c.CHARGER_MAX_CHARGE_POWER) + "W"
             },
             "flex-context": self.FM_OPTIMISATION_CONTEXT,
         }

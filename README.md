@@ -146,6 +146,7 @@ After completion of this step you'll end up with a these files and folders (othe
 │   │   │   ├── v2g_liberty.py
 │   │   │   └── wallbox_client.py
 │   │   └ apps.yaml *
+│   ├── logs
 │   └ appdaemon.yaml *
 ├── configuration.yaml *
 └── secrets.yaml *

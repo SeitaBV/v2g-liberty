@@ -327,16 +327,14 @@ class WallboxModbusMixin:
             charge_rate = 0
 
         # Clip values to min/max charging current
-        max_charging_power = self.args["wallbox_max_charging_power"]
-        max_discharging_power = self.args["wallbox_max_discharging_power"]
-        if charge_rate > max_charging_power:
+        if charge_rate > c.CHARGER_MAX_CHARGE_POWER:
             self.log(f"Requested charge rate {charge_rate} Watt too high. "
-                     f"Changed charge rate to maximum: {max_charging_power} Watt.")
-            charge_rate = max_charging_power
-        elif abs(charge_rate) > max_discharging_power:
+                     f"Changed charge rate to maximum: {c.CHARGER_MAX_CHARGE_POWER} Watt.")
+            charge_rate = c.CHARGER_MAX_CHARGE_POWER
+        elif abs(charge_rate) > c.CHARGER_MAX_DIS_CHARGE_POWER:
             self.log(f"Requested discharge rate {charge_rate} Watt too high. "
-                     f"Changed discharge rate to maximum: {max_discharging_power} Watt.")
-            charge_rate = -max_discharging_power
+                     f"Changed discharge rate to maximum: {c.CHARGER_MAX_DIS_CHARGE_POWER} Watt.")
+            charge_rate = -c.CHARGER_MAX_DIS_CHARGE_POWER
 
         if charge_rate < 0:
             # Modbus cannot handle negative values directly.

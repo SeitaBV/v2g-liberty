@@ -82,6 +82,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
         self.listen_event(self.restart_charger, "RESTART_CHARGER")
         self.listen_event(self.disconnect_charger, "DISCONNECT_CHARGER")
+        self.listen_event(self.debug_manual_trigger_schedule, "MANUAL_TRIGGER_SCHEDULE")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")
@@ -189,6 +190,24 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         #     # https://data.home-assistant.io/docs/states/
         #     return
         self.get_app("flexmeasures-client").get_new_schedule(self.connected_car_soc_kwh)
+
+    def debug_manual_trigger_schedule(self, *args, **kwargs):
+        # This is for testing the connection and login in FlexMeasures
+        self.log(f"Manually triggering schedule for testing, with SoC: 10 kWh.")
+        self.select_option("input_select.fm_account_test_result", "Processing")
+        # Set an artibiary value, not too high, not too low that will be accepatable for most setups.
+        id = self.get_app("flexmeasures-client").trigger_schedule(current_soc_kwh=10)
+        if id is None:
+            self.select_option("input_select.fm_account_test_result", "Failed")
+        else:
+            self.select_option("input_select.fm_account_test_result", "Success")
+        # delay: float = 30
+        # handle = self.run_in(self.reset_UI_for_trigger_test, delay)
+        # self.log(f"Manually triggered schedule for testing, wil not be processed locally. Handle: {handle}.")
+
+    #def reset_UI_for_trigger_test(self, *arg):
+        #self.log("Resetting UI for trigger test")
+        #self.select_option('input_select.fm_account_test_result', 'No recent test result')
 
     def cancel_charging_timers(self):
         # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles

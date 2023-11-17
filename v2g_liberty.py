@@ -190,10 +190,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         #     return
         self.get_app("flexmeasures-client").get_new_schedule(self.connected_car_soc_kwh)
 
-    #def reset_UI_for_trigger_test(self, *arg):
-        #self.log("Resetting UI for trigger test")
-        #self.select_option('input_select.fm_account_test_result', 'No recent test result')
-
     def cancel_charging_timers(self):
         # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles
         for h in self.scheduling_timer_handles:

@@ -53,10 +53,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.MIN_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
         self.CAR_AVERAGE_WH_PER_KM = int(float(self.args["car_average_wh_per_km"]))
 
-        # Show the optimisation mode in the UI
+        # Show the settings in the UI
+        self.set_value("input_text.v2g_liberty_version", c.V2G_LIBERTY_VERSION)
         self.set_value("input_text.optimisation_mode", c.OPTIMISATION_MODE)
         self.set_value("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
-        self.log(f"Utility displayname: {c.UTILITY_CONTEXT_DISPLAY_NAME}")
 
         self.ADMIN_MOBILE_NAME = self.args["admin_mobile_name"].lower()
         self.ADMIN_MOBILE_PLATFORM = self.args["admin_mobile_platform"].lower()

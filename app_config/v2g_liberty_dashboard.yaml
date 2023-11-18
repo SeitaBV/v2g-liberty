@@ -448,6 +448,24 @@ views:
                   color: #6f6f6f;
                   display: block;
                 }
+
+          - type: markdown
+            content: >-
+              Version <span>{{states("input_text.v2g_liberty_version")}}</span>
+            card_mod:
+              style:
+                .: |
+                  ha-card {
+                    border: none;
+                    color: #797979;
+                    background-color: transparent;
+                    text-align: right;
+                  }
+                ha-markdown$: |
+                  span {
+                    font-weight: bold;
+                  }
+
   - title: Help
     icon: mdi:help-box
     cards:
@@ -463,6 +481,7 @@ views:
         title: "Quasar"
       - type: entities
         entities:
+          - input_text.v2g_liberty_version
           - input_number.car_remaining_range
           - input_number.car_state_of_charge
           - input_select.charge_mode

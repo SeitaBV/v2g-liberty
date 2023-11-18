@@ -16,8 +16,8 @@ class V2GLibertyGlobals(hass.Hass):
         c.CHARGER_MAX_CHARGE_POWER = self.read_and_process_int_setting("charger_max_charging_power", 1380, 22000)
         self.log(f"v2g_globals max charge power: {c.CHARGER_MAX_CHARGE_POWER} Watt.")
 
-        c.CHARGER_MAX_DIS_CHARGE_POWER = self.read_and_process_int_setting("charger_max_discharging_power", 1380, 22000)
-        self.log(f"v2g_globals max dis-charge power: {c.CHARGER_MAX_DIS_CHARGE_POWER}.")
+        c.CHARGER_MAX_DISCHARGE_POWER = self.read_and_process_int_setting("charger_max_discharging_power", 1380, 22000)
+        self.log(f"v2g_globals max dis-charge power: {c.CHARGER_MAX_DISCHARGE_POWER}.")
 
         c.CAR_MAX_CAPACITY_IN_KWH = self.read_and_process_int_setting("car_max_capacity_in_kwh", 10, 200)
         self.log(f"v2g_globals max-car-capacity: {c.CAR_MAX_CAPACITY_IN_KWH} kWh.")

@@ -1,4 +1,18 @@
-# FlexMeasures constants
+### V2G Liberty constants ###
+
+V2G_LIBERTY_VERSION = "0.1.0"
+
+# USER PREFRENCE
+# See remark for charger constants
+# Defaults to 20 (to be safe)
+CAR_MIN_SOC_IN_PERCENT: int = 20
+# Defaults to 80% (to be safe)
+CAR_MAX_SOC_IN_PERCENT: int = 80
+
+OPTIMISATION_MODE: str = "price"
+ELECTRICITY_PROVIDER: str = "nl_generic"
+
+# FlexMeasures settings
 
 # This represents how often schedules should refresh. Keep at this setting.
 FM_EVENT_RESOLUTION_IN_MINUTES = 5
@@ -68,19 +82,9 @@ CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY: float = 0.85
 # Defaults to min current setting of 6A * 230V = 1380W
 CHARGER_MAX_CHARGE_POWER: int = 1380
 # Defaults to min current setting of 6A * 230V = 1380W
-CHARGER_MAX_DISCHARGE_POWER: int = 1380
+CHARGER_MAX_DIS_CHARGE_POWER: int = 1380
 
 # CAR CONSTANTS
 # See remark for charger constants
 # Defaults to 24 (to be safe)
 CAR_MAX_CAPACITY_IN_KWH: int = 24
-
-# USER PREFRENCE CONSTANTS
-# See remark for charger constants
-# Defaults to 10 (to be safe)
-CAR_MIN_SOC_IN_PERCENT: int = 10
-# Defaults to 100 (to be safe)
-CAR_MAX_SOC_IN_PERCENT: int = 100
-
-OPTIMISATION_MODE: str = "price"
-ELECTRICITY_PROVIDER: str = "nl_generic"

@@ -163,6 +163,16 @@ input_text:
     mode: text
     min: 0
 
+  # V2G Liberty version is set by V2G Liberty.py based upon constant.
+  # Used only for setting text in dashboard.
+  v2g_liberty_version:
+    name: V2G Liberty version
+    icon: mdi:identifier
+    max: 100
+    mode: text
+    min: 0
+
+
   # Helper, set by V2G Liberty.py based upon setting utility in secrets.
   # Used only for setting text in dashboard.
   utility_display_name:

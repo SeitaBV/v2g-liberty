@@ -341,13 +341,16 @@ class FlexMeasuresClient(hass.Hass):
             },
             "flex-context": self.FM_OPTIMISATION_CONTEXT,
         }
-        self.log(f"Trigger_schedule on url '{url}', with message: '{message}'.")
 
         res = requests.post(
             url,
             json=message,
             headers={"Authorization": self.fm_token},
         )
+
+        tmp=str(message)
+        self.log(f"Trigger_schedule on url '{url}', with message: '{tmp[0:275]} . . . . . {tmp[-275:]}'.")
+
         self.check_deprecation_and_sunset(url, res)
         schedule_id = None
         if res.status_code == 200:

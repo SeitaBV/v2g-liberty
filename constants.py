@@ -51,7 +51,7 @@ FM_SET_DATA_URL = FM_BASE_URL + FM_API_VERSION + "/sensors/data"
 DEFAULT_UTILITY_CONTEXTS = {
     "nl_generic": {"consumption-sensor": 14, "production-sensor": 14, "emisions-sensor": 27, "display-name": "EPEX Day ahead NL"},
     "nl_anwb_energie": {"consumption-sensor": 60, "production-sensor": 71, "emisions-sensor": 27, "display-name": "ANWB Energie"},
-    "nl_next_energy": {"consumption-sensor": 60, "production-sensor": 71, "emisions-sensor": 27, "display-name": "NextEnergy"},
+    "nl_next_energy": {"consumption-sensor": 90, "production-sensor": 91, "emisions-sensor": 27, "display-name": "NextEnergy"},
     "nl_tibber": {"consumption-sensor": 58, "production-sensor": 70, "emisions-sensor": 27, "display-name": "Tibber"},
     "no_generic": {"consumption-sensor": 14, "production-sensor": 14, "emisions-sensor": 27,  "display-name": "EPEX Day ahead NO"}
 }

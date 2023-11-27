@@ -3,10 +3,10 @@
 This integration lets you add full automatic and price optimized control over Vehicle to grid (V2G) charging. It has a 
 practical local app in [HomeAssistant](https://www.home-assistant.io/) and uses the smart EMS [FlexMeasures](https://flexmeasures.io) for optimized schedules.
 
-The schedules are optimized on EPEX day-ahead energy prices, so this works best with an electricity contract with dynamic (hourly) prices[^1].
+The schedules are optimized on day-ahead energy prices, so this works best with an electricity contract with dynamic (hourly) prices[^1].
 We intend to add optimisation for your solar generation or the CO₂ content of the grid in the near future.
 
-[^1]: For now: only Dutch energy prices, if you have interest in this software and live outside the Netherlands, please [contact us](https://v2g-liberty.eu/) to see what the options are.
+[^1]: For now: most Dutch enrgy suppliers are listed and all European energy prices (EPEX) are available for optimisation. There also is an option to upload your own prices, if you have an interest in thisplease [contact us](https://v2g-liberty.eu/) to see what the options are.
 
 ![The V2G Liberty Dashboard](https://positive-design.nl/wp-content/uploads/2022/04/V2GL-1-1024x549.png)
 
@@ -27,7 +27,7 @@ This integration is a Python app and uses:
 
 ### Prerequisites
  
-At the time of writing, 2022-11, only the [Wallbox Quasar 1 charger](https://wallbox.com/en_uk/quasar-dc-charger) is supported.
+At the time of writing, 2023-11, only the [Wallbox Quasar 1 charger](https://wallbox.com/en_uk/quasar-dc-charger) is supported.
 This is a [CHAdeMO](https://www.chademo.com/) compatible charger.
 Compatible cars that can do V2G with this protocol are the [Nissan Leaf](https://ev-database.org/car/1657/Nissan-Leaf-eplus) (also earlier models) and [Nissan Evalia](https://ev-database.org/car/1117/Nissan-e-NV200-Evalia).
 When the Quasar 2 will be available in the EU we expect V2G Liberty to be compatible with this hardware right away.

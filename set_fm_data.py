@@ -221,8 +221,12 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
         total_interval_duration = self.availability_duration_in_current_interval + self.un_availability_duration_in_current_interval
         if total_interval_duration > (c.FM_EVENT_RESOLUTION_IN_MINUTES * 60 * 0.95):
             # Power related processing
-            # Conversion from Watt to MegaWatt
-            average_period_power = round((self.period_power_x_duration / self.power_period_duration) / 1000000, 5)
+            # Initiate with fallback value
+            average_period_power = self.period_power_x_duration
+            # Prevent division by zero.
+            if self.power_period_duration != 0:
+                # Conversion from Watt to MegaWatt
+                average_period_power = round((self.period_power_x_duration / self.power_period_duration) / 1000000, 5)
             self.power_readings.append(average_period_power)
 
             # Availability related processing

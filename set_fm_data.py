@@ -223,11 +223,11 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             # Power related processing
             # Initiate with fallback value
             average_period_power = self.period_power_x_duration
-            # Prevent division by zero.
+            # If duration = 0 it is assumed it can be skipped. Also prevent division by zero.
             if self.power_period_duration != 0:
-                # Conversion from Watt to MegaWatt
+                # Calculate average power and convert from Watt to MegaWatt
                 average_period_power = round((self.period_power_x_duration / self.power_period_duration) / 1000000, 5)
-            self.power_readings.append(average_period_power)
+                self.power_readings.append(average_period_power)
 
             # Availability related processing
             self.log(

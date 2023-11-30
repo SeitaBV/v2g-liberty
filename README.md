@@ -6,7 +6,7 @@ practical local app in [HomeAssistant](https://www.home-assistant.io/) and uses 
 The schedules are optimized on day-ahead energy prices, so this works best with an electricity contract with dynamic (hourly) prices[^1].
 We intend to add optimisation for your solar generation or the CO₂ content of the grid in the near future.
 
-[^1]: For now: most Dutch enrgy suppliers are listed and all European energy prices (EPEX) are available for optimisation. There also is an option to upload your own prices, if you have an interest in thisplease [contact us](https://v2g-liberty.eu/) to see what the options are.
+[^1]: For now: most Dutch enrgy suppliers are listed and all European energy prices (EPEX) are available for optimisation. There also is an option to upload your own prices, if you have an interest in this, please [contact us](https://v2g-liberty.eu/) to see what the options are.
 
 ![The V2G Liberty Dashboard](https://positive-design.nl/wp-content/uploads/2022/04/V2GL-1-1024x549.png)
 

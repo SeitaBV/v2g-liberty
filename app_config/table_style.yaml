@@ -1,0 +1,35 @@
+ha-markdown$: |
+  h3 {
+    font-weight: normal;
+    color: #797979;
+    font-size: 90%;
+    padding-bottom: 0;
+  }
+  h4 {
+    font-weigth: normal;
+    font-size: 150%;
+    line-height: 90%;
+    margin-top: -5px;
+    margin-bottom: 2px;
+  }
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  tbody td, tfoot td {
+    font-weight: bold;
+  }
+  th {
+    text-align: left;
+    vertical-align: top;
+    font-weight: normal;
+  }
+  td {
+    text-align: right;
+  }
+  thead th, thead td {
+    border-bottom: 1px solid #cccccc;
+  }
+  tfoot th, tfoot td {
+    border-top: 1px solid #cccccc;
+  }

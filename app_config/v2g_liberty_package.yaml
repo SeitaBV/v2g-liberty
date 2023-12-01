@@ -172,7 +172,6 @@ input_text:
     mode: text
     min: 0
 
-
   # Helper, set by V2G Liberty.py based upon setting utility in secrets.
   # Used only for setting text in dashboard.
   utility_display_name:
@@ -543,7 +542,7 @@ automation:
                 target:
                   entity_id: input_text.charger_state
                 data:
-                  value: "Connected: waiting for next schedule"
+                  value: "Connected: controlled by Wallbox App"
           - conditions:
               - condition: state
                 entity_id: sensor.charger_charger_state

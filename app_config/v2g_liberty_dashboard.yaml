@@ -45,6 +45,29 @@ views:
 
           - type: conditional
             conditions:
+              - entity: input_text.charger_state
+                state: "Connected: controlled by Wallbox App"
+              - entity: input_boolean.chargemodeoff
+                state: "off"
+            card:
+              type: markdown
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -28px;
+                  }
+              content: >-
+                <ha-alert alert-type="warning" title="The charger is controlled by Wallbox App">V2G Liberty might not be able to charge</ha-alert>
+
+                It seem that there is a charge time-schedule set in the Wallbox app. V2G&nbsp;Liberty probably cannot control the charger now.
+
+                Remove the time-schedule for charging from the Wallbox app for automatic charging via V2G Liberty.
+
+          - type: conditional
+            conditions:
               - entity: sensor.charger_charger_state
                 state: "0"
               - entity: sensor.charger_locked

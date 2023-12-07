@@ -1,7 +1,7 @@
 ### V2G Liberty constants ###
 
-# Date 2023-11-30 Pull request 149
-V2G_LIBERTY_VERSION = "0.1.2"
+# Date 2023-11-30 Pull request 151
+V2G_LIBERTY_VERSION = "0.1.3"
 
 # USER PREFRENCE
 # See remark for charger constants

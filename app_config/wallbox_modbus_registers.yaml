@@ -65,7 +65,7 @@ charging_state: &charging 1
 # Connected and waiting for car demand; sometimes shortly goes to this status when action = start
 waiting_state: &waiting 2
 
-# Connected and waiting for next schedule; this occurs when a charging is scheduled via the Wallbox app.
+# Connected and waiting for next schedule; this occurs when a charging session is scheduled via the Wallbox app.
 # As we control the charger we override this setting
 waiting_for_schedule_state: &waiting_for_schedule 3
 

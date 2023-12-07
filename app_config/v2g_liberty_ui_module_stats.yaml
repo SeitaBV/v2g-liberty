@@ -1,0 +1,26 @@
+<h3>Last 7 days (approximations)</h3>
+<h4>Costs {{ '€ %.2f'|format(float(states("input_number.total_charging_cost_last_7_days"))/float(states("input_number.net_energy_last_7_days"))) }}/kWh</h4>
+<table><thead>
+<tr>
+<th></th>
+<th>duration</th>
+<td>Emissions (kg CO₂)</td>
+<td>Energy (kWh)</td>
+</tr></thead>
+<tbody><tr>
+<th>Charge</th>
+<th>{{states("input_text.total_charge_time_last_7_days")}}</th>
+<td>{{ '%.1f'|format((states("input_number.total_emissions_last_7_days")) | round(1)) }}</td>
+<td>{{ (states("input_number.total_charged_energy_last_7_days")) | int }}</td>
+</tr><tr>
+<th>Discharge</th>
+<th>{{states("input_text.total_discharge_time_last_7_days")}}</th>
+<td>{{ '%.1f'|format((states("input_number.total_saved_emissions_last_7_days")) | round(1)) }}</td>
+<td>{{ (states("input_number.total_discharged_energy_last_7_days")) | int }}</td>
+</tr></tbody>
+<tfoot><tr>
+<th>Net results</th>
+<th></th>
+<td>{{ '%.1f'|format((states("input_number.net_emissions_last_7_days")) | round(1)) }}</td>
+<td>{{ (states("input_number.net_energy_last_7_days")) | int }}</td>
+</tr></tfoot></table>

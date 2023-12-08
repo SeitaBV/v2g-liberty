@@ -1,7 +1,7 @@
 ### V2G Liberty constants ###
 
-# Date 2023-11-30 Pull request 151
-V2G_LIBERTY_VERSION = "0.1.3"
+# Date 2023-12-07 Pull request 153
+V2G_LIBERTY_VERSION = "0.1.4"
 
 # USER PREFRENCE
 # See remark for charger constants
@@ -21,6 +21,10 @@ FM_EVENT_RESOLUTION_IN_MINUTES = 5
 # CONSTANTS for FM Url's
 FM_BASE_URL = "https://flexmeasures.seita.nl/api/"
 FM_API_VERSION = "v3_0"
+
+# URL for checking if API is alive
+# https://flexmeasures.seita.nl/api/ops/ping
+FM_PING_URL = FM_BASE_URL + "ops/ping"
 
 # URL for authentication on FM
 # https://flexmeasures.seita.nl/api/requestAuthToken
@@ -52,7 +56,7 @@ FM_SET_DATA_URL = FM_BASE_URL + FM_API_VERSION + "/sensors/data"
 DEFAULT_UTILITY_CONTEXTS = {
     "nl_generic": {"consumption-sensor": 14, "production-sensor": 14, "emisions-sensor": 27, "display-name": "EPEX Day ahead NL"},
     "nl_anwb_energie": {"consumption-sensor": 60, "production-sensor": 71, "emisions-sensor": 27, "display-name": "ANWB Energie"},
-    "nl_next_energy": {"consumption-sensor": 90, "production-sensor": 91, "emisions-sensor": 27, "display-name": "NextEnergy"},
+    "nl_next_energy": {"consumption-sensor": 60, "production-sensor": 71, "emisions-sensor": 27, "display-name": "NextEnergy"},
     "nl_tibber": {"consumption-sensor": 58, "production-sensor": 70, "emisions-sensor": 27, "display-name": "Tibber"},
     "no_generic": {"consumption-sensor": 14, "production-sensor": 14, "emisions-sensor": 27,  "display-name": "EPEX Day ahead NO"}
 }

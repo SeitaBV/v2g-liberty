@@ -46,7 +46,11 @@ input_boolean:
   error_schedule_cannot_be_retrieved:
     name: "Error: Schedule cannot be retrieved"
 
-  # Used for signaling in the UI that the charger has Modbus error_codes
+  # Used for checking if FM is alive:
+  is_flexmeasures_live:
+    name: Is FlexMeasures live
+
+    # Used for signaling in the UI that the charger has Modbus error_codes
   charger_in_error:
     name: "Error: charger error detected"
 
@@ -239,13 +243,6 @@ input_text:
     max: 10000
     min: 0
     mode: text
-
-binary_sensor:
-  - platform: rest
-    name: "Is FlexMeasures live"
-    resource: https://flexmeasures.seita.nl/api/ops/ping
-    scan_interval: 1800
-    value_template: "{{ value_json.status }}"
 
 modbus:
   - name: quasar

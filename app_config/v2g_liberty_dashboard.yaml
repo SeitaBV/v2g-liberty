@@ -301,12 +301,12 @@ views:
             conditions:
               - entity: input_boolean.error_schedule_cannot_be_retrieved
                 state: "on"
-              - entity: binary_sensor.is_flexmeasures_live
+              - entity: input_boolean.is_flexmeasures_live
                 state: "on"
             card:
               type: markdown
               content: >-
-                <ha-alert alert-type="warning">Temporarily no charging schedule available.</ha-alert>
+                <ha-alert alert-type="warning">Temporarily no (new) charging schedule available.</ha-alert>
               card_mod:
                 style: |
                   ha-card {
@@ -319,12 +319,30 @@ views:
             conditions:
               - entity: input_boolean.error_epex_prices_cannot_be_retrieved
                 state: "on"
-              - entity: binary_sensor.is_flexmeasures_live
+              - entity: input_boolean.is_flexmeasures_live
                 state: "on"
             card:
               type: markdown
               content: >-
-                <ha-alert alert-type="warning">Temporarily no price data available.</ha-alert>
+                <ha-alert alert-type="warning">Temporarily no price and/or emissions data available.</ha-alert>
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -22px;
+                  }
+          - type: conditional
+            conditions:
+              - entity: input_boolean.is_flexmeasures_live
+                state: "off"
+            card:
+              type: markdown
+              content: >-
+                <ha-alert alert-type="error" title="No communication with FlexMeasures">No (new) schedules available.<br/>
+                Usually this problem is solved in a few minutes. If it remains over a longer period, please set charging 
+                manually and check with system administrator.</ha-alert>
               card_mod:
                 style: |
                   ha-card {
@@ -387,16 +405,6 @@ views:
               type: markdown
               content: >-
                 <ha-alert alert-type="warning" title="No car is connected">To start Max-charge-now, please connect the car to the charger.</ha-alert>
-          - type: conditional
-            conditions:
-              - entity: binary_sensor.is_flexmeasures_live
-                state: "off"
-            card:
-              type: markdown
-              content: >-
-                <ha-alert alert-type="error" title="FlexMeasures seems to be offline">It now is not possible to get an automated charging schedule.</ha-alert>
-                Usually this problem is solved in a few minutes. If it remains over a longer period, please set charging 
-                manually and check with system administrator.
           - type: calendar
             entities:
               - calendar.car_reservation

@@ -53,6 +53,15 @@ class FlexMeasuresClient(hass.Hass):
     fm_date_time_last_schedule: datetime
     fm_max_seconds_between_schedules: int
 
+    # Helper to see if FM connection/ping has too many errors
+    connection_error_counter: int
+    handle_for_repeater: str
+    connection_ping_interval: int
+    errored_connection_ping_interval: int
+
+    # For testing
+    # test_counter: int
+
     def initialize(self):
         self.log("Initializing FlexMeasuresClient")
 
@@ -80,14 +89,68 @@ class FlexMeasuresClient(hass.Hass):
         self.log(f"Car_max_soc: {self.CAR_MAX_SOC_IN_KWH} kWh.")
 
         if c.OPTIMISATION_MODE == "price":
-            self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID, "production-price-sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID}
+            self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID,
+                                            "production-price-sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID}
         else:
             # Assumed optimisation = emissions
-            self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID, "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID}
+            self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
+                                            "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID}
         self.log(f"Optimisation context: {self.FM_OPTIMISATION_CONTEXT}")
+
+        # Initially assume no problems untill attempts for retrieving schedules have failed.
+        self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
+
+        # Ping every half hour. If offline a separate process will run to increase polling frequency.
+        self.connection_error_counter = 0
+        self.run_every(self.ping_server, "now", 30 * 60)
+        self.set_state("input_boolean.is_flexmeasures_live", state="on")
+        self.handle_for_repeater = ""
+        # For testing ping
+        # self.test_counter = 0
 
         self.log("Completed initializing FlexMeasuresClient")
 
+    def ping_server(self, *args):
+        """ Ping function to check if server is alive """
+        url = c.FM_PING_URL
+        # Test code:
+        # self.test_counter += 1
+        # if self.test_counter in range(2, 9):
+        #     url = url + "fout"
+
+        res = requests.get(url)
+        if res.status_code == 200:
+            if self.connection_error_counter > 0:
+                # There was an error before as the counter > 0
+                # So a timer must be running but it is not needed anymore, so cancel it.
+                self.cancel_timer(self.handle_for_repeater)
+            self.connection_error_counter = 0
+        else:
+            self.connection_error_counter += 1
+
+        if self.connection_error_counter == 1:
+            # A first error occurred, retry in every minute now
+            self.handle_for_repeater = self.run_every(self.ping_server, "now+60", 60)
+            self.log("No communication with FM! Increase tracking frequency.")
+
+        # In error for more than 15 minutes
+        if self.connection_error_counter >= 15:
+            if self.get_state("input_boolean.is_flexmeasures_live") == "on":
+                # Apparently this is the first time this has occered so send a notification of "No schedules"
+                message = f"No (new) schedules available. " \
+                          f"Usually this problem is solved in a few minutes. " \
+                          f"If it remains over a longer period, consider setting charging via charger app."
+                self.get_app("v2g_liberty").notify_user(message, False, "No communication with FlexMeasures")
+            self.set_state("input_boolean.is_flexmeasures_live", state="off")
+        else:
+            if self.get_state("input_boolean.is_flexmeasures_live") != "on":
+                # Apparently this is the first time this has occered so send a notification of "Back online"
+                message = f"Communication is restored. " \
+                          f"We expect schedules soon. " \
+                          f"If you've set charging manually please undo and give charging control back to V2G Liberty."
+                self.get_app("v2g_liberty").notify_user(message, False, "Communication with FlexMeasures restored.")
+                self.log(f"Communication with FlexMeasures is restored.")
+            self.set_state("input_boolean.is_flexmeasures_live", state="on")
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.
@@ -220,7 +283,8 @@ class FlexMeasuresClient(hass.Hass):
         self.log(f"Schedule {schedule}")
         # To trigger state change we add the date to the state. State change is not triggered by attributes.
         self.set_state("input_text.chargeschedule",
-                       state="ChargeScheduleAvailable" + self.fm_date_time_last_schedule.isoformat(), attributes=schedule)
+                       state="ChargeScheduleAvailable" + self.fm_date_time_last_schedule.isoformat(),
+                       attributes=schedule)
 
     def trigger_schedule(self, *args, **fnc_kwargs):
         """Request a new schedule to be generated by calling the schedule triggering endpoint, while
@@ -295,11 +359,11 @@ class FlexMeasuresClient(hass.Hass):
                     # Prevent target_soc above max_capacity
                     if target_soc > c.CAR_MAX_CAPACITY_IN_KWH:
                         self.log(f"Target SoC from calendar too high: {target_soc}, "
-                               f"adjusted to {c.CAR_MAX_CAPACITY_IN_KWH}kWh.")
+                                 f"adjusted to {c.CAR_MAX_CAPACITY_IN_KWH}kWh.")
                         target_soc = c.CAR_MAX_CAPACITY_IN_KWH
                     elif target_soc < self.CAR_MIN_SOC_IN_KWH:
                         self.log(f"Target SoC from calendar too low: {target_soc}, "
-                                f"adjusted to {self.CAR_MIN_SOC_IN_KWH}kWh.")
+                                 f"adjusted to {self.CAR_MIN_SOC_IN_KWH}kWh.")
                         target_soc = self.CAR_MIN_SOC_IN_KWH
 
                     # The relaxation window is the period before a calendar item where no
@@ -348,7 +412,7 @@ class FlexMeasuresClient(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
 
-        tmp=str(message)
+        tmp = str(message)
         self.log(f"Trigger_schedule on url '{url}', with message: '{tmp[0:275]} . . . . . {tmp[-275:]}'.")
 
         self.check_deprecation_and_sunset(url, res)

@@ -91,12 +91,6 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.log(
             f"Completed initializing FlexMeasuresDataImporter: check daily at {self.first_try_time_price_data} for new price data with FM.")
 
-    # ToDo: Make generic function in utils? See v2g_liberty.py for equivalent.
-    def notify_user(self, message: str):
-        """ Utility function to notify the user
-        """
-        self.notify(message, title="V2G Liberty")
-
     def daily_kickoff_charging_data(self, *args):
         """ This sets off the daily routine to check for charging cost."""
         self.get_charging_cost()
@@ -325,7 +319,14 @@ class FlexMeasuresDataImporter(hass.Hass):
                 self.run_at(self.get_epex_prices, self.second_try_time_price_data)
             else:
                 self.log(f"Retry tomorrow.")
-                self.notify_user("Getting EPEX price data failed, retry tomorrow.")
+                self.get_app("v2g_liberty").notify_user(
+                    "Could not get energy prices, retry tomorrow. Scheduling continues as normal.",
+                    None,
+                    "no_price_data",
+                    False,
+                    True,
+                    15*60
+                )
             return
 
         prices = res.json()
@@ -355,13 +356,19 @@ class FlexMeasuresDataImporter(hass.Hass):
         date_latest_price = datetime.fromtimestamp(prices[-1].get('event_start') / 1000).isoformat()
         date_tomorrow = (now + timedelta(days=1)).isoformat()
         if date_latest_price < date_tomorrow:
-            self.log(
-                f"FM EPEX prices seem not renewed yet, latest price at: {date_latest_price}, Retry at {self.second_try_time_price_data}.")
+            self.log(f"FM EPEX prices seem not renewed yet, latest price at: {date_latest_price}, " \
+                    f"Retry at {self.second_try_time_price_data}.")
             self.run_at(self.get_epex_prices, self.second_try_time_price_data)
         else:
             if has_negative_prices:
-                self.notify_user(
-                    "Negative electricity prices for tomorrow. Consider to check times in the app to optimising electricity usage.")
+                self.get_app("v2g_liberty").notify_user(
+                    "Consider to check times in the app to optimize electricity usage.",
+                    "Negative electricity prices upcomming",
+                    "negative_energy_prices",
+                    False,
+                    True,
+                    12*60*60
+                )
             self.log(f"FM EPEX prices successfully retrieved. Latest price at: {date_latest_price}.")
 
     def get_emission_intensities(self, *args, **kwargs):

@@ -23,7 +23,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     MIN_RESOLUTION: timedelta
     CAR_AVERAGE_WH_PER_KM: int
     ADMIN_MOBILE_NAME: str
-    ADMIN_MOBILE_PLATFORM: str
 
     # Utility variables for preventing a frozen app. Call set_next_action at least every x seconds
     timer_handle_set_next_action: str  # ToDo: Should be a general object instead of string
@@ -44,6 +43,15 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     # If charger_in_error_since is not equal to this date we know timeing has started.
     date_reference: datetime
 
+    # For handling no_schedule_errors
+    no_schedule_errors: dict
+    notification_timer_handle: ""
+    user_was_notified_of_no_schedule: bool
+
+    # For notifying users
+    PRIORITY_NOTIFICATION_CONFIG: list
+    recipients: list
+
     # Ignore soc changes and charger_state changes.
     try_get_new_soc_in_process: bool
 
@@ -59,7 +67,9 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.set_value("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
 
         self.ADMIN_MOBILE_NAME = self.args["admin_mobile_name"].lower()
-        self.ADMIN_MOBILE_PLATFORM = self.args["admin_mobile_platform"].lower()
+        self.PRIORITY_NOTIFICATION_CONFIG = {}
+        self.recipients = []
+        self.init_notification_configuration()
 
         self.in_boost_to_reach_min_soc = False
         self.try_get_new_soc_in_process = False
@@ -73,6 +83,15 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         # For checking how long the charger has been in error
         self.date_reference = datetime(2000, 1, 1)
         self.charger_in_error_since = self.date_reference
+
+        # For handling no_schedule errors
+        self.no_schedule_errors = {
+            "invalid_schedule": False,
+            "timeouts_on_schedule": False,
+            "no_communication_with_fm": False
+        }
+        self.notification_timer_handle = None
+        self.no_schedule_notification_is_planned = False
 
         self.client = self.configure_charger_client()
         self.log_errors()
@@ -111,6 +130,52 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         self.log("Completed Initializing V2Gliberty")
 
+    def init_notification_configuration(self):
+        # List of all the recipients to notify
+        # Check if Admin is configured correctly
+        # Warn user about bat config with persistant notification in UI.
+        self.log("Initializing notification configuration")
+
+        self.recipients.clear()
+        # Service "mobile_app_" seems more relianble than using get_trackers,
+        # as these names do not always match with the service
+        for service in self.list_services():
+            if service["service"].startswith("mobile_app_"):
+                self.recipients.append(service["service"].replace("mobile_app_", ""))
+        self.log(f"Recipients for notifications: {self.recipients}.")
+
+        message = ""
+        if len(self.recipients) == 0:
+            message = f"No mobile devices (e.g. phone, tablet, etc.) have been registered in Home Assistant for notifications.<br/>" \
+                      f"It is highly reccomended to do so. Please install the HA companion app on your mobile device and connect it to Home Assistant."
+            self.log(f"Configuration error: {message}.")
+        elif self.ADMIN_MOBILE_NAME not in self.recipients:
+            alternative_admin = self.recipients[0]
+            message = f"The admin mobile name ***{self.ADMIN_MOBILE_NAME}*** in configuration is not a registered recipient.<br/>" \
+                      f"Please use one of the following: {self.recipients}.<br/>" \
+                      f"Now, ***{alternative_admin}*** will be used for high-priority/technical notifications with the assumption it is a iOS device."
+            self.log(
+                f"Configuration error: The admin_mobile_name '{self.ADMIN_MOBILE_NAME}' in configuration not a registered recipient.")
+            self.ADMIN_MOBILE_NAME = self.recipients[0]
+        else:
+            # Only check platform config if admin mobile name is valid.
+            platform = self.args["admin_mobile_platform"].lower()
+            if platform == "ios":
+                self.PRIORITY_NOTIFICATION_CONFIG = {
+                    "push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}}
+            elif platform == "android":
+                self.PRIORITY_NOTIFICATION_CONFIG = {"ttl": 0, "priority": "high"}
+            else:
+                message = f"The admin_mobile_platform in configuration: '{platform}' is unknown."
+                self.log(f"Configuration error: {message}")
+
+        if message != "":
+            # TODO: Research if showing this only to admin users is possible.
+            self.call_service('persistent_notification/create', title="Configuration error", message=message,
+                              notification_id="notification_config_error")
+
+        self.log("Completed Initializing notification configuration")
+
     def disconnect_charger(self, *args, **kwargs):
         """ Function te disconnect the charger.
         Reacts to button in UI that fires DISCONNECT_CHARGER event.
@@ -119,44 +184,139 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.set_charger_action("stop")
         # Control is not given to user, this is only relevant if chargemode is "Off" (stop).
         # ToDo: Remove all schedules?
-        self.notify_user("Charger is disconnected.")
+        self.notify_user("Charger is disconnected", None, "charger_disconneded", False, True, 5 * 60)
 
-    def restart_charger(self, *args, **kwargs):
-        """ Function to (forcefully) restart the charger.
-        Used when a crash is detected.
+    def run_test_code(self, *args, **kwargs):
+        """ Run test code
         """
-        self.log("************* Restart of charger requested. *************")
-        self.set_charger_action("restart")
-        self.notify_user("Restart of charger initiated by user. Please check charger.")
+        self.log("************* RUNNING TEST CODE *************")
+        self.log("************* END OF TEST CODE *************")
 
     # ToDo: Make generic function in utils? See get_fm_data.py for equivalent.
-    def notify_user(self, message: str, critical: bool = False, title: Optional[str] = None):
-        """ Utility function to send notifications to the user via HA"""
+    def notify_user(self,
+                    message: str,
+                    title: Optional[str] = None,
+                    tag: Optional[str] = None,
+                    critical: bool = False,
+                    send_to_all: bool = False,
+                    ttl: Optional[int] = 0
+                    ):
+        """ Utility function to send notifications to the user
+            - critical    : send with high priority to Admin only. Always delivered and sound is play. Use with caution.
+            - send_to_all : send to all users (cannot be combined with critical), default notifications get sent to the Admin only.
+            - tag         : id that can be used to replace or clear a previous message
+            - ttl         : time to live in seconds, after that the message wil be cleared. 0 = do not clear. tag is requiered
 
-        self.log(f"Notify device '{self.ADMIN_MOBILE_NAME}' on platform '{self.ADMIN_MOBILE_PLATFORM}' "
-                 f"with message'{message}'.")
-        if self.ADMIN_MOBILE_NAME is None or self.ADMIN_MOBILE_NAME == "":
-            # If no device to send to then follow normal flow.
-            critical = False
+            We assume there always is an ADMIN and there might be several other users that need to be notified.
+            When a new call to this function with the same tag is made, the previous message will be overwritten
+            if it still exsists.
+        """
+
+        self.log(f"Notifing user..")
+
         if title:
-            title = "V2G Liberty: " + title
+            # Use abbriviation to make more room for title itself.
+            title = "V2G-L: " + title
         else:
             title = "V2G Liberty"
 
+        # All notifications always get sent to admin
+        to_notify = [self.ADMIN_MOBILE_NAME]
+        notification_data = {}
+
+        # critical trumps send_to_all
         if critical:
-            device_address = "notify/mobile_app_" + self.ADMIN_MOBILE_NAME
-            if self.ADMIN_MOBILE_PLATFORM == "ios":
-                self.call_service(device_address,
-                                  title=title,
-                                  message=message,
-                                  data={"push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}})
-            elif self.ADMIN_MOBILE_PLATFORM == "android":
-                self.call_service(device_address,
-                                  title=title,
-                                  message=message,
-                                  data={"ttl": 0, "priority": "high"})
+            notification_data = self.PRIORITY_NOTIFICATION_CONFIG
+
+        if send_to_all and not critical:
+            to_notify = self.recipients
+
+        if tag:
+            notification_data["tag"] = tag
+
+        self.log(f"Notifying recipients: {to_notify} with message: '{message[0:15]}...' data: {notification_data}.")
+        for recipient in to_notify:
+            service = "notify/mobile_app_" + recipient
+            try:
+                if notification_data:
+                    self.call_service(service, title=title, message=message, data=notification_data)
+                else:
+                    self.call_service(service, title=title, message=message)
+            except:
+                self.log(f"Could not notify: exception on {recipient}.")
+
+            if ttl > 0 and tag and not critical:
+                # Remove the notification after a time-to-live
+                # A tag is requiered for clearing.
+                # Critical notifications should not auto clear.
+                self.run_in(self.clear_notification, ttl, recipient=recipient, tag=tag)
+
+    def clear_notification(self, identification: dict):
+        self.log(f"Clearing notification. Data: {identification}")
+        recipient = identification["recipient"]
+        if recipient == "" or recipient is None:
+            self.log(f"Cannot clear notification, recipient is empty '{recipient}'.")
+            return
+        tag = identification["tag"]
+        if tag == "" or tag is None:
+            self.log(f"Cannot clear notification, tag is empty '{tag}'.")
+            return
+
+        # Clear the notification
+        try:
+            self.call_service(
+                "notify/mobile_app_" + recipient,
+                message="clear_notification",
+                data={"tag": tag}
+            )
+        except:
+            self.log(f"Could not clear notification: exception on {recipient}.")
+
+    def handle_no_new_schedule(self, error_name: str, error_state: bool):
+        """ Inform user about no schedule:
+            - invalid schedule
+            - timeouts on schedule
+            - no communication with FM
+            They can occur simulataniously/overlapping
+
+            When error_state = True of any of the errors:
+                Set immidiatly in UI
+                Notify once if remains for an hour
+            When error state = False:
+                If all errors are solved:
+                    Remove from UI immidiately
+                    If notification has been sent:
+                        Notify user the situation has been restored.
+        """
+        self.log(f"handle_no_valid_schedule called with {error_name}: {error_state}.")
+        self.no_schedule_errors[error_name] = error_state
+        any_errors = False
+        for error_name in self.no_schedule_errors:
+            if self.no_schedule_errors[error_name]:
+                any_errors = True
+                break
+
+        if any_errors:
+            # Apparently this is the first time only set "on" once to keep history clean
+            self.set_state("input_boolean.error_no_new_schedule_available", state="on")
+            if not self.no_schedule_notification_is_planned:
+                title = "No new scheduals available"
+                message = f"The current schedule wil remain active." \
+                          f"Usually this problem is solved automatically in an hour or so." \
+                          f"If the schedule does not fit your needs, consider charging manually."
+                self.notification_timer_handle = self.run_in(
+                    self.notify_user(message, titel, "no_new_schedule", False, True), 60 * 60)
+                self.no_schedule_notification_is_planned = True
         else:
-            self.notify(message, title=title)
+            self.set_state("input_boolean.error_no_new_schedule_available", state="off")
+            canceled_before_run = self.cancel_timer(self.notification_timer_handle)
+            if self.no_schedule_notification_is_planned and not canceled_before_run:
+                # Only send this message if the previous wa
+                title = "Scheduals available again"
+                message = f"The problems with schedules have been solved. " \
+                          f"If you've set charging manually consider reversing this."
+                self.notify_user(message, title, "no_new_schedule", False, True, 30 * 60)
+            self.no_schedule_notification_is_planned = False
 
     def decide_whether_to_ask_for_new_schedule(self):
         """
@@ -178,28 +338,15 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             self.log(f"Not getting new schedule. SoC below minimum, boosting to reach that first.")
             return
 
-        # The HA entity that was used connected_car_soc_wh is deprecated
-        # so this code needs to be refactored (or removed)
-
-        # # Check whether the most recent SOC update represents a state change
-        # if self.args.get("reschedule_on_soc_changes_only", True) and soc_entity["last_changed"] != soc_entity[
-        #     "last_updated"]:
-        #     self.log(f"Not posting UDI event. SoC Wh state update but not a state change")
-        #     # A state update but not a state change
-        #     # https://data.home-assistant.io/docs/states/
-        #     return
         self.get_app("flexmeasures-client").get_new_schedule(self.connected_car_soc_kwh)
 
     def cancel_charging_timers(self):
-        # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles
         for h in self.scheduling_timer_handles:
-            self.cancel_timer(h)
-
+            self.cancel_timer(h, True)
         # Also remove any visible schedule from the graph in the UI..
         self.set_soc_prognosis_in_ui(None)
 
     def set_charging_timers(self, handles):
-        # todo: save outside of the app, otherwise, in case the app crashes, we lose track of old handles
         self.scheduling_timer_handles = handles
 
     def schedule_charge_point(self, entity, attribute, old, new, kwargs):
@@ -222,11 +369,21 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         start = isodate.parse_datetime(schedule["start"])
 
         # Check against expected control signal resolution
-        # TODO: can we compare int with timedelta object ?
         if resolution < self.MIN_RESOLUTION:
             self.log(f"Stopped processing schedule; the resolution ({resolution}) is below "
                      f"the set minimum ({self.MIN_RESOLUTION}).")
+            # ToDo: Very rare! Should we notify user?
             return
+
+        # Detect invalid schedules
+        # We assume that schedules with all the same values (usually 0) are invalid
+        if all(val == values[0] for val in values):
+            self.log(f"Invalid schedule, all vaules are the same: {values[0]}. Stopped processing.")
+            self.handle_no_new_schedule("invalid_schedule", True)
+            # We skip processing this schedule to keep the previous
+            return
+        else:
+            self.handle_no_new_schedule("invalid_schedule", False)
 
         # Cancel previous scheduling timers
         self.cancel_charging_timers()
@@ -245,6 +402,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 self.log(f"Cannot time a charging scheduling in the past, specifically, at {t}."
                          f" Setting it immediately instead.")
                 self.send_control_signal(kwargs=dict(charge_rate=value * 1000))
+
         self.set_charging_timers(handles)
         self.log(f"{len(handles)} charging timers set.")
 
@@ -358,7 +516,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         # Make sure this function gets called every x seconds to prevent a "frozen" app.
         if self.timer_handle_set_next_action:
-            self.cancel_timer(self.timer_handle_set_next_action)
+            self.cancel_timer(self.timer_handle_set_next_action, True)
         self.timer_handle_set_next_action = self.run_in(
             self.restart_set_next_action_time_based,
             self.call_next_action_atleast_every,
@@ -406,7 +564,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 message = f"Car battery state of charge ({self.connected_car_soc}%) is too low. " \
                           f"Charging with maximum power until minimum of ({c.CAR_MIN_SOC_IN_PERCENT}%) is reached. " \
                           f"This is expected around {expected_min_soc_time}."
-                self.notify_user(message, False, "Car battery is too low")
+                self.notify_user(message, "Car battery is too low", "battery_too_low", False, True,
+                                 (minutes_to_reach_min_soc + 5) * 60)
                 return
 
             if self.connected_car_soc > c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:

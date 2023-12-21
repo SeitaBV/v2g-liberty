@@ -43,14 +43,14 @@ input_boolean:
     name: "Error: EPEX prices cannot be retrieved"
 
   # Used for signaling in the UI that the schedule temporarily cannot be retrieved from FM
-  error_schedule_cannot_be_retrieved:
-    name: "Error: Schedule cannot be retrieved"
+  # error_schedule_cannot_be_retrieved:
+  #   name: "Error: Schedule cannot be retrieved"
 
-  # Used for checking if FM is alive:
-  is_flexmeasures_live:
-    name: Is FlexMeasures live
+  # Used for signaling in the UI that the schedule from FM is a so-called flat-line (all 0's)
+  error_no_new_schedule_available:
+    name: "Error: No new schedule available"
 
-    # Used for signaling in the UI that the charger has Modbus error_codes
+  # Used for signaling in the UI that the charger has Modbus error_codes
   charger_in_error:
     name: "Error: charger error detected"
 
@@ -194,7 +194,7 @@ input_text:
     mode: text
     min: 0
 
-    # Used to store the (serialised) charge schedule HA receives from the
+  # Used to store the (serialised) charge schedule HA receives from the
   # backend FM, not used in UI.
   chargeschedule:
     name: ChargeSchedule

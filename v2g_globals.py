@@ -73,8 +73,16 @@ class V2GLibertyGlobals(hass.Hass):
         # Make sure this value is between lower_limit and upper_limit
         tmp = max(min(upper_limit, reading), lower_limit)
         if reading != tmp:
-            self.log(f"{setting_name} is changed from {reading} to {tmp} to stay within boundaries.")
+            message = f"The setting '{setting_name}' is changed from '{reading}' to '{tmp}' to stay within boundaries."
+            self.log(message)
+            id = "config_change_" + setting_name
             reading = tmp
+            self.call_service(
+                'persistent_notification/create',
+                title="Automatic configuration change",
+                message = message,
+                notification_id = id
+            )
         return reading
 
 

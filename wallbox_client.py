@@ -15,6 +15,7 @@ class WallboxModbusMixin:
     NUM_MODBUS_PORTS = 65536
     last_restart: int = 0
 
+    # This is the what the charger returns for a disconnected state
     DISCONNECTED_STATE: int = 0
 
 
@@ -77,7 +78,13 @@ class WallboxModbusMixin:
                 self.log(f"get_charger_state has reached max attempts ({attempts}), the charger probably crashed. ")
                 title = "Critical error"
                 message = "Automatic charging has been stopped. Please click this notification to open the V2G Liberty App and follow the steps to solve this problem."
-                self.notify_user(message, title, "critical_error", True, False)
+                self.notify_user(
+                    message     = message,
+                    title       = title,
+                    tag         = "critical_error",
+                    critical    = True,
+                    send_to_all = False
+                )
                 self.turn_on("input_boolean.charger_modbus_communication_fault")
                 self.set_chargemode_in_ui("Stop")
                 # This is futile, Modbus has stopped so a restart will not work anyhow.
@@ -428,7 +435,15 @@ class WallboxModbusMixin:
         # Notify user of reaching 80% charge while charging (not dis-charging).
         # ToDo: Discuss with users if this is useful.
         if self.connected_car_soc == c.CAR_MAX_SOC_IN_PERCENT and self.is_charging():
-            self.notify_user(f"Car battery at {self.connected_car_soc}%, range ≈ {tmp}km.", None, "battery_max_soc_reached", 60*15)
+            message = f"Car battery at {self.connected_car_soc} %, range ≈ {tmp} km."
+            self.notify_user(
+                message     = message,
+                title       = None,
+                tag         = "battery_max_soc_reached",
+                critical    = False,
+                send_to_all = True,
+                ttl         = 60*15
+            )
         return True
 
     def handle_charger_in_error(self):
@@ -512,9 +527,12 @@ class WallboxModbusMixin:
             if mode == "Max boost now":
                 self.set_chargemode_in_ui("Automatic")
                 self.notify_user(
-                    "Chargemode set from 'Max charge now' to 'Automatic' as car is disconnected.",
-                    None,
-                    "charge_mode_change", False, True, 15*60
+                    message     = "Chargemode set from 'Max charge now' to 'Automatic' as car is disconnected.",
+                    title       = None,
+                    tag         = "charge_mode_change",
+                    critical    = False,
+                    send_to_all = True,
+                    ttl         = 15*60
                 )
             return
 

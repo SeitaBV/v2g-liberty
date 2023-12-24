@@ -99,7 +99,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
-        self.listen_event(self.restart_charger, "RESTART_CHARGER")
+        self.listen_event(self.run_test_code, "RESTART_CHARGER")
         self.listen_event(self.disconnect_charger, "DISCONNECT_CHARGER")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
@@ -184,7 +184,14 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.set_charger_action("stop")
         # Control is not given to user, this is only relevant if chargemode is "Off" (stop).
         # ToDo: Remove all schedules?
-        self.notify_user("Charger is disconnected", None, "charger_disconneded", False, True, 5 * 60)
+        self.notify_user(
+            message     = "Charger is disconnected",
+            title       = None,
+            tag         = "charger_disconneded",
+            critical    = False,
+            send_to_all = True,
+            ttl         = 5 * 60
+        )
 
     def run_test_code(self, *args, **kwargs):
         """ Run test code
@@ -300,12 +307,19 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             # Apparently this is the first time only set "on" once to keep history clean
             self.set_state("input_boolean.error_no_new_schedule_available", state="on")
             if not self.no_schedule_notification_is_planned:
-                title = "No new scheduals available"
+                title = "No new schedules available"
                 message = f"The current schedule wil remain active." \
                           f"Usually this problem is solved automatically in an hour or so." \
-                          f"If the schedule does not fit your needs, consider charging manually."
+                          f"If the schedule does not fit your needs, consider charging manually via the chargers app."
                 self.notification_timer_handle = self.run_in(
-                    self.notify_user(message, titel, "no_new_schedule", False, True), 60 * 60)
+                    self.notify_user(
+                        message     = message,
+                        title       = title,
+                        tag         = "no_new_schedule",
+                        critical    = False,
+                        send_to_all = True),
+                    60 * 60
+                )
                 self.no_schedule_notification_is_planned = True
         else:
             self.set_state("input_boolean.error_no_new_schedule_available", state="off")
@@ -314,8 +328,15 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 # Only send this message if the previous wa
                 title = "Scheduals available again"
                 message = f"The problems with schedules have been solved. " \
-                          f"If you've set charging manually consider reversing this."
-                self.notify_user(message, title, "no_new_schedule", False, True, 30 * 60)
+                          f"If you've set charging via the chargers app, consider end that and use automatic charging agian."
+                self.notify_user(
+                    message     = message,
+                    title       = title,
+                    tag         = "no_new_schedule",
+                    critical    = False,
+                    send_to_all = True,
+                    ttl         = 30 * 60
+                )
             self.no_schedule_notification_is_planned = False
 
     def decide_whether_to_ask_for_new_schedule(self):
@@ -372,15 +393,17 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         if resolution < self.MIN_RESOLUTION:
             self.log(f"Stopped processing schedule; the resolution ({resolution}) is below "
                      f"the set minimum ({self.MIN_RESOLUTION}).")
-            # ToDo: Very rare! Should we notify user?
+            self.handle_no_new_schedule("invalid_schedule", True)
             return
 
         # Detect invalid schedules
-        # We assume that schedules with all the same values (usually 0) are invalid
-        if all(val == values[0] for val in values):
-            self.log(f"Invalid schedule, all vaules are the same: {values[0]}. Stopped processing.")
+        # If a fallback schedule is sent assume that the schedule is invalid if all values (usually 0) are the same
+        is_fallback = (schedule["scheduler_info"]["scheduler"] == "StorageFallbackScheduler")
+        # self.log(f"Scheduler: {schedule['scheduler_info']['scheduler']}.")
+        if is_fallback and (all(val == values[0] for val in values)):
+            self.log(f"Invalid fallback schedule, all values are the same: {values[0]}. Stopped processing.")
             self.handle_no_new_schedule("invalid_schedule", True)
-            # We skip processing this schedule to keep the previous
+            # Skip processing this schedule to keep the previous
             return
         else:
             self.handle_no_new_schedule("invalid_schedule", False)
@@ -564,8 +587,14 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 message = f"Car battery state of charge ({self.connected_car_soc}%) is too low. " \
                           f"Charging with maximum power until minimum of ({c.CAR_MIN_SOC_IN_PERCENT}%) is reached. " \
                           f"This is expected around {expected_min_soc_time}."
-                self.notify_user(message, "Car battery is too low", "battery_too_low", False, True,
-                                 (minutes_to_reach_min_soc + 5) * 60)
+                self.notify_user(
+                    message     = message,
+                    title       = "Car battery is too low",
+                    tag         = "battery_too_low",
+                    critical    = False,
+                    send_to_all = True,
+                    ttl         = minutes_to_reach_min_soc * 60
+                )
                 return
 
             if self.connected_car_soc > c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:

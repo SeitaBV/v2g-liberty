@@ -320,12 +320,12 @@ class FlexMeasuresDataImporter(hass.Hass):
             else:
                 self.log(f"Retry tomorrow.")
                 self.get_app("v2g_liberty").notify_user(
-                    "Could not get energy prices, retry tomorrow. Scheduling continues as normal.",
-                    None,
-                    "no_price_data",
-                    False,
-                    True,
-                    15*60
+                    message = "Could not get energy prices, retry tomorrow. Scheduling continues as normal.",
+                    title = None,
+                    tag = "no_price_data",
+                    critical = False,
+                    send_to_all = True,
+                    ttl = 15*60
                 )
             return
 
@@ -362,12 +362,12 @@ class FlexMeasuresDataImporter(hass.Hass):
         else:
             if has_negative_prices:
                 self.get_app("v2g_liberty").notify_user(
-                    "Consider to check times in the app to optimize electricity usage.",
-                    "Negative electricity prices upcomming",
-                    "negative_energy_prices",
-                    False,
-                    True,
-                    12*60*60
+                    message     = "Consider to check times in the app to optimize electricity usage.",
+                    title       = "Negative electricity prices upcomming",
+                    tag         = "negative_energy_prices",
+                    critical    = False,
+                    send_to_all = True,
+                    ttl         = 12*60*60
                 )
             self.log(f"FM EPEX prices successfully retrieved. Latest price at: {date_latest_price}.")
 

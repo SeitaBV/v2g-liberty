@@ -234,10 +234,16 @@ class FlexMeasuresClient(hass.Hass):
                     params=message,
                     headers={"Authorization": self.fm_token},
                 )
+
+        # Test code:
+        # res.status_code = 555
+        # self.log("TEST: Setting responsecode to 555 so failed response is triggered.")
         if (res.status_code != 200) or (res.json is None):
             self.log_failed_response(res, url)
             s = self.DELAY_FOR_REATTEMPTS
             attempts_left = kwargs.get("attempts_left", self.MAX_NUMBER_OF_REATTEMPTS)
+            # Test code
+            # attempts_left = 0
             if attempts_left >= 1:
                 self.log(f"Reattempting to get schedule in {s} seconds (attempts left: {attempts_left})")
                 self.run_in(self.get_schedule, delay=s, attempts_left=attempts_left - 1,
@@ -346,7 +352,7 @@ class FlexMeasuresClient(hass.Hass):
                     # soc_maxima should be sent to allow the schedule to reach a target higher
                     # than the CAR_MAX_SOC_IN_KWH.
                     if target_soc > self.CAR_MAX_SOC_IN_KWH:
-                        window_duration = math.ceil((target_soc - self.CAR_MAX_SOC_IN_KWH)/(c.CHARGER_MAX_CHARGE_POWER/1000)*60) + self.WINDOW_SLACK
+                        window_duration = math.ceil((target_soc - self.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK
                         start_relaxation_window = time_round((target_datetime - timedelta(minutes=window_duration)), resolution)
                         self.log(f"Lifting the soc-maxima due to upcoming target, start_relaxation_window: {start_relaxation_window.isoformat()}.")
 

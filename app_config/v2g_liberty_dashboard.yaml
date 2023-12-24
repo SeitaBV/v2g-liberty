@@ -3,10 +3,6 @@ views:
   - path: default_view
     title: Main
     icon: mdi:car-electric
-    #layout:
-    #min-width: 350
-    #max_cols: a
-    #badges: []
     cards:
       - type: vertical-stack
         title: Charger
@@ -299,14 +295,15 @@ views:
                   }
           - type: conditional
             conditions:
-              - entity: input_boolean.error_schedule_cannot_be_retrieved
-                state: "on"
-              - entity: input_boolean.is_flexmeasures_live
+              - entity: input_boolean.error_no_new_schedule_available
                 state: "on"
             card:
               type: markdown
               content: >-
-                <ha-alert alert-type="warning">Temporarily no (new) charging schedule available.</ha-alert>
+                <ha-alert alert-type="warning" title="No new scheduals available">
+                The current schedule wil remain active.<br/>
+                Usually this problem is solved automatically within an hour.<br/>
+                If the schedule does not fit your needs, consider charging manually.</ha-alert>
               card_mod:
                 style: |
                   ha-card {
@@ -315,34 +312,17 @@ views:
                     border-top-right-radius: 0;
                     margin-top: -22px;
                   }
+
           - type: conditional
             conditions:
               - entity: input_boolean.error_epex_prices_cannot_be_retrieved
                 state: "on"
-              - entity: input_boolean.is_flexmeasures_live
-                state: "on"
+              # - entity: input_boolean.is_flexmeasures_live
+              #   state: "on"
             card:
               type: markdown
               content: >-
                 <ha-alert alert-type="warning">Temporarily no price and/or emissions data available.</ha-alert>
-              card_mod:
-                style: |
-                  ha-card {
-                    border-top: none;
-                    border-top-left-radius: 0;
-                    border-top-right-radius: 0;
-                    margin-top: -22px;
-                  }
-          - type: conditional
-            conditions:
-              - entity: input_boolean.is_flexmeasures_live
-                state: "off"
-            card:
-              type: markdown
-              content: >-
-                <ha-alert alert-type="error" title="No communication with FlexMeasures">No (new) schedules available.<br/>
-                Usually this problem is solved in a few minutes. If it remains over a longer period, please set charging 
-                manually and check with system administrator.</ha-alert>
               card_mod:
                 style: |
                   ha-card {
@@ -475,14 +455,12 @@ views:
         show_name: true
         show_icon: true
         icon: mdi:reload-alert
-        name: Restart charger
+        name: Run test code
         trigger:
           - platform: state
             entity_id: button.restart_charger_button
         tap_action:
           action: call-service
-          confirmation:
-            text: Are you sure you want to restart?
           service: script.turn_on
           data:
             entity_id: script.RestartCharger

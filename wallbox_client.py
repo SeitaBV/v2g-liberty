@@ -15,9 +15,10 @@ class WallboxModbusMixin:
     NUM_MODBUS_PORTS = 65536
     last_restart: int = 0
 
-    # This is what the charger returns as a charger_state when it is disconnected
+    # Constant that holds the value for the charger_state that the charger returns when no car is connected.
+    # It is the opposite of the "connected_states". It is used to detect connection and dis-connection.
+    # See wallbox_modbus_registers.yaml for an overview of all the states like (dis-)charging, paused, error, etc.
     DISCONNECTED_STATE: int
-
 
     # A restart of the charger can take up to 5 minutes, so during this time do not request a restart again
     minimum_seconds_between_restarts = 300

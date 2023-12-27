@@ -331,12 +331,6 @@ script:
       - event: DISCONNECT_CHARGER
         event_data: {}
     mode: single
-  restartcharger:
-    alias: RestartCharger
-    sequence:
-      - event: RESTART_CHARGER
-        event_data: {}
-    mode: single
 
 automation:
   - id: "1635947392909"

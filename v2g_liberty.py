@@ -132,12 +132,12 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     def init_notification_configuration(self):
         # List of all the recipients to notify
         # Check if Admin is configured correctly
-        # Warn user about bat config with persistant notification in UI.
+        # Warn user about bad config with persistent notification in UI.
         self.log("Initializing notification configuration")
 
         self.recipients.clear()
-        # Service "mobile_app_" seems more relianble than using get_trackers,
-        # as these names do not always match with the service
+        # Service "mobile_app_" seems more reliable than using get_trackers,
+        # as these names do not always match with the service.
         for service in self.list_services():
             if service["service"].startswith("mobile_app_"):
                 self.recipients.append(service["service"].replace("mobile_app_", ""))
@@ -146,7 +146,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         message = ""
         if len(self.recipients) == 0:
             message = f"No mobile devices (e.g. phone, tablet, etc.) have been registered in Home Assistant for notifications.<br/>" \
-                      f"It is highly reccomended to do so. Please install the HA companion app on your mobile device and connect it to Home Assistant."
+                      f"It is highly recomended to do so. Please install the HA companion app on your mobile device and connect it to Home Assistant."
             self.log(f"Configuration error: {message}.")
         elif self.ADMIN_MOBILE_NAME not in self.recipients:
             alternative_admin = self.recipients[0]
@@ -181,7 +181,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         """
         self.log("************* Disconnect charger requested *************")
         self.set_charger_action("stop")
-        # Control is not given to user, this is only relevant if chargemode is "Off" (stop).
+        # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
         # ToDo: Remove all schedules?
         self.notify_user(
             message     = "Charger is disconnected",
@@ -204,17 +204,17 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             - critical    : send with high priority to Admin only. Always delivered and sound is play. Use with caution.
             - send_to_all : send to all users (cannot be combined with critical), default notifications get sent to the Admin only.
             - tag         : id that can be used to replace or clear a previous message
-            - ttl         : time to live in seconds, after that the message wil be cleared. 0 = do not clear. tag is requiered
+            - ttl         : time to live in seconds, after that the message will be cleared. 0 = do not clear. tag is required
 
             We assume there always is an ADMIN and there might be several other users that need to be notified.
             When a new call to this function with the same tag is made, the previous message will be overwritten
-            if it still exsists.
+            if it still exists.
         """
 
-        self.log(f"Notifing user..")
+        self.log(f"Notifying user..")
 
         if title:
-            # Use abbriviation to make more room for title itself.
+            # Use abbreviation to make more room for title itself.
             title = "V2G-L: " + title
         else:
             title = "V2G Liberty"
@@ -246,7 +246,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
             if ttl > 0 and tag and not critical:
                 # Remove the notification after a time-to-live
-                # A tag is requiered for clearing.
+                # A tag is required for clearing.
                 # Critical notifications should not auto clear.
                 self.run_in(self.clear_notification, ttl, recipient=recipient, tag=tag)
 
@@ -276,10 +276,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             - invalid schedule
             - timeouts on schedule
             - no communication with FM
-            They can occur simulataniously/overlapping
+            They can occur simultaneously/overlapping
 
             When error_state = True of any of the errors:
-                Set immidiatly in UI
+                Set immediately in UI
                 Notify once if remains for an hour
             When error state = False:
                 If all errors are solved:
@@ -306,10 +306,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             self.set_state("input_boolean.error_no_new_schedule_available", state="off")
             canceled_before_run = self.cancel_timer(self.notification_timer_handle)
             if self.no_schedule_notification_is_planned and not canceled_before_run:
-                # Only send this message if "no_schedule_notification" was acually sent
+                # Only send this message if "no_schedule_notification" was actually sent
                 title = "Schedules available again"
                 message = f"The problems with schedules have been solved. " \
-                          f"If you've set charging via the chargers app, consider to end that and use automatic charging agian."
+                          f"If you've set charging via the chargers app, consider to end that and use automatic charging again."
                 self.notify_user(
                     message     = message,
                     title       = title,
@@ -324,7 +324,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         # Work-around to have this in a separate function (without arguments) and not inline in handle_no_new_schedule
         # This is needed because self.run_in() with kwargs does not really work well and results in this app crashing
         title = "No new schedules available"
-        message = f"The current schedule wil remain active." \
+        message = f"The current schedule will remain active." \
                   f"Usually this problem is solved automatically in an hour or so." \
                   f"If the schedule does not fit your needs, consider charging manually via the chargers app."
         self.notify_user(
@@ -459,7 +459,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             # Set it at a week from now, so it's not visible in the default view.
             records = [dict(time=(self.get_now() + timedelta(days=7)).isoformat(), soc=0.0)]
 
-        # To make sure the new attributes are treated as new we set a new state aswell
+        # To make sure the new attributes are treated as new we set a new state as well
         new_state = "SoC prognosis based on schedule available at " + self.get_now().isoformat()
         result = dict(records=records)
         self.set_state("input_text.soc_prognosis", state=new_state, attributes=result)
@@ -481,7 +481,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 Nothing
         """
         if records is None:
-            # There seems to be no way to hide the SoC sesries from the graph,
+            # There seems to be no way to hide the SoC series from the graph,
             # so it is filled with "empty" data, one record of 0.
             # Set it at a week from now so it's not visible in the default view.
             records = [dict(time=(self.get_now() + timedelta(days=7)).isoformat(), soc=0.0)]
@@ -606,7 +606,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
             # Not checking for > max charge (97%) because we could also want to discharge based on schedule
 
-            # Check for discharging below 30% done in the function for setting the (dis)charge_current.
+            # Check for discharging below minimum done in the function for setting the (dis)charge_current.
             self.decide_whether_to_ask_for_new_schedule()
 
         elif charge_mode == "Max boost now":
@@ -618,7 +618,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 # ToDo: Maybe do this after 20 minutes or so..
                 self.set_chargemode_in_ui("Automatic")
             else:
-                self.log("Starting max charge now based on chargemode = Max boost now")
+                self.log("Starting max charge now based on charge_mode = Max boost now")
                 self.start_max_charge_now()
 
         elif charge_mode == "Stop":

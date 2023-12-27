@@ -15,8 +15,8 @@ class WallboxModbusMixin:
     NUM_MODBUS_PORTS = 65536
     last_restart: int = 0
 
-    # This is the what the charger returns for a disconnected state
-    DISCONNECTED_STATE: int = 0
+    # This is what the charger returns as a charger_state when it is disconnected
+    DISCONNECTED_STATE: int
 
 
     # A restart of the charger can take up to 5 minutes, so during this time do not request a restart again

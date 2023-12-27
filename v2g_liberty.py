@@ -99,7 +99,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
-        self.listen_event(self.run_test_code, "RESTART_CHARGER")
         self.listen_event(self.disconnect_charger, "DISCONNECT_CHARGER")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
@@ -192,12 +191,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             send_to_all = True,
             ttl         = 5 * 60
         )
-
-    def run_test_code(self, *args, **kwargs):
-        """ Run test code
-        """
-        self.log("************* RUNNING TEST CODE *************")
-        self.log("************* END OF TEST CODE *************")
 
     def notify_user(self,
                     message: str,
@@ -314,9 +307,9 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             canceled_before_run = self.cancel_timer(self.notification_timer_handle)
             if self.no_schedule_notification_is_planned and not canceled_before_run:
                 # Only send this message if "no_schedule_notification" was acually sent
-                title = "Scheduals available again"
+                title = "Schedules available again"
                 message = f"The problems with schedules have been solved. " \
-                          f"If you've set charging via the chargers app, consider end that and use automatic charging agian."
+                          f"If you've set charging via the chargers app, consider to end that and use automatic charging agian."
                 self.notify_user(
                     message     = message,
                     title       = title,

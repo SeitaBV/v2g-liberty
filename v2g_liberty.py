@@ -187,7 +187,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.notify_user(
             message     = "Charger is disconnected",
             title       = None,
-            tag         = "charger_disconneded",
+            tag         = "charger_disconnected",
             critical    = False,
             send_to_all = True,
             ttl         = 5 * 60
@@ -199,7 +199,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.log("************* RUNNING TEST CODE *************")
         self.log("************* END OF TEST CODE *************")
 
-    # ToDo: Make generic function in utils? See get_fm_data.py for equivalent.
     def notify_user(self,
                     message: str,
                     title: Optional[str] = None,
@@ -291,7 +290,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 Notify once if remains for an hour
             When error state = False:
                 If all errors are solved:
-                    Remove from UI immidiately
+                    Remove from UI immediately
                     If notification has been sent:
                         Notify user the situation has been restored.
         """
@@ -307,25 +306,14 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             # Apparently this is the first time only set "on" once to keep history clean
             self.set_state("input_boolean.error_no_new_schedule_available", state="on")
             if not self.no_schedule_notification_is_planned:
-                title = "No new schedules available"
-                message = f"The current schedule wil remain active." \
-                          f"Usually this problem is solved automatically in an hour or so." \
-                          f"If the schedule does not fit your needs, consider charging manually via the chargers app."
-                self.notification_timer_handle = self.run_in(
-                    self.notify_user(
-                        message     = message,
-                        title       = title,
-                        tag         = "no_new_schedule",
-                        critical    = False,
-                        send_to_all = True),
-                    60 * 60
-                )
+                # Plan a notification in case the error situation remains for more than an hour
+                self.notification_timer_handle = self.run_in(self.no_new_schedule_notification, 60 * 60)
                 self.no_schedule_notification_is_planned = True
         else:
             self.set_state("input_boolean.error_no_new_schedule_available", state="off")
             canceled_before_run = self.cancel_timer(self.notification_timer_handle)
             if self.no_schedule_notification_is_planned and not canceled_before_run:
-                # Only send this message if the previous wa
+                # Only send this message if "no_schedule_notification" was acually sent
                 title = "Scheduals available again"
                 message = f"The problems with schedules have been solved. " \
                           f"If you've set charging via the chargers app, consider end that and use automatic charging agian."
@@ -338,6 +326,22 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                     ttl         = 30 * 60
                 )
             self.no_schedule_notification_is_planned = False
+
+    def no_new_schedule_notification(self):
+        # Work-around to have this in a separate function (without arguments) and not inline in handle_no_new_schedule
+        # This is needed because self.run_in() with kwargs does not really work well and results in this app crashing
+        title = "No new schedules available"
+        message = f"The current schedule wil remain active." \
+                  f"Usually this problem is solved automatically in an hour or so." \
+                  f"If the schedule does not fit your needs, consider charging manually via the chargers app."
+        self.notify_user(
+            message=message,
+            title=title,
+            tag="no_new_schedule",
+            critical=False,
+            send_to_all=True
+        )
+        self.log("Notification 'No new schedules' sent.")
 
     def decide_whether_to_ask_for_new_schedule(self):
         """
@@ -399,7 +403,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         # Detect invalid schedules
         # If a fallback schedule is sent assume that the schedule is invalid if all values (usually 0) are the same
         is_fallback = (schedule["scheduler_info"]["scheduler"] == "StorageFallbackScheduler")
-        # self.log(f"Scheduler: {schedule['scheduler_info']['scheduler']}.")
         if is_fallback and (all(val == values[0] for val in values)):
             self.log(f"Invalid fallback schedule, all values are the same: {values[0]}. Stopped processing.")
             self.handle_no_new_schedule("invalid_schedule", True)

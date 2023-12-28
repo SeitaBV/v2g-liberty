@@ -15,6 +15,11 @@ class WallboxModbusMixin:
     NUM_MODBUS_PORTS = 65536
     last_restart: int = 0
 
+    # Constant that holds the value for the charger_state that the charger returns when no car is connected.
+    # It is the opposite of the "connected_states". It is used to detect connection and dis-connection.
+    # See wallbox_modbus_registers.yaml for an overview of all the states like (dis-)charging, paused, error, etc.
+    DISCONNECTED_STATE: int
+
     # A restart of the charger can take up to 5 minutes, so during this time do not request a restart again
     minimum_seconds_between_restarts = 300
     busy_getting_charger_state = False
@@ -39,6 +44,7 @@ class WallboxModbusMixin:
         # the error in the UI is removed.
         self.turn_off("input_boolean.charger_modbus_communication_fault")
         self.registers = self.args["wallbox_modbus_registers"]
+        self.DISCONNECTED_STATE = self.registers["disconnected_state"]
 
         self.log("Completed Initializing WallboxModbusMixin")
 
@@ -70,10 +76,16 @@ class WallboxModbusMixin:
         while charger_state == -1:
             if attempts > max_attempts:
                 # Assume the charger has crashed.
-                self.log(f"get_charger_state has reached max attempts ({attempts}), the charger probably crashed. "
-                         f"Set charge_mode to Stop, notify user and try restarting charger.")
-                self.notify_user("Critical error. Automatic charging has been stopped. "
-                                 "Please open the V2G Liberty App to solve this problem.", critical=True)
+                self.log(f"get_charger_state has reached max attempts ({attempts}), the charger probably crashed. ")
+                title = "Critical error"
+                message = "Automatic charging has been stopped. Please click this notification to open the V2G Liberty App and follow the steps to solve this problem."
+                self.notify_user(
+                    message     = message,
+                    title       = title,
+                    tag         = "critical_error",
+                    critical    = True,
+                    send_to_all = False
+                )
                 self.turn_on("input_boolean.charger_modbus_communication_fault")
                 self.set_chargemode_in_ui("Stop")
                 # This is futile, Modbus has stopped so a restart will not work anyhow.
@@ -169,6 +181,10 @@ class WallboxModbusMixin:
             # To counter this we call "stop" from disconnect event.
             value = self.registers["actions"]["stop_charging"]
         elif action == "restart":
+            # AJO 2023-11-30
+            # This seems irellevant code as the restart is (only) needed when the modbus module
+            # of the charger has crashed and then it does not receive this instruction anymore.
+            # Remove?
             if self.last_restart < (self.get_now() - timedelta(seconds=self.minimum_seconds_between_restarts)):
                 self.log(f"Not restarting charger, a restart has been requested already in the "
                          f"last {self.minimum_seconds_between_restarts} seconds.")
@@ -197,7 +213,7 @@ class WallboxModbusMixin:
                          f"Charge Point responded with: {res}")
                 return False
         else:
-            self.log(f"Charger {action} succeeded")
+            self.log(f"Charger {action} succeeded after waiting {total_waiting_time} seconds.")
 
     def set_charger_control(self, take_or_give_control: str):
         """Set charger control (take control from the user or give control back to the user).
@@ -419,10 +435,16 @@ class WallboxModbusMixin:
 
         # Notify user of reaching 80% charge while charging (not dis-charging).
         # ToDo: Discuss with users if this is useful.
-        # ToDo: Replace 80 with max soc setting from yaml.
-        notify_soc_setting = 80
-        if self.connected_car_soc == notify_soc_setting and self.is_charging():
-            self.notify_user(f"Car battery state of charge has reached {notify_soc_setting}%.")
+        if self.connected_car_soc == c.CAR_MAX_SOC_IN_PERCENT and self.is_charging():
+            message = f"Car battery at {self.connected_car_soc} %, range ≈ {tmp} km."
+            self.notify_user(
+                message     = message,
+                title       = None,
+                tag         = "battery_max_soc_reached",
+                critical    = False,
+                send_to_all = True,
+                ttl         = 60*15
+            )
         return True
 
     def handle_charger_in_error(self):
@@ -463,7 +485,6 @@ class WallboxModbusMixin:
         new_charger_state = new["state"]
         if isinstance(new_charger_state, str):
             if not new_charger_state.isnumeric():
-                self.log(f"Charger state change, new state is {new_charger_state}, discard further processing.")
                 return
             new_charger_state = int(float(new_charger_state))
 
@@ -494,7 +515,7 @@ class WallboxModbusMixin:
 
         # **** Handle disconnect:
         # Goes to this status when disconnected
-        if new_charger_state == self.registers["disconnected_state"]:
+        if new_charger_state == self.DISCONNECTED_STATE:
             self.log("Charger state has changed to 'Disconnected'")
             # Cancel current scheduling timers
             self.cancel_charging_timers()
@@ -506,14 +527,21 @@ class WallboxModbusMixin:
             mode = self.get_state("input_select.charge_mode", None)
             if mode == "Max boost now":
                 self.set_chargemode_in_ui("Automatic")
-                self.notify_user("Chargemode set to automatic (was Max boost Now) as car is disconnected.")
+                self.notify_user(
+                    message     = "Chargemode set from 'Max charge now' to 'Automatic' as car is disconnected.",
+                    title       = None,
+                    tag         = "charge_mode_change",
+                    critical    = False,
+                    send_to_all = True,
+                    ttl         = 15*60
+                )
             return
 
         # **** Handle connected:
         if new_charger_state in self.registers["idle_states"]:
             self.log("Charger state has changed to an idle state")
 
-            if old_charger_state == self.registers["disconnected_state"]:
+            if old_charger_state == self.DISCONNECTED_STATE:
                 self.log('From disconnected to connected: try to refresh the SoC')
                 self.try_get_new_soc()
 

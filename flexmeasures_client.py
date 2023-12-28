@@ -16,7 +16,8 @@ class FlexMeasuresClient(hass.Hass):
 
     - Gets input from car calendar (see config setting: fm_car_reservation_calendar)
     - Saves charging schedule locally (input_text.chargeschedule)
-    - Reports on errors locally (input_boolean.error_schedule_cannot_be_retrieved)
+    - Reports on errors via v2g_liberty module handle_no_schedule()
+
     """
 
     # Constants
@@ -97,26 +98,16 @@ class FlexMeasuresClient(hass.Hass):
                                             "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID}
         self.log(f"Optimisation context: {self.FM_OPTIMISATION_CONTEXT}")
 
-        # Initially assume no problems untill attempts for retrieving schedules have failed.
-        self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
-
         # Ping every half hour. If offline a separate process will run to increase polling frequency.
         self.connection_error_counter = 0
         self.run_every(self.ping_server, "now", 30 * 60)
-        self.set_state("input_boolean.is_flexmeasures_live", state="on")
         self.handle_for_repeater = ""
-        # For testing ping
-        # self.test_counter = 0
 
         self.log("Completed initializing FlexMeasuresClient")
 
     def ping_server(self, *args):
         """ Ping function to check if server is alive """
         url = c.FM_PING_URL
-        # Test code:
-        # self.test_counter += 1
-        # if self.test_counter in range(2, 9):
-        #     url = url + "fout"
 
         res = requests.get(url)
         if res.status_code == 200:
@@ -124,6 +115,7 @@ class FlexMeasuresClient(hass.Hass):
                 # There was an error before as the counter > 0
                 # So a timer must be running but it is not needed anymore, so cancel it.
                 self.cancel_timer(self.handle_for_repeater)
+                self.get_app("v2g_liberty").handle_no_new_schedule("no_communication_with_fm", False)
             self.connection_error_counter = 0
         else:
             self.connection_error_counter += 1
@@ -132,25 +124,7 @@ class FlexMeasuresClient(hass.Hass):
             # A first error occurred, retry in every minute now
             self.handle_for_repeater = self.run_every(self.ping_server, "now+60", 60)
             self.log("No communication with FM! Increase tracking frequency.")
-
-        # In error for more than 15 minutes
-        if self.connection_error_counter >= 15:
-            if self.get_state("input_boolean.is_flexmeasures_live") == "on":
-                # Apparently this is the first time this has occered so send a notification of "No schedules"
-                message = f"No (new) schedules available. " \
-                          f"Usually this problem is solved in a few minutes. " \
-                          f"If it remains over a longer period, consider setting charging via charger app."
-                self.get_app("v2g_liberty").notify_user(message, False, "No communication with FlexMeasures")
-            self.set_state("input_boolean.is_flexmeasures_live", state="off")
-        else:
-            if self.get_state("input_boolean.is_flexmeasures_live") != "on":
-                # Apparently this is the first time this has occered so send a notification of "Back online"
-                message = f"Communication is restored. " \
-                          f"We expect schedules soon. " \
-                          f"If you've set charging manually please undo and give charging control back to V2G Liberty."
-                self.get_app("v2g_liberty").notify_user(message, False, "Communication with FlexMeasures restored.")
-                self.log(f"Communication with FlexMeasures is restored.")
-            self.set_state("input_boolean.is_flexmeasures_live", state="on")
+            self.get_app("v2g_liberty").handle_no_new_schedule("no_communication_with_fm", True)
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.
@@ -260,10 +234,16 @@ class FlexMeasuresClient(hass.Hass):
                     params=message,
                     headers={"Authorization": self.fm_token},
                 )
+
+        # Test code:
+        # res.status_code = 555
+        # self.log("TEST: Setting responsecode to 555 so failed response is triggered.")
         if (res.status_code != 200) or (res.json is None):
             self.log_failed_response(res, url)
             s = self.DELAY_FOR_REATTEMPTS
             attempts_left = kwargs.get("attempts_left", self.MAX_NUMBER_OF_REATTEMPTS)
+            # Test code
+            # attempts_left = 0
             if attempts_left >= 1:
                 self.log(f"Reattempting to get schedule in {s} seconds (attempts left: {attempts_left})")
                 self.run_in(self.get_schedule, delay=s, attempts_left=attempts_left - 1,
@@ -271,12 +251,13 @@ class FlexMeasuresClient(hass.Hass):
             else:
                 self.log("Schedule cannot be retrieved. Any previous charging schedule will keep being followed.")
                 self.fm_busy_getting_schedule = False
-                self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
+                self.get_app("v2g_liberty").handle_no_new_schedule("timeouts_on_schedule", True)
+
             return
 
         self.log(f"GET schedule success: retrieved {res.status_code}")
         self.fm_busy_getting_schedule = False
-        self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
+        self.get_app("v2g_liberty").handle_no_new_schedule("timeouts_on_schedule", False)
         self.fm_date_time_last_schedule = self.get_now()
 
         schedule = res.json()
@@ -353,7 +334,8 @@ class FlexMeasuresClient(hass.Hass):
                         found_target_soc_in_percentage = search_for_soc_target("%", text_to_search_in)
                         if found_target_soc_in_percentage is not None:
                             self.log(f"Target SoC from calendar: {found_target_soc_in_percentage} %.")
-                            target_soc = round(float(found_target_soc_in_percentage) / 100 * c.CAR_MAX_CAPACITY_IN_KWH, 2)
+                            target_soc = round(float(found_target_soc_in_percentage) / 100 * c.CAR_MAX_CAPACITY_IN_KWH,
+                                               2)
                     # ToDo: Add possibility to set target in km
 
                     # Prevent target_soc above max_capacity
@@ -370,7 +352,7 @@ class FlexMeasuresClient(hass.Hass):
                     # soc_maxima should be sent to allow the schedule to reach a target higher
                     # than the CAR_MAX_SOC_IN_KWH.
                     if target_soc > self.CAR_MAX_SOC_IN_KWH:
-                        window_duration = math.ceil((target_soc - self.CAR_MAX_SOC_IN_KWH)/(c.CHARGER_MAX_CHARGE_POWER/1000)*60) + self.WINDOW_SLACK
+                        window_duration = math.ceil((target_soc - self.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK
                         start_relaxation_window = time_round((target_datetime - timedelta(minutes=window_duration)), resolution)
                         self.log(f"Lifting the soc-maxima due to upcoming target, start_relaxation_window: {start_relaxation_window.isoformat()}.")
 
@@ -416,18 +398,23 @@ class FlexMeasuresClient(hass.Hass):
         self.log(f"Trigger_schedule on url '{url}', with message: '{tmp[0:275]} . . . . . {tmp[-275:]}'.")
 
         self.check_deprecation_and_sunset(url, res)
+
+        if res.status_code == 401:
+            self.log_failed_response(res, url)
+            self.try_solve_authentication_error(res, url, self.trigger_schedule, *args, **fnc_kwargs)
+            return None
+
         schedule_id = None
         if res.status_code == 200:
             schedule_id = res.json()["schedule"]  # can still be None in case something went wong
 
         if schedule_id is None:
             self.log_failed_response(res, url)
-            self.try_solve_authentication_error(res, url, self.trigger_schedule, *args, **fnc_kwargs)
-            self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="on")
+            self.get_app("v2g_liberty").handle_no_new_schedule("timeouts_on_schedule", True)
             return None
 
         self.log(f"Successfully triggered schedule. Schedule id: {schedule_id}")
-        self.set_state("input_boolean.error_schedule_cannot_be_retrieved", state="off")
+        self.get_app("v2g_liberty").handle_no_new_schedule("timeouts_on_schedule", False)
         return schedule_id
 
     def try_solve_authentication_error(self, res, url, fnc, *fnc_args, **fnc_kwargs):

@@ -1,9 +1,9 @@
 ### V2G Liberty constants ###
 
-# Date 2023-12-07 Pull request 155
-V2G_LIBERTY_VERSION = "0.1.5"
+# Date 2023-12-07 Pull request 157
+V2G_LIBERTY_VERSION = "0.1.6"
 
-# USER PREFRENCE
+# USER PREFERENCE
 # See remark for charger constants
 # Defaults to 20 (to be safe)
 CAR_MIN_SOC_IN_PERCENT: int = 20
@@ -30,7 +30,7 @@ FM_PING_URL = FM_BASE_URL + "ops/ping"
 # https://flexmeasures.seita.nl/api/requestAuthToken
 FM_AUTHENTICATION_URL = FM_BASE_URL + "requestAuthToken"
 
-# URL for retreival of the schedules
+# URL for retrieval of the schedules
 # https://flexmeasures.seita.nl/api/v3_0/sensors/XX/schedules/trigger
 # https://flexmeasures.seita.nl/api/v3_0/sensors/XX/schedules/SI
 # Where XX is the sensor_id and SI is the schedule_id
@@ -50,15 +50,15 @@ FM_SET_DATA_URL = FM_BASE_URL + FM_API_VERSION + "/sensors/data"
 
 # Utility context
 # The utility (or electricity provider) are represented by different sensor's.
-# These sensor's determain to which signal the schedules are optimised.
+# These sensor's determine to which signal the schedules are optimised.
 # These are the also used for fetching data from FM to show in the graph.
-# ToDo: change NextEnergy, EPEX NO and Emissions NO sensors
+# ToDo: Add EPEX NO and Emissions NO sensors
 DEFAULT_UTILITY_CONTEXTS = {
-    "nl_generic": {"consumption-sensor": 14, "production-sensor": 14, "emisions-sensor": 27, "display-name": "EPEX Day ahead NL"},
-    "nl_anwb_energie": {"consumption-sensor": 60, "production-sensor": 71, "emisions-sensor": 27, "display-name": "ANWB Energie"},
-    "nl_next_energy": {"consumption-sensor": 90, "production-sensor": 91, "emisions-sensor": 27, "display-name": "NextEnergy"},
-    "nl_tibber": {"consumption-sensor": 58, "production-sensor": 70, "emisions-sensor": 27, "display-name": "Tibber"},
-    "no_generic": {"consumption-sensor": 14, "production-sensor": 14, "emisions-sensor": 27,  "display-name": "EPEX Day ahead NO"}
+    "nl_generic": {"consumption-sensor": 14, "production-sensor": 14, "emissions-sensor": 27, "display-name": "EPEX Day ahead NL"},
+    "nl_anwb_energie": {"consumption-sensor": 60, "production-sensor": 71, "emissions-sensor": 27, "display-name": "ANWB Energie"},
+    "nl_next_energy": {"consumption-sensor": 90, "production-sensor": 91, "emissions-sensor": 27, "display-name": "NextEnergy"},
+    "nl_tibber": {"consumption-sensor": 58, "production-sensor": 70, "emissions-sensor": 27, "display-name": "Tibber"},
+    "no_generic": {"consumption-sensor": 14, "production-sensor": 14, "emissions-sensor": 27,  "display-name": "EPEX Day ahead NO"}
 }
 
 

@@ -300,7 +300,7 @@ views:
             card:
               type: markdown
               content: >-
-                <ha-alert alert-type="warning" title="No new scheduals available">
+                <ha-alert alert-type="warning" title="No new schedules available">
                 The current schedule wil remain active.<br/>
                 Usually this problem is solved automatically within an hour.<br/>
                 If the schedule does not fit your needs, consider charging manually.</ha-alert>
@@ -317,8 +317,6 @@ views:
             conditions:
               - entity: input_boolean.error_epex_prices_cannot_be_retrieved
                 state: "on"
-              # - entity: input_boolean.is_flexmeasures_live
-              #   state: "on"
             card:
               type: markdown
               content: >-

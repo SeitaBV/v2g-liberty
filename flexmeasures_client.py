@@ -32,16 +32,16 @@ class FlexMeasuresClient(hass.Hass):
     DELAY_FOR_REATTEMPTS: int  # number of seconds
     CAR_RESERVATION_CALENDAR: str
 
-    ## Battery protection boundaries ##
+    # Battery protection boundaries ##
     # A hard setting that is always respected (and used for Max_Charge_Now when
     # car is connected with a SoC below this value)
     CAR_MIN_SOC_IN_KWH: float
 
     # A 'soft' setting, that is respected during normal cycling but is ignored when
-    # a calendar item requiers a higher SoC.
+    # a calendar item requires a higher SoC.
     CAR_MAX_SOC_IN_KWH: float
 
-    # A slack for the contraint_relaxation_window in minutes
+    # A slack for the constraint_relaxation_window in minutes
     WINDOW_SLACK: int = 60
 
     # FM Authentication token
@@ -59,9 +59,6 @@ class FlexMeasuresClient(hass.Hass):
     handle_for_repeater: str
     connection_ping_interval: int
     errored_connection_ping_interval: int
-
-    # For testing
-    # test_counter: int
 
     def initialize(self):
         self.log("Initializing FlexMeasuresClient")
@@ -113,7 +110,7 @@ class FlexMeasuresClient(hass.Hass):
         if res.status_code == 200:
             if self.connection_error_counter > 0:
                 # There was an error before as the counter > 0
-                # So a timer must be running but it is not needed anymore, so cancel it.
+                # So a timer must be running, but it is not needed anymore, so cancel it.
                 self.cancel_timer(self.handle_for_repeater)
                 self.get_app("v2g_liberty").handle_no_new_schedule("no_communication_with_fm", False)
             self.connection_error_counter = 0
@@ -224,7 +221,7 @@ class FlexMeasuresClient(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
         self.check_deprecation_and_sunset(url, res)
-        if (res.status_code == 303):
+        if res.status_code == 303:
             new_url = res.headers.get("location")
             if new_url is not None:
                 self.log(f"Redirecting from {url} to {new_url}")
@@ -235,15 +232,10 @@ class FlexMeasuresClient(hass.Hass):
                     headers={"Authorization": self.fm_token},
                 )
 
-        # Test code:
-        # res.status_code = 555
-        # self.log("TEST: Setting responsecode to 555 so failed response is triggered.")
         if (res.status_code != 200) or (res.json is None):
             self.log_failed_response(res, url)
             s = self.DELAY_FOR_REATTEMPTS
             attempts_left = kwargs.get("attempts_left", self.MAX_NUMBER_OF_REATTEMPTS)
-            # Test code
-            # attempts_left = 0
             if attempts_left >= 1:
                 self.log(f"Reattempting to get schedule in {s} seconds (attempts left: {attempts_left})")
                 self.run_in(self.get_schedule, delay=s, attempts_left=attempts_left - 1,
@@ -290,7 +282,7 @@ class FlexMeasuresClient(hass.Hass):
         # ToDo: Would it be more efficient to determine the target every 15/30/60? minutes instead of at every schedule
         # Set default target_soc to 100% one week from now
         target_datetime = (time_round(self.get_now(), resolution) + timedelta(days=7))
-        # By default we assume no calendar item so no relaxation window is needed
+        # By default, we assume no calendar item so no relaxation window is needed
         start_relaxation_window = target_datetime
         target_soc = c.CAR_MAX_CAPACITY_IN_KWH
 

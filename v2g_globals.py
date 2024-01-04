@@ -5,12 +5,14 @@ import appdaemon.plugins.hass.hassapi as hass
 
 import constants as c
 
+
 class V2GLibertyGlobals(hass.Hass):
 
     def initialize(self):
         self.log("Initializing V2GLibertyGlobals")
 
-        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = self.read_and_process_int_setting("charger_plus_car_roundtrip_efficiency", 50, 100)/100
+        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = self.read_and_process_int_setting(
+            "charger_plus_car_roundtrip_efficiency", 50, 100) / 100
         self.log(f"v2g_globals roundtrip-efficiency: {c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY}.")
 
         c.CHARGER_MAX_CHARGE_POWER = self.read_and_process_int_setting("charger_max_charging_power", 1380, 22000)
@@ -42,8 +44,7 @@ class V2GLibertyGlobals(hass.Hass):
         c.ELECTRICITY_PROVIDER = self.args["electricity_provider"].strip().lower()
         self.log(f"v2g_globals ELECTRICITY_PROVIDER: {c.ELECTRICITY_PROVIDER}.")
 
-
-        # The utility prrovides the electricity, if the price and emissions data is provided to FM
+        # The utility provides the electricity, if the price and emissions data is provided to FM
         # by V2G Liberty this is labeled as "self_provided".
         if c.ELECTRICITY_PROVIDER == "self_provided":
             c.FM_PRICE_PRODUCTION_SENSOR_ID = int(float(self.args["fm_own_price_production_sensor_id"]))
@@ -55,10 +56,10 @@ class V2GLibertyGlobals(hass.Hass):
                 c.ELECTRICITY_PROVIDER,
                 c.DEFAULT_UTILITY_CONTEXTS["nl_generic"],
             )
-            #ToDo: Notify user if fallback "nl_generic" is used..
+            # ToDo: Notify user if fallback "nl_generic" is used..
             c.FM_PRICE_PRODUCTION_SENSOR_ID = context["production-sensor"]
             c.FM_PRICE_CONSUMPTION_SENSOR_ID = context["consumption-sensor"]
-            c.FM_EMISSIONS_SENSOR_ID = context["emisions-sensor"]
+            c.FM_EMISSIONS_SENSOR_ID = context["emissions-sensor"]
             c.UTILITY_CONTEXT_DISPLAY_NAME = context["display-name"]
         self.log(f"v2g_globals FM_PRICE_PRODUCTION_SENSOR_ID: {c.FM_PRICE_PRODUCTION_SENSOR_ID}.")
         self.log(f"v2g_globals FM_PRICE_CONSUMPTION_SENSOR_ID: {c.FM_PRICE_CONSUMPTION_SENSOR_ID}.")
@@ -80,8 +81,8 @@ class V2GLibertyGlobals(hass.Hass):
             self.call_service(
                 'persistent_notification/create',
                 title="Automatic configuration change",
-                message = message,
-                notification_id = id
+                message=message,
+                notification_id=id
             )
         return reading
 
@@ -92,12 +93,14 @@ def time_mod(time, delta, epoch=None):
         epoch = datetime(1970, 1, 1, tzinfo=time.tzinfo)
     return (time - epoch) % delta
 
+
 def time_round(time, delta, epoch=None):
     """From https://stackoverflow.com/a/57877961/13775459"""
     mod = time_mod(time, delta, epoch)
     if mod < (delta / 2):
-       return time - mod
+        return time - mod
     return time + (delta - mod)
+
 
 def time_ceil(time, delta, epoch=None):
     """From https://stackoverflow.com/a/57877961/13775459"""

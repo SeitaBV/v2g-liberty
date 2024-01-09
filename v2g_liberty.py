@@ -145,16 +145,20 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         message = ""
         if len(self.recipients) == 0:
-            message = f"No mobile devices (e.g. phone, tablet, etc.) have been registered in Home Assistant for notifications.<br/>" \
-                      f"It is highly recomended to do so. Please install the HA companion app on your mobile device and connect it to Home Assistant."
+            message = f"No mobile devices (e.g. phone, tablet, etc.) have been registered in Home Assistant " \
+                      f"for notifications.<br/>" \
+                      f"It is highly recommended to do so. Please install the HA companion app on your mobile device " \
+                      f"and connect it to Home Assistant."
             self.log(f"Configuration error: {message}.")
         elif self.ADMIN_MOBILE_NAME not in self.recipients:
             alternative_admin = self.recipients[0]
-            message = f"The admin mobile name ***{self.ADMIN_MOBILE_NAME}*** in configuration is not a registered recipient.<br/>" \
+            message = f"The admin mobile name ***{self.ADMIN_MOBILE_NAME}*** in configuration is not a registered " \
+                      f"recipient.<br/>" \
                       f"Please use one of the following: {self.recipients}.<br/>" \
-                      f"Now, ***{alternative_admin}*** will be used for high-priority/technical notifications with the assumption it is a iOS device."
-            self.log(
-                f"Configuration error: The admin_mobile_name '{self.ADMIN_MOBILE_NAME}' in configuration not a registered recipient.")
+                      f"Now, ***{alternative_admin}*** will be used for high-priority/technical notifications with " \
+                      f"the assumption it is a iOS device."
+            self.log(f"Configuration error: The admin_mobile_name '{self.ADMIN_MOBILE_NAME}' in configuration not a "
+                     f"registered recipient.")
             self.ADMIN_MOBILE_NAME = self.recipients[0]
         else:
             # Only check platform config if admin mobile name is valid.
@@ -202,9 +206,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                     ):
         """ Utility function to send notifications to the user
             - critical    : send with high priority to Admin only. Always delivered and sound is play. Use with caution.
-            - send_to_all : send to all users (cannot be combined with critical), default notifications get sent to the Admin only.
+            - send_to_all : send to all users (can't be combined with critical), default = only send to Admin.
             - tag         : id that can be used to replace or clear a previous message
-            - ttl         : time to live in seconds, after that the message will be cleared. 0 = do not clear. tag is required
+            - ttl         : time to live in seconds, after that the message will be cleared. 0 = do not clear.
+                            A tag is required.
 
             We assume there always is an ADMIN and there might be several other users that need to be notified.
             When a new call to this function with the same tag is made, the previous message will be overwritten
@@ -309,7 +314,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 # Only send this message if "no_schedule_notification" was actually sent
                 title = "Schedules available again"
                 message = f"The problems with schedules have been solved. " \
-                          f"If you've set charging via the chargers app, consider to end that and use automatic charging again."
+                          f"If you've set charging via the chargers app, " \
+                          f"consider to end that and use automatic charging again."
                 self.notify_user(
                     message     = message,
                     title       = title,
@@ -328,11 +334,11 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                   f"Usually this problem is solved automatically in an hour or so." \
                   f"If the schedule does not fit your needs, consider charging manually via the chargers app."
         self.notify_user(
-            message=message,
-            title=title,
-            tag="no_new_schedule",
-            critical=False,
-            send_to_all=True
+            message     = message,
+            title       = title,
+            tag         = "no_new_schedule",
+            critical    = False,
+            send_to_all = True
         )
         self.log("Notification 'No new schedules' sent.")
 
@@ -483,10 +489,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         if records is None:
             # There seems to be no way to hide the SoC series from the graph,
             # so it is filled with "empty" data, one record of 0.
-            # Set it at a week from now so it's not visible in the default view.
+            # Set it at a week from now, so it's not visible in the default view.
             records = [dict(time=(self.get_now() + timedelta(days=7)).isoformat(), soc=0.0)]
 
-        # To make sure the new attributes are treated as new we set a new state aswell
+        # To make sure the new attributes are treated as new we set a new state as well
         new_state = "SoC prognosis boost based on boost 'schedule' available at " + self.get_now().isoformat()
         result = dict(records=records)
         self.set_state("input_text.soc_prognosis_boost", state=new_state, attributes=result)

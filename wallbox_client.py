@@ -35,10 +35,10 @@ class WallboxModbusMixin:
         port = self.args["wallbox_port"]
         self.log(f"Configuring Modbus client at {host}:{port}")
         client = ModbusClient(
-            host=host,
-            port=port,
-            auto_open=True,
-            auto_close=True,
+            host       = host,
+            port       = port,
+            auto_open  = True,
+            auto_close = True,
         )
         # Make sure that after a restart of V2G Liberty (needed after a charger crash)
         # the error in the UI is removed.
@@ -65,7 +65,6 @@ class WallboxModbusMixin:
 
         register = self.registers["get_status"]
         charger_state = -1
-        # self.log(f"get_charger_state:: Charger state is {charger_state}.")
 
         # Sometimes the charger returns None for a while, so keep reading until a proper reading is retrieved
         # In rare cases this situation remains for longer.
@@ -108,7 +107,6 @@ class WallboxModbusMixin:
                 continue
             charger_state = int(float(cs))
         self.busy_getting_charger_state = False
-        # self.log(f"Returning charger_state: {charger_state}.")
         return charger_state
 
     def is_charger_in_error(self) -> bool:
@@ -153,9 +151,7 @@ class WallboxModbusMixin:
         res = self.client.write_single_register(register, new_setting_to_charger)
 
         if res is not True:
-            self.log(
-                f"Failed to {setting} charger to autostart on connect. Charge Point responded with: {res}"
-            )
+            self.log(f"Failed to {setting} charger to autostart on connect. Charge Point responded with: {res}")
         else:
             self.log(f"Set 'start charging on EV-Gun connected' to {setting} succeeded")
 
@@ -182,7 +178,7 @@ class WallboxModbusMixin:
             value = self.registers["actions"]["stop_charging"]
         elif action == "restart":
             # AJO 2023-11-30
-            # This seems irellevant code as the restart is (only) needed when the modbus module
+            # This seems irrelevant code as the restart is (only) needed when the modbus module
             # of the charger has crashed and then it does not receive this instruction anymore.
             # Remove?
             if self.last_restart < (self.get_now() - timedelta(seconds=self.minimum_seconds_between_restarts)):
@@ -393,7 +389,7 @@ class WallboxModbusMixin:
 
         if res is not True:
             self.log(f"Failed to set charge power to {charge_rate} Watt. Charge Point responded with: {res}.")
-            # If negative value result in false, check if gridcode is set correct in charger.
+            # If negative value result in false, check if grid code is set correct in charger.
         else:
             self.log(f"Charge power set to {charge_rate} Watt successfully.")
 

@@ -240,7 +240,7 @@ class SetFMdata(hass.Hass, WallboxModbusMixin):
             self.availability_readings.append(percentile_availability)
 
             # SoC related processing
-            # SoC does not change very quickly so we just read it at conclude time and do not do any calculation
+            # SoC does not change very quickly, so we just read it at conclude time and do not do any calculation.
             self.soc_readings.append(self.connected_car_soc)
 
             self.log(

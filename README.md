@@ -4,9 +4,9 @@ This integration lets you add full automatic and price optimized control over Ve
 practical local app in [HomeAssistant](https://www.home-assistant.io/) and uses the smart EMS [FlexMeasures](https://flexmeasures.io) for optimized schedules.
 
 The schedules are optimized on day-ahead energy prices, so this works best with an electricity contract with dynamic (hourly) prices[^1].
-We intend to add optimisation for your solar generation or the CO₂ content of the grid in the near future.
+We intend to add optimisation for your solar generation in the near future.
 
-[^1]: For now: most Dutch enrgy suppliers are listed and all European energy prices (EPEX) are available for optimisation. There also is an option to upload your own prices, if you have an interest in this, please [contact us](https://v2g-liberty.eu/) to see what the options are.
+[^1]: For now: most Dutch energy suppliers are listed and all European energy prices (EPEX) are available for optimisation. There also is an option to upload your own prices, if you have an interest in this, please [contact us](https://v2g-liberty.eu/) to see what the options are.
 
 ![The V2G Liberty Dashboard](https://positive-design.nl/wp-content/uploads/2022/04/V2GL-1-1024x549.png)
 
@@ -27,7 +27,7 @@ This integration is a Python app and uses:
 
 ### Prerequisites
  
-At the time of writing, 2023-11, only the [Wallbox Quasar 1 charger](https://wallbox.com/en_uk/quasar-dc-charger) is supported.
+At the time of writing, 2024-01, only the [Wallbox Quasar 1 charger](https://wallbox.com/en_uk/quasar-dc-charger) is supported.
 This is a [CHAdeMO](https://www.chademo.com/) compatible charger.
 Compatible cars that can do V2G with this protocol are the [Nissan Leaf](https://ev-database.org/car/1657/Nissan-Leaf-eplus) (also earlier models) and [Nissan Evalia](https://ev-database.org/car/1117/Nissan-e-NV200-Evalia).
 When the Quasar 2 will be available in the EU we expect V2G Liberty to be compatible with this hardware right away.
@@ -113,11 +113,11 @@ Add the following modules to HA through HACS:
 
 There are other modules that might look interesting, like Leaf Spy, but you do not need any of these for V2G-L.
 After installation the reference to these resources has to be added through menu:
-1. Make sure, advanced mode is enabled in your user profile (click on your user name to get there)
+1. Make sure, advanced mode is enabled in your user profile (click on your username to get there)
 2. Navigate to Settings -> Dashboards -> from the top right menu (&vellip;) select resources.
 3. Click (+ ADD RESOURCE) button and enter URL `/hacsfiles/apexcharts-card/apexcharts-card.js` and select type "JavaScript Module".
 4. Repeat for `/hacsfiles/lovelace-card-mod/card-mod.js`
-4. Restart Home Assistant.
+5. Restart Home Assistant.
 
 
 ## Configure HA
@@ -134,9 +134,12 @@ After completion of this step you'll end up with a these files and folders (othe
 │   ├── apps
 │   │   ├── v2g-liberty
 │   │   │   ├── app_config
+│   │   │   │   ├── table_style.yaml
 │   │   │   │   ├── v2g-liberty-dashboard.yaml
 │   │   │   │   ├── v2g-liberty-package.yaml
+│   │   │   │   ├── v2g_liberty_ui_module_stats.yaml
 │   │   │   │   └── wallbox_modbus_registers.yaml
+│   │   │   ├── constants.py
 │   │   │   ├── flexmeasures_client.py
 │   │   │   ├── get_fm_data.py
 │   │   │   ├── LICENSE
@@ -146,7 +149,7 @@ After completion of this step you'll end up with a these files and folders (othe
 │   │   │   ├── v2g_liberty.py
 │   │   │   └── wallbox_client.py
 │   │   └ apps.yaml *
-│   ├── logs
+│   ├── logs (possibly this need to be created)
 │   └ appdaemon.yaml *
 ├── configuration.yaml *
 └── secrets.yaml *
@@ -155,9 +158,9 @@ After completion of this step you'll end up with a these files and folders (othe
 ### Secrets
 
 HA stores secrets in the file `secrets.yaml` and V2G Liberty expects this file to be in the default location, the config folder.
-We store both secrets and configuration values in this file as this is the most conveniant way for storing these.
+We store both secrets and configuration values in this file as this is the most convenient way for storing these.
 Open this file in the HA file editor and add the following code. You'll need to replace secrets/values for your custom setting.
-If you have installed the Studio Code Server addon (not mandatory!), you can use that.
+If you have installed the Studio Code Server addon (not mandatory), you can use that.
 
 
 ```yaml
@@ -177,17 +180,18 @@ If you have installed the Studio Code Server addon (not mandatory!), you can use
 ## ALWAYS CHANGE ##
 # Provide the coordinates of the location.
 # Typical: lat. 52.xxxxxx,  lon. 4.xxxxxx, elevation in meters.
+# ToDo: use these settings from Home Assistant instead
 ha_latitude: xx.xxxxxxx
 ha_longitude: x.xxxxxxx
 ha_elevation: x
 ha_time_zone: Europe/Amsterdam
 
-# To which mobile device must (critial) platform notifications be send
+# To which mobile device must (critical) platform notifications be sent.
 # Can be found in the home assistant companion app under:
 # Settings > Companion App > (Top item) your name and server > Device name
 # Replace any spaces, minus (-), dots(.) with underscores (_)
 admin_mobile_name: "your_device_name"
-#Should be iOS or Android, others are not supported.
+# Should be iOS or Android, others are not supported.
 admin_mobile_platform: "your platform name: iOS or Android"
 
 #############   FLEXMEASURES CONFIGURATION   ###################################
@@ -208,8 +212,8 @@ fm_account_cost_sensor_id: XX
 #   nl_anwb_energie
 #   nl_next_energy
 #   nl_tibber
-# If your energy company is missing, please let us know and we'l add it to the list.
-# If you send your own prices (and emmisions) data to FM through the API then use.
+# If your energy company is missing, please let us know and we'll add it to the list.
+# If you send your own prices (and emissions) data to FM through the API then use.
 #   self_provided †
 #
 #  * In these cases it is assumed consumption and production price are the same.
@@ -217,7 +221,7 @@ fm_account_cost_sensor_id: XX
 electricity_provider: "nl_generic"
 
 # How would you'd like the charging / discharging to be optimised?
-# Choices are price or emmission
+# Choices are price or emission
 fm_optimisation_mode: "price"
 
 # For option "own-prices" the FM account has it's onw sensor_id's
@@ -227,7 +231,7 @@ fm_own_emissions_sensor_id: ee
 fm_own_context_display_name: "Own Prices and Emissions"
 
 # ****** Pricing data ********
-# Pricing data only needs to be provided if a generic electicity provider is used
+# Pricing data only needs to be provided if a generic electricity provider is used
 # For transforming the raw price data (from FM) to net price to be shown in UI.
 # Calculation:
 # (market_price_per_kwh + markup_per_kwh) * VAT
@@ -259,14 +263,14 @@ fm_schedule_duration: "PT27H"
 #############   CHARGER CONFIGURATION   ########################################
 
 ## ALWAYS CHANGE ##
-# This usually is an IP adres but can be a named URL aswel.
+# This usually is an IP address but can be a named URL as well.
 wallbox_host: "your charger host here"
 # Usually 502
 wallbox_port: 502
 
 ## ALWAYS CHECK / SOME TIMES CHANGE ##
-# Research shows the roundtrip effcienty is around 85 % for a typical EV + charger.
-# This numberis taken in to account when calculating the optimal schedule.
+# Research shows the roundtrip efficient is around 85 % for a typical EV + charger.
+# This number is taken into account when calculating the optimal schedule.
 # Use an integer between 50 and 100.
 charger_plus_car_roundtrip_efficiency: 85
 
@@ -276,7 +280,7 @@ charger_plus_car_roundtrip_efficiency: 85
 # The usable energy storage capacity of the battery of the car, as an integer.
 # For the Nissan Leaf this is usually 21, 39 or 59 (advertised as 24, 40 and 62).
 # See https://ev-database.org.
-# Use an integer between 10 and 200
+# Use an integer between 10 and 200.
 car_max_capacity_in_kwh: 59
 
 # What would you like to be the minimum charge in your battery?
@@ -286,30 +290,30 @@ car_max_capacity_in_kwh: 59
 # A high value results in always having a greater driving range available, even
 # when not planned, but less capacity available for dis-charge and so lesser
 # earnings.
-# A lower value reults in sometimes a smaller driving range available for
+# A lower value results in sometimes a smaller driving range available for
 # un-planned drives but there is always more capacity for discharge and so more
 # earnings.
 # Some research suggests battery life is shorter if min SoC is below 15%.
-# In some cars the SoC every now and then skips a number, eg. from 21 to 19%,
+# In some cars the SoC sometimes skips a number, e.g. from 21 to 19%,
 # skipping 20%. This might result in toggling charging behaviour around this
 # minimum SoC. If this happens try a value 1 higher or lower.
 # The setting must be an integer (without the % sign) between 10 and 30, default is 20.
-car_min_soc_in_percent: 18
+car_min_soc_in_percent: 20
 
 # What would you like to be the maximum charge in your car battery?
 # The schedule will use this for regular scheduling. It can be used to further
-# protect the battery from degredation as a 100% charge (for longer periods) may
-# reduce battery health/life time.
+# protect the battery from degradation as a 100% charge (for longer periods) may
+# reduce battery health/lifetime.
 # When a calendar item is present, the schedule will ignore this setting and
 # try to charge to 100% (or if the calendar item has a target use that).
 # A low setting reduces schedule flexibility and so the capability to earn
 # money and reduce emissions.
-# The setting must be an integer value between 60 and 100, default is 100.
-car_max_soc_in_percent: 90
+# The setting must be an integer value between 60 and 100, default is 80.
+car_max_soc_in_percent: 80
 
 # What is the average electricity usage of your car in watt-hour (Wh) per km?
 # In most cars you can find historical data in the menu's. Normally this is somewhere
-# between 140 (very efficient!) and 300 (rather in-efficient vans)
+# between 140 (very efficient!) and 300 (rather in-efficient vans).
 # Make sure you use the right "unit of measure", use a dot not a comma.
 car_average_wh_per_km: 174
 
@@ -319,14 +323,14 @@ car_average_wh_per_km: 174
 #   the charger. Electric safety must be provided by the hardware. Limits for over
 #   powering must be guarded by hardware.
 #   This software should not be the only fail-safe.
-#   It is recomended to use a loadbalancer.
+#   It is recommended to use a load balancer.
 #
-# If a loadbalancer (powerboost for WB) is used:
+# If a load balancer (power-boost for WB) is used:
 # Set this to "Amperage setting in charger" * grid voltage.
 # E.g. 25A * 230V = 5750W.
-# If there is no loadbalancer in use, use a lower setting.
+# If there is no load balancer in use, use a lower setting.
 # Usually the discharge power is the same but in some cases the charger or
-# (gird operator) regulations requier a different (lower) dis-charge power.
+# (gird operator) regulations require a different (lower) dis-charge power.
 wallbox_max_charging_power: XXXX
 wallbox_max_discharging_power: XXXX
 
@@ -344,9 +348,6 @@ car_calendar_timezone: Europe/Amsterdam
 caldavUN: "your caldav username here (use quotes)"
 caldavPWD: "your caldav password here (use quotes)"
 caldavURL: "your caldav URL here (use quotes)"
-
-git_ard_UN: "your github username here (use quotes)"
-git_ard_PWD: "your github password here (use quotes)"
 
 ```
 
@@ -393,9 +394,10 @@ admin:
 api:
 hadashboard:
 
-# Setting logging is optional but usefull. The software is in use for quite some
-# time but not bullit-proof yet. So every now and then you'll need to see what
+# Setting logging is optional but useful. The software is in use for quite some
+# time but not bullet-proof yet. So every now and then you'll need to see what
 # happend.
+# Make sure the "log" folder is created.
 log_thread_actions: 1
 logs:
   main_log:

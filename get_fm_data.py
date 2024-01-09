@@ -37,12 +37,12 @@ class FlexMeasuresDataImporter(hass.Hass):
     emission_intensities: dict
 
     def initialize(self):
-        """Daily get epex prices, emissions and cost data for display in the UI.
+        """Daily get EPEX prices, emissions and cost data for display in the UI.
 
         Try to get EPEX price data from the FM server on a daily basis.
-        Normally the prices are avaialable around 14:35.
+        Normally the prices are available around 14:35.
         When this fails retry at 18:30. These times are related to the
-        attempts in the server for retrieving EPEX proce data.
+        attempts in the server for retrieving EPEX price data.
 
         The retrieved data is written to the HA input_text.epex_prices,
         HA handles this to render the price data in the UI (chart).
@@ -55,9 +55,9 @@ class FlexMeasuresDataImporter(hass.Hass):
         # Usually a markup per kWh for transport and sustainability
         self.MARKUP = 0
         # Only for these electricity_providers do we take the VAT and markup from the secrets into account.
-        # For others we expect netto prices (including VAT and Markup).
+        # For others, we expect netto prices (including VAT and Markup).
         # If self_provided data also includes VAT and markup the values in secrets can
-        # be set to 1 and 0 respectivily to achieve the same result as here.
+        # be set to 1 and 0 respectively to achieve the same result as here.
         if c.ELECTRICITY_PROVIDER in ["self_provided", "nl_generic", "no_generic"]:
             self.VAT = float(self.args["VAT"])
             self.MARKUP = float(self.args["markup_per_kwh"])
@@ -135,7 +135,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
 
-        # Authorisation error, retry authoristion.
+        # Authorisation error, retry
         if res.status_code == 401:
             self.log_failed_response(res, "Get FM CHARGING COST data")
             self.try_solve_authentication_error(res, self.CHARGING_COST_URL, self.get_charging_cost, *args, **kwargs)
@@ -167,7 +167,7 @@ class FlexMeasuresDataImporter(hass.Hass):
     def get_charged_energy(self, *args, **kwargs):
         """ Communicate with FM server and check the results.
 
-        Request charging columes of last 7 days from the server.
+        Request charging volumes of last 7 days from the server.
         ToDo: make this period a setting for the user.
         Make totals of charging and dis-charging per day and over the period
 
@@ -191,7 +191,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
 
-        # Authorisation error, retry authoristion.
+        # Authorisation error, retry
         if res.status_code == 401:
             self.log_failed_response(res, "Get FM CHARGE POWER")
             self.try_solve_authentication_error(res, self.CHARGE_POWER_URL, self.get_charging_energy, *args, **kwargs)
@@ -212,7 +212,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         resolution_in_miliseconds = c.FM_EVENT_RESOLUTION_IN_MINUTES * 60 * 1000
 
         for charge_power in charge_power_points:
-            # The API returns both actual and schedualed power, ignore the values from the scheduals
+            # The API returns both actual and scheduled power, ignore the values from the schedules
             if charge_power['source']['type'] == "scheduler":
                 continue
 
@@ -233,26 +233,25 @@ class FlexMeasuresDataImporter(hass.Hass):
                     # Try a resolution step (5 min.) earlier
                     key -= resolution_in_miliseconds
                     i += 1
-                    # self.log(f"No matching emission found ({i})")
                 else:
                     emission_intensity = em
-                    # self.log(f"Matching emission found ({i}): {em}")
                     break
 
             if power < 0:
-                # Strangly we add power to energy.. this is practical, we later convert this to energy.
+                # Strangely we add power to energy... this is practical, we later convert this to energy.
                 total_discharged_energy_last_7_days += power
                 total_minutes_discharged += c.FM_EVENT_RESOLUTION_IN_MINUTES
                 # We strangely add 5 min. periods as if they are hours, we later converty this
                 total_saved_emissions_last_7_days += power * emission_intensity
             elif power > 0:
-                # Strangly we add power to energy.. this is practical, we later convert this to energy.
+                # Strangely we add power to energy... this is practical, we later convert this to energy.
                 total_charged_energy_last_7_days += power
                 total_minutes_charged += c.FM_EVENT_RESOLUTION_IN_MINUTES
                 # We strangely add 5 min. periods as if they are hours, we later converty this
                 total_emissions_last_7_days += power * emission_intensity
 
-        # Convert the returned average power in MW over event_resolution ( 5 minutes) periods to kWh *1000/12 to energy in kWh
+        # Convert the returned average power in MW over event_resolution ( 5 minutes)
+        # periods to kWh *1000/12 to energy in kWh
         conversionfactor = 1000 / (60 / c.FM_EVENT_RESOLUTION_IN_MINUTES)
         total_discharged_energy_last_7_days = int(round(total_discharged_energy_last_7_days * conversionfactor, 0))
         total_charged_energy_last_7_days = int(round(total_charged_energy_last_7_days * conversionfactor, 0))
@@ -272,10 +271,10 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.set_value("input_number.net_emissions_last_7_days",
                        total_emissions_last_7_days + total_saved_emissions_last_7_days)
 
-        self.set_value("input_text.total_discharge_time_last_7_days", self.formatDuration(total_minutes_discharged))
-        self.set_value("input_text.total_charge_time_last_7_days", self.formatDuration(total_minutes_charged))
+        self.set_value("input_text.total_discharge_time_last_7_days", self.format_duration(total_minutes_discharged))
+        self.set_value("input_text.total_charge_time_last_7_days", self.format_duration(total_minutes_charged))
 
-    def formatDuration(self, duration_in_minutes: int):
+    def format_duration(self, duration_in_minutes: int):
         MINUTES_IN_A_DAY = 60 * 24
         days = math.floor(duration_in_minutes / MINUTES_IN_A_DAY)
         hours = math.floor((duration_in_minutes - days * MINUTES_IN_A_DAY) / 60)
@@ -293,10 +292,10 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.authenticate_with_fm()
         # Getting prices since start of yesterday so that user can look back a little further than just current window.
         dt = str(now + timedelta(days=-1))
-        startDataPeriod = dt[:10] + "T00:00:00" + dt[-6:]
+        start_data_period = dt[:10] + "T00:00:00" + dt[-6:]
 
         url_params = {
-            "event_starts_after": startDataPeriod,
+            "event_starts_after": start_data_period,
         }
         res = requests.get(
             self.PRICES_URL,
@@ -304,7 +303,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
 
-        # Authorisation error, retry authoristion.
+        # Authorisation error, retry
         if res.status_code == 401:
             self.log_failed_response(res, "Get FM EPEX data")
             self.try_solve_authentication_error(res, self.PRICES_URL, self.get_epex_prices, *args, **kwargs)
@@ -386,9 +385,9 @@ class FlexMeasuresDataImporter(hass.Hass):
         # and will be (more than) enough for the graph to show.
         # Because we want to show it in the graph we do not use an end url param.
         dt = str(now + timedelta(days=-7))
-        startDataPeriod = dt[:10] + "T00:00:00" + dt[-6:]
+        start_data_period = dt[:10] + "T00:00:00" + dt[-6:]
         url_params = {
-            "event_starts_after": startDataPeriod,
+            "event_starts_after": start_data_period,
         }
 
         res = requests.get(
@@ -397,7 +396,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             headers={"Authorization": self.fm_token},
         )
 
-        # Authorisation error, retry authorisation.
+        # Authorisation error, retry
         if res.status_code == 401:
             self.log_failed_response(res, "get CO2 emissions")
             self.try_solve_authentication_error(res, self.EMISSIONS_URL, self.get_emission_intensities, *args, **kwargs)

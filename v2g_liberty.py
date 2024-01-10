@@ -90,6 +90,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             "timeouts_on_schedule": False,
             "no_communication_with_fm": False
         }
+
         self.notification_timer_handle = None
         self.no_schedule_notification_is_planned = False
 
@@ -184,6 +185,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         Reacts to button in UI that fires DISCONNECT_CHARGER event.
         """
         self.log("************* Disconnect charger requested *************")
+        self.reset_no_new_schedule()
         self.set_charger_action("stop")
         # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
         # ToDo: Remove all schedules?
@@ -255,6 +257,11 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 # Critical notifications should not auto clear.
                 self.run_in(self.clear_notification, ttl, recipient=recipient, tag=tag)
 
+    def clear_notification_for_all_recipients(self, tag: str):
+        for recipient in self.recipients:
+            identification = {"recipient": recipient, "tag": tag}
+            self.clear_notification(identification)
+
     def clear_notification(self, identification: dict):
         self.log(f"Clearing notification. Data: {identification}")
         recipient = identification["recipient"]
@@ -276,12 +283,40 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         except:
             self.log(f"Could not clear notification: exception on {recipient}.")
 
+    def reset_no_new_schedule(self):
+        """ Sets all errors to False and removes notification / UI messages
+
+        To be used when the car gets disconnected, so that while it stays in this state there is no
+        unneeded "alarming" message/notification.
+        Also, when the car returns with an SoC below the minimum no new schedule is retrieved and
+        in that case the message / notification would remain without a need.
+        """
+
+        for error_name in self.no_schedule_errors:
+            self.no_schedule_errors[error_name] = False
+        self.notify_no_new_schedule(reset=True)
+
     def handle_no_new_schedule(self, error_name: str, error_state: bool):
-        """ Inform user about no schedule:
+        """ Keep track of situations where no new schedules are available:
             - invalid schedule
             - timeouts on schedule
             - no communication with FM
-            They can occur simultaneously/overlapping
+            They can occur simultaneously/overlapping, so they are accumulated in
+            the dictionary self.no_schedule_errors.
+        """
+
+        if error_name in self.no_schedule_errors:
+            self.log(f"handle_no_valid_schedule called with {error_name}: {error_state}.")
+        else:
+            self.log(f"handle_no_valid_schedule called unknown error_name: '{error_name}'.")
+            return
+        self.no_schedule_errors[error_name] = error_state
+        self.notify_no_new_schedule()
+
+    def notify_no_new_schedule(self, reset: Optional[bool] = False):
+        """ Check if notification of user about no new schedule available is needed,
+            based on self.no_schedule_errors. The administration for the errors is done by
+            handle_no_new_schedule().
 
             When error_state = True of any of the errors:
                 Set immediately in UI
@@ -291,9 +326,23 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                     Remove from UI immediately
                     If notification has been sent:
                         Notify user the situation has been restored.
+
+            Parameters
+            ----------
+            reset : bool, optional
+                    Reset is meant for the situation where the car gets disconnected and all
+                    notifications can be cancelled and messages in UI removed.
+                    Then also no "problems are solved" notification is sent.
+
         """
-        self.log(f"handle_no_valid_schedule called with {error_name}: {error_state}.")
-        self.no_schedule_errors[error_name] = error_state
+
+        if reset:
+            self.cancel_timer(self.notification_timer_handle, True)
+            self.no_schedule_notification_is_planned = False
+            self.clear_notification_for_all_recipients(tag="no_new_schedule")
+            self.set_state("input_boolean.error_no_new_schedule_available", state="off")
+            return
+
         any_errors = False
         for error_name in self.no_schedule_errors:
             if self.no_schedule_errors[error_name]:
@@ -301,7 +350,6 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                 break
 
         if any_errors:
-            # Apparently this is the first time only set "on" once to keep history clean
             self.set_state("input_boolean.error_no_new_schedule_available", state="on")
             if not self.no_schedule_notification_is_planned:
                 # Plan a notification in case the error situation remains for more than an hour

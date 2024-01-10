@@ -288,7 +288,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         To be used when the car gets disconnected, so that while it stays in this state there is no
         unneeded "alarming" message/notification.
-        Also, when the cr returns with an SoC below the minimum no new schedule is retrieved and
+        Also, when the car returns with an SoC below the minimum no new schedule is retrieved and
         in that case the message / notification would remain without a need.
         """
 
@@ -308,7 +308,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         if error_name in self.no_schedule_errors:
             self.log(f"handle_no_valid_schedule called with {error_name}: {error_state}.")
         else:
-            self.log(f"handle_no_valid_schedule called un-known error_name: '{error_name}'.")
+            self.log(f"handle_no_valid_schedule called unknown error_name: '{error_name}'.")
             return
         self.no_schedule_errors[error_name] = error_state
         self.notify_no_new_schedule()
@@ -330,7 +330,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             Parameters
             ----------
             reset : bool, optional
-                    reset is ment for the situation where the caar gets disconnected and all
+                    Reset is meant for the situation where the car gets disconnected and all
                     notifications can be cancelled and messages in UI removed.
                     Then also no "problems are solved" notification is sent.
 

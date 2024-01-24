@@ -32,15 +32,6 @@ class FlexMeasuresClient(hass.Hass):
     DELAY_FOR_REATTEMPTS: int  # number of seconds
     CAR_RESERVATION_CALENDAR: str
 
-    # Battery protection boundaries ##
-    # A hard setting that is always respected (and used for Max_Charge_Now when
-    # car is connected with a SoC below this value)
-    CAR_MIN_SOC_IN_KWH: float
-
-    # A 'soft' setting, that is respected during normal cycling but is ignored when
-    # a calendar item requires a higher SoC.
-    CAR_MAX_SOC_IN_KWH: float
-
     # A slack for the constraint_relaxation_window in minutes
     WINDOW_SLACK: int = 60
 
@@ -63,6 +54,7 @@ class FlexMeasuresClient(hass.Hass):
     def initialize(self):
         self.log("Initializing FlexMeasuresClient")
 
+        self.fm_token = ""
         self.fm_busy_getting_schedule = False
         self.log(f"Init, fm_busy_getting_schedule: {self.fm_busy_getting_schedule}.")
         self.fm_date_time_last_schedule = self.get_now()
@@ -81,10 +73,6 @@ class FlexMeasuresClient(hass.Hass):
         self.fm_max_seconds_between_schedules = \
             self.DELAY_FOR_REATTEMPTS * (self.MAX_NUMBER_OF_REATTEMPTS + 1) + self.DELAY_FOR_INITIAL_ATTEMPT
         self.CAR_RESERVATION_CALENDAR = self.args["fm_car_reservation_calendar"]
-
-        self.CAR_MIN_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
-        self.CAR_MAX_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
-        self.log(f"Car_max_soc: {self.CAR_MAX_SOC_IN_KWH} kWh.")
 
         if c.OPTIMISATION_MODE == "price":
             self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID,
@@ -170,7 +158,7 @@ class FlexMeasuresClient(hass.Hass):
                     message += f" Link for further info: {content}"
             self.log(message)
 
-    def get_new_schedule(self, current_soc_kwh):
+    def get_new_schedule(self, current_soc_kwh: float, back_to_max_soc: datetime):
         """Get a new schedule from FlexMeasures.
            But not if still busy with getting previous schedule.
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
@@ -189,7 +177,7 @@ class FlexMeasuresClient(hass.Hass):
         self.fm_busy_getting_schedule = True
 
         # Ask to compute a new schedule by posting flex constraints while triggering the scheduler
-        schedule_id = self.trigger_schedule(current_soc_kwh=current_soc_kwh)
+        schedule_id = self.trigger_schedule(current_soc_kwh=current_soc_kwh, back_to_max_soc=back_to_max_soc)
         if schedule_id is None:
             self.log("Failed to trigger new schedule, schedule ID is None. Cannot call get_schedule")
             self.fm_busy_getting_schedule = False
@@ -335,16 +323,16 @@ class FlexMeasuresClient(hass.Hass):
                         self.log(f"Target SoC from calendar too high: {target_soc}, "
                                  f"adjusted to {c.CAR_MAX_CAPACITY_IN_KWH}kWh.")
                         target_soc = c.CAR_MAX_CAPACITY_IN_KWH
-                    elif target_soc < self.CAR_MIN_SOC_IN_KWH:
+                    elif target_soc < c.CAR_MIN_SOC_IN_KWH:
                         self.log(f"Target SoC from calendar too low: {target_soc}, "
-                                 f"adjusted to {self.CAR_MIN_SOC_IN_KWH}kWh.")
-                        target_soc = self.CAR_MIN_SOC_IN_KWH
+                                 f"adjusted to {c.CAR_MIN_SOC_IN_KWH}kWh.")
+                        target_soc = c.CAR_MIN_SOC_IN_KWH
 
                     # The relaxation window is the period before a calendar item where no
                     # soc_maxima should be sent to allow the schedule to reach a target higher
                     # than the CAR_MAX_SOC_IN_KWH.
-                    if target_soc > self.CAR_MAX_SOC_IN_KWH:
-                        window_duration = math.ceil((target_soc - self.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK
+                    if target_soc > c.CAR_MAX_SOC_IN_KWH:
+                        window_duration = math.ceil((target_soc - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK
                         start_relaxation_window = time_round((target_datetime - timedelta(minutes=window_duration)), resolution)
                         self.log(f"Lifting the soc-maxima due to upcoming target, start_relaxation_window: {start_relaxation_window.isoformat()}.")
 
@@ -355,12 +343,55 @@ class FlexMeasuresClient(hass.Hass):
         if start_relaxation_window < rounded_now:
             start_relaxation_window = rounded_now
 
+        back_to_max_soc = fnc_kwargs["back_to_max_soc"]
+        self.log(f"trigger_schedule, back_to_max_soc: '{back_to_max_soc}'.")
+
+        # If back_to_max_soc is a datetime (not None) the current SoC > max-soc and the soc should be back at max-soc at this time.
+        # It is set and reset in v2g_liberty set_next_action()
+        soc_maxima = []
+        if isinstance(back_to_max_soc, datetime):
+            if back_to_max_soc >= start_relaxation_window:
+                # There is a calendar item before the back_to_max_soc, so for now the latter is ignored.
+                # The only thing that changes is the setting for the soc maxima, instead of the usual CAR_MAX_SOC_IN_KWH
+                # the current SoC is used.
+                # The relaxation window is still based on the CAR_MAX_SOC_IN_KWH.
+                soc_maxima = [
+                    {
+                        "value": current_soc_kwh,
+                        "datetime": dt.isoformat(),
+                    } for dt in [rounded_now + x * resolution for x in range(0, (start_relaxation_window - rounded_now) // resolution) ]
+                ]
+            else:
+                # No calendar item so we keep the current_soc as the maxima until back_to_max_soc.
+                # After that the usual boundry CAR_MAX_SOC_IN_KWH is used.
+                soc_maxima_higher_max_soc = [
+                    {
+                        "value": current_soc_kwh,
+                        "datetime": dt.isoformat(),
+                    } for dt in [rounded_now + x * resolution for x in range(0, (back_to_max_soc - rounded_now) // resolution) ]
+                ]
+                soc_maxima_original_max_soc = [
+                    {
+                        "value": c.CAR_MAX_SOC_IN_KWH,
+                        "datetime": dt.isoformat(),
+                    } for dt in [back_to_max_soc + x * resolution for x in range(0, (start_relaxation_window - back_to_max_soc) // resolution) ]
+                ]
+                soc_maxima = soc_maxima_higher_max_soc + soc_maxima_original_max_soc
+        else:
+            # No exceptional SoC, so keep normal soc_maxima.
+            soc_maxima = [
+                {
+                    "value": c.CAR_MAX_SOC_IN_KWH,
+                    "datetime": dt.isoformat(),
+                } for dt in [rounded_now + x * resolution for x in range(0, (start_relaxation_window - rounded_now) // resolution) ]
+            ]
+
         message = {
             "start": soc_datetime,
             "flex-model": {
                 "soc-at-start": current_soc_kwh,
                 "soc-unit": "kWh",
-                "soc-min": self.CAR_MIN_SOC_IN_KWH,
+                "soc-min": c.CAR_MIN_SOC_IN_KWH,
                 "soc-max": c.CAR_MAX_CAPACITY_IN_KWH,
                 "soc-minima": [
                     {
@@ -368,12 +399,7 @@ class FlexMeasuresClient(hass.Hass):
                         "datetime": target_datetime.isoformat(),
                     }
                 ],
-                "soc-maxima": [
-                    {
-                        "value": self.CAR_MAX_SOC_IN_KWH,
-                        "datetime": dt.isoformat(),
-                    } for dt in [rounded_now + x * resolution for x in range(0, (start_relaxation_window - rounded_now) // resolution)]
-                ],
+                "soc-maxima": soc_maxima,
                 "roundtrip-efficiency": c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
                 "power-capacity": str(c.CHARGER_MAX_CHARGE_POWER) + "W"
             },

@@ -1,14 +1,27 @@
 ### V2G Liberty constants ###
 
-# Date 2024-01-10 Pull request 159
-V2G_LIBERTY_VERSION = "0.1.7"
+# Date 2024-01-24 Pull request 162
+V2G_LIBERTY_VERSION = "0.1.8"
 
 # USER PREFERENCE
 # See remark for charger constants
+# Battery protection boundaries ##
+# A hard setting that is always respected (and used for Max_Charge_Now when
+# car is connected with a SoC below this value)
 # Defaults to 20 (to be safe)
 CAR_MIN_SOC_IN_PERCENT: int = 20
+# Derived from above setting and CAR_MAX_CAPACITY_IN_KWH
+CAR_MIN_SOC_IN_KWH: float
+
+# A 'soft' setting, that is respected during normal cycling but is ignored when
+# a calendar item requires a higher SoC.
 # Defaults to 80% (to be safe)
 CAR_MAX_SOC_IN_PERCENT: int = 80
+# Derived from above setting and CAR_MAX_CAPACITY_IN_KWH
+CAR_MAX_SOC_IN_KWH: float
+
+# Duration in hours, defaults to 12 should be between 2 and 36 hours
+ALLOWED_DURATION_ABOVE_MAX_SOC: int = 12
 
 OPTIMISATION_MODE: str = "price"
 ELECTRICITY_PROVIDER: str = "nl_generic"

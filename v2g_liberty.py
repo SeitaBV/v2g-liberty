@@ -1,14 +1,15 @@
-import math
 from datetime import datetime, timedelta
-from itertools import accumulate
+import isodate
 import time
 import pytz
+from v2g_globals import time_round
+import math
+from itertools import accumulate
+from typing import AsyncGenerator, List, Optional
 import constants as c
 from v2g_globals import V2GLibertyGlobals
-from typing import AsyncGenerator, List, Optional
 
 import appdaemon.plugins.hass.hassapi as hass
-import isodate
 
 from wallbox_client import WallboxModbusMixin
 
@@ -32,6 +33,10 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     # A SoC of 0 means: unknown/car not connected.
     connected_car_soc: int
     connected_car_soc_kwh: float
+
+    # This is a target datetime at which te SoC that is above the max_soc must return back to or below this value.
+    # It is dependent on the user setting for allowed duration above max soc.
+    back_to_max_soc: datetime
 
     # Variable to store charger_state for comparison for change
     current_charger_state: int
@@ -60,6 +65,9 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         self.MIN_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
         self.CAR_AVERAGE_WH_PER_KM = int(float(self.args["car_average_wh_per_km"]))
+
+        # If this variable is None it means the current SoC is below the max-soc.
+        self.back_to_max_soc = None
 
         # Show the settings in the UI
         self.set_value("input_text.v2g_liberty_version", c.V2G_LIBERTY_VERSION)
@@ -259,7 +267,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
     def clear_notification_for_all_recipients(self, tag: str):
         for recipient in self.recipients:
-            identification = {"recipient": recipient, "tag": tag}
+            identification = { "recipient": recipient, "tag": tag }
             self.clear_notification(identification)
 
     def clear_notification(self, identification: dict):
@@ -283,6 +291,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         except:
             self.log(f"Could not clear notification: exception on {recipient}.")
 
+
     def reset_no_new_schedule(self):
         """ Sets all errors to False and removes notification / UI messages
 
@@ -294,7 +303,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
 
         for error_name in self.no_schedule_errors:
             self.no_schedule_errors[error_name] = False
-        self.notify_no_new_schedule(reset=True)
+        self.notify_no_new_schedule(reset = True)
+
 
     def handle_no_new_schedule(self, error_name: str, error_state: bool):
         """ Keep track of situations where no new schedules are available:
@@ -339,7 +349,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         if reset:
             self.cancel_timer(self.notification_timer_handle, True)
             self.no_schedule_notification_is_planned = False
-            self.clear_notification_for_all_recipients(tag="no_new_schedule")
+            self.clear_notification_for_all_recipients(tag = "no_new_schedule")
             self.set_state("input_boolean.error_no_new_schedule_available", state="off")
             return
 
@@ -410,7 +420,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             self.log(f"Not getting new schedule. SoC below minimum, boosting to reach that first.")
             return
 
-        self.get_app("flexmeasures-client").get_new_schedule(self.connected_car_soc_kwh)
+        self.get_app("flexmeasures-client").get_new_schedule(self.connected_car_soc_kwh, self.back_to_max_soc)
 
     def cancel_charging_timers(self):
         for h in self.scheduling_timer_handles:
@@ -603,6 +613,15 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
             self.log("SoC is 0, stopped setting next action.")
             # Maybe (but it is dangerous) do try_get_soc??
             return
+
+        # If the SoC of the car is higher than the max-soc (intended for battery protection)
+        # a target is to return to the max-soc within the ALLOWED_DURATION_ABOVE_MAX_SOC
+        if (self.back_to_max_soc is None) and (self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH):
+            self.back_to_max_soc = time_round((self.get_now() + timedelta(hours = c.ALLOWED_DURATION_ABOVE_MAX_SOC)), self.MIN_RESOLUTION)
+            self.log(f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% at {self.back_to_max_soc}.")
+        elif self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH:
+            self.back_to_max_soc = None
+            self.log(f"SoC was above max-soc, has been restored.")
 
         charge_mode = self.get_state("input_select.charge_mode", attribute="state")
         self.log(f"Setting next action based on charge_mode '{charge_mode}'.")

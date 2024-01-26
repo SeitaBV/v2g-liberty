@@ -35,7 +35,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
     connected_car_soc_kwh: float
 
     # This is a target datetime at which te SoC that is above the max_soc must return back to or below this value.
-    # It is dependent on the user setting for allowed duration above max soc.
+    # It is dependant on the user setting for allowed duration above max soc.
     back_to_max_soc: datetime
 
     # Variable to store charger_state for comparison for change
@@ -617,11 +617,11 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         # If the SoC of the car is higher than the max-soc (intended for battery protection)
         # a target is to return to the max-soc within the ALLOWED_DURATION_ABOVE_MAX_SOC
         if (self.back_to_max_soc is None) and (self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH):
-            self.back_to_max_soc = time_round((self.get_now() + timedelta(hours = c.ALLOWED_DURATION_ABOVE_MAX_SOC)), self.MIN_RESOLUTION)
+            self.back_to_max_soc = time_round((self.get_now() + timedelta(hours=c.ALLOWED_DURATION_ABOVE_MAX_SOC)), self.MIN_RESOLUTION)
             self.log(f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% at {self.back_to_max_soc}.")
         elif self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH:
             self.back_to_max_soc = None
-            self.log(f"SoC was above max-soc, has been restored.")
+            self.log(f"SoC was below max-soc, has been restored.")
 
         charge_mode = self.get_state("input_select.charge_mode", attribute="state")
         self.log(f"Setting next action based on charge_mode '{charge_mode}'.")

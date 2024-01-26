@@ -313,7 +313,7 @@ car_max_soc_in_percent: 80
 
 # When the car connects with a SoC higher than car_max_soc_in_percent
 # how long may the schedule take to bring the SoC back to this maximum?
-# Higher values give opportunity for higher gains but might have a (minor)
+# A longer duration gives opportunity for higher gains but might have a (minor)
 # degradation effect on the battery.
 # The setting must be an integer value between 2 and 36, default is 12.
 allowed_duration_above_max_soc_in_hrs: 12
@@ -370,7 +370,7 @@ From this GitHub project copy all files to the respective folders.
 AppDaemon is an official add-on for HA and thus can be installed from within HA.
 Please go to Settings -> Add-ons -> Add-on store and find the AppDaemon add-on.
 
-***Unfortunately V2G Liberty does currently only works with version 0.14.0, we are doing our beste to work with newer versions***
+***Unfortunately V2G Liberty does currently only work with version 0.14.0, we are doing our best to work with newer versions.***
 
 When installed AppDaemon needs to be configured, look for (`Supervisor -> AppDaemon 4 -> Configuration`) and add the following Python packages:
 

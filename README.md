@@ -311,10 +311,20 @@ car_min_soc_in_percent: 20
 # The setting must be an integer value between 60 and 100, default is 80.
 car_max_soc_in_percent: 80
 
+# When the car connects with a SoC higher than car_max_soc_in_percent
+# how long may the schedule take to bring the SoC back to this maximum?
+# A longer duration gives opportunity for higher gains but might have a (minor)
+# degradation effect on the battery.
+# This duration is excluding the (minimum) time it takes to get back to the
+# desired maximum under normal cycling conditions.
+# The setting must be an integer value between 2 and 36, default is 12.
+allowed_duration_above_max_soc_in_hrs: 12
+
 # What is the average electricity usage of your car in watt-hour (Wh) per km?
 # In most cars you can find historical data in the menu's. Normally this is somewhere
 # between 140 (very efficient!) and 300 (rather in-efficient vans).
-# Make sure you use the right "unit of measure", use a dot not a comma.
+# Make sure you use the right "unit of measure": Wh.
+# The setting must be an integer value.
 car_average_wh_per_km: 174
 
 # Max (dis-)charge_power in Watt
@@ -361,6 +371,9 @@ From this GitHub project copy all files to the respective folders.
 
 AppDaemon is an official add-on for HA and thus can be installed from within HA.
 Please go to Settings -> Add-ons -> Add-on store and find the AppDaemon add-on.
+
+***Unfortunately V2G Liberty does currently only work with version 0.14.0, we are doing our best to work with newer versions.***
+
 When installed AppDaemon needs to be configured, look for (`Supervisor -> AppDaemon 4 -> Configuration`) and add the following Python packages:
 
 ```yaml
@@ -426,6 +439,7 @@ v2g-globals:
   car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
   car_min_soc_in_percent: !secret car_min_soc_in_percent
   car_max_soc_in_percent: !secret car_max_soc_in_percent
+  allowed_duration_above_max_soc_in_hrs: !secret allowed_duration_above_max_soc_in_hrs
 
   fm_account_power_sensor_id: !secret fm_account_power_sensor_id
   fm_account_availability_sensor_id: !secret fm_account_availability_sensor_id

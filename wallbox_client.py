@@ -510,11 +510,16 @@ class WallboxModbusMixin:
             return
 
         # **** Handle disconnect:
-        # Goes to this status when disconnected
+        # Goes to this status when the plug is removed from the socket (not when disconnect is requested from the UI)
         if new_charger_state == self.DISCONNECTED_STATE:
             self.log("Charger state has changed to 'Disconnected'")
+
+            # Reset any possible target for discharge due to SoC > max-soc
+            self.back_to_max_soc = None
+
             # Cancel current scheduling timers
             self.cancel_charging_timers()
+
             # This might seem strange but sometimes the charger starts charging when
             # reconnected even though it has not received an instruction to do so.
             self.set_charger_action("stop")

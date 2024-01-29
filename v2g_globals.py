@@ -25,10 +25,15 @@ class V2GLibertyGlobals(hass.Hass):
         self.log(f"v2g_globals max-car-capacity: {c.CAR_MAX_CAPACITY_IN_KWH} kWh.")
 
         c.CAR_MIN_SOC_IN_PERCENT = self.read_and_process_int_setting("car_min_soc_in_percent", 10, 30)
-        self.log(f"v2g_globals car-min-soc: {c.CAR_MIN_SOC_IN_PERCENT} %.")
+        c.CAR_MIN_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
+        self.log(f"v2g_globals car-min-soc: {c.CAR_MIN_SOC_IN_PERCENT} % or {c.CAR_MIN_SOC_IN_KWH} kWh.")
 
         c.CAR_MAX_SOC_IN_PERCENT = self.read_and_process_int_setting("car_max_soc_in_percent", 60, 100)
-        self.log(f"v2g_globals car-max-soc: {c.CAR_MAX_SOC_IN_PERCENT} %.")
+        c.CAR_MAX_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
+        self.log(f"v2g_globals car-max-soc: {c.CAR_MAX_SOC_IN_PERCENT} % or {c.CAR_MAX_SOC_IN_KWH} kWh.")
+
+        c.ALLOWED_DURATION_ABOVE_MAX_SOC = self.read_and_process_int_setting("allowed_duration_above_max_soc_in_hrs", 2, 36)
+        self.log(f"v2g_globals allowed_duration_above_max_soc: {c.ALLOWED_DURATION_ABOVE_MAX_SOC} hrs.")
 
         c.FM_ACCOUNT_POWER_SENSOR_ID = int(float(self.args["fm_account_power_sensor_id"]))
         self.log(f"v2g_globals FM_ACCOUNT_POWER_SENSOR_ID: {c.FM_ACCOUNT_POWER_SENSOR_ID}.")

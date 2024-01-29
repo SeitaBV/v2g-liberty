@@ -32,15 +32,6 @@ class FlexMeasuresClient(hass.Hass):
     DELAY_FOR_REATTEMPTS: int  # number of seconds
     CAR_RESERVATION_CALENDAR: str
 
-    # Battery protection boundaries ##
-    # A hard setting that is always respected (and used for Max_Charge_Now when
-    # car is connected with a SoC below this value)
-    CAR_MIN_SOC_IN_KWH: float
-
-    # A 'soft' setting, that is respected during normal cycling but is ignored when
-    # a calendar item requires a higher SoC.
-    CAR_MAX_SOC_IN_KWH: float
-
     # A slack for the constraint_relaxation_window in minutes
     WINDOW_SLACK: int = 60
 
@@ -63,6 +54,7 @@ class FlexMeasuresClient(hass.Hass):
     def initialize(self):
         self.log("Initializing FlexMeasuresClient")
 
+        self.fm_token = ""
         self.fm_busy_getting_schedule = False
         self.log(f"Init, fm_busy_getting_schedule: {self.fm_busy_getting_schedule}.")
         self.fm_date_time_last_schedule = self.get_now()
@@ -81,10 +73,6 @@ class FlexMeasuresClient(hass.Hass):
         self.fm_max_seconds_between_schedules = \
             self.DELAY_FOR_REATTEMPTS * (self.MAX_NUMBER_OF_REATTEMPTS + 1) + self.DELAY_FOR_INITIAL_ATTEMPT
         self.CAR_RESERVATION_CALENDAR = self.args["fm_car_reservation_calendar"]
-
-        self.CAR_MIN_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
-        self.CAR_MAX_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
-        self.log(f"Car_max_soc: {self.CAR_MAX_SOC_IN_KWH} kWh.")
 
         if c.OPTIMISATION_MODE == "price":
             self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID,
@@ -170,7 +158,7 @@ class FlexMeasuresClient(hass.Hass):
                     message += f" Link for further info: {content}"
             self.log(message)
 
-    def get_new_schedule(self, current_soc_kwh):
+    def get_new_schedule(self, current_soc_kwh: float, back_to_max_soc: datetime):
         """Get a new schedule from FlexMeasures.
            But not if still busy with getting previous schedule.
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
@@ -189,7 +177,7 @@ class FlexMeasuresClient(hass.Hass):
         self.fm_busy_getting_schedule = True
 
         # Ask to compute a new schedule by posting flex constraints while triggering the scheduler
-        schedule_id = self.trigger_schedule(current_soc_kwh=current_soc_kwh)
+        schedule_id = self.trigger_schedule(current_soc_kwh=current_soc_kwh, back_to_max_soc=back_to_max_soc)
         if schedule_id is None:
             self.log("Failed to trigger new schedule, schedule ID is None. Cannot call get_schedule")
             self.fm_busy_getting_schedule = False
@@ -335,32 +323,120 @@ class FlexMeasuresClient(hass.Hass):
                         self.log(f"Target SoC from calendar too high: {target_soc}, "
                                  f"adjusted to {c.CAR_MAX_CAPACITY_IN_KWH}kWh.")
                         target_soc = c.CAR_MAX_CAPACITY_IN_KWH
-                    elif target_soc < self.CAR_MIN_SOC_IN_KWH:
+                    elif target_soc < c.CAR_MIN_SOC_IN_KWH:
                         self.log(f"Target SoC from calendar too low: {target_soc}, "
-                                 f"adjusted to {self.CAR_MIN_SOC_IN_KWH}kWh.")
-                        target_soc = self.CAR_MIN_SOC_IN_KWH
+                                 f"adjusted to {c.CAR_MIN_SOC_IN_KWH}kWh.")
+                        target_soc = c.CAR_MIN_SOC_IN_KWH
 
                     # The relaxation window is the period before a calendar item where no
                     # soc_maxima should be sent to allow the schedule to reach a target higher
                     # than the CAR_MAX_SOC_IN_KWH.
-                    if target_soc > self.CAR_MAX_SOC_IN_KWH:
-                        window_duration = math.ceil((target_soc - self.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK
+                    if target_soc > c.CAR_MAX_SOC_IN_KWH:
+                        window_duration = math.ceil((target_soc - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK
                         start_relaxation_window = time_round((target_datetime - timedelta(minutes=window_duration)), resolution)
-                        self.log(f"Lifting the soc-maxima due to upcoming target, start_relaxation_window: {start_relaxation_window.isoformat()}.")
+
+        ######## Setting the soc_maxima ##########
+        # The soc_maxima are used to set the boundaries for the charge schedule. They are set per interval (resolution),
+        # and the schedule cannot go above them at that given interval.
+        #
+        # Assume:
+        # CTM  = Charge Target Moment which is the start of the first upcoming calendar item.
+        #        By default if there is no calendar item, the CTM is one week from now. This gives the
+        #        schedule enough freedom for the coming 27 hours (total duration of the schedule).
+        # SRW  = Start of the relaxation window for the CTM, including the slack of 1 hour.
+        #        Only relevant for calendar items with a target SoC above the CAR_MAX_SOC_IN_KWH.
+        #        Relaxation refers to the fact that in this window the schedule does not get soc-maxima so that
+        #        it can charge above the CAR_MAX_SOC_IN_KWH to reach the higher target SoC.
+        #        To keep things simple, the SRW is always based on CAR_MAX_SOC_IN_KWH, even if the current soc is higher.
+        # B2MS = The datetime at which the ALLOWED_DURATION_ABOVE_MAX_SOC ends, it cannot be in the past.
+        #        It serves as a target with a maximum SoC (where regular targets have a minimum).
+        #        The CTM has a higher priority than the B2MS.
+        # EMDW = End of Minimum Discharge Window. Minimum Discharge Window (MDW) = time needed to discharge from current
+        #        SoC to CAR_MAX_SOC_IN_KWH with available discharge power. EMDW = Now + MDW.
+        #        Scenario A: In case of EMDW > B2MS then the latter is extended to EMDW.
+        #
+        # The following scenarios need to be handled, they might in time flow from one into the other:
+        # 0. No B2MS
+        #    The soc-maxima are based on the CAR_MAX_SOC_IN_KWH and run from "now" up to SRW.
+        # 1. NOW < B2MS < SRW < CTM
+        #    The B2MS is not influenced by the first calendar item (or there is none)
+        #    SoC maxima are gradually lowered from current soc until B2MS from where they are set to CAR_MAX_SOC_IN_KWH.
+        #    TODO: A drawback of the gradual approach is that there might be discharging with low power which usually is
+        #          less efficient. So, if the trigger message could handle the concept "only discharge during this window"
+        #          it would result in better schedules. This should then replace the gradually lowered soc_maxima.
+        # 2. NOW < SRW < B2MS < CTM and NOW < SRW < CTM < B2MS
+        #    In this case, the B2MS and CTM do not play a role. The soc-maxima are based on the current SoC and
+        #    run from "now" up to SRW.
+        # 3. SRW < NOW < B2MS < CTM and SRW < NOW < CTM < B2MS
+        #    Here the priority is to reach the CTM and so not soc-maxima.
+        #
+        # Note that the situation where CTM < NOW is not relevant anymore and is covered by scenario 1.
 
         rounded_now = time_round(self.get_now(), resolution)
+        soc_maxima = []
 
-        # This is when the target SoC cannot be reached before the calendar-item_start,
-        # the start of the relaxation window would have to be in the past. We thus simply start asap: now.
         if start_relaxation_window < rounded_now:
-            start_relaxation_window = rounded_now
+            # This is when the target SoC cannot be reached at the calendar-item_start,
+            # Scenario 3.
+            soc_maxima = []
+            self.log("Strategy for soc_maxima: Priority for calendar target (Scenario 3), no soc_maxima.")
+        else:
+            back_to_max_soc = fnc_kwargs["back_to_max_soc"]
+            if isinstance(back_to_max_soc, datetime):
+                # There is a B2MS
+                minimum_discharge_window = math.ceil((current_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_DIS_CHARGE_POWER / 1000) * 60)
+                end_minimum_discharge_window = time_round((rounded_now - timedelta(minutes=minimum_discharge_window)), resolution)
+                if end_minimum_discharge_window > back_to_max_soc:
+                    # Scenario A.
+                    back_to_max_soc = end_minimum_discharge_window
+                
+                self.log(f"trigger_schedule, back_to_max_soc: '{back_to_max_soc}'.")
+
+                if back_to_max_soc >= start_relaxation_window:
+                    # Scenario 2.
+                    soc_maxima = [
+                        {
+                            "value": current_soc_kwh,
+                            "datetime": dt.isoformat(),
+                        } for dt in [rounded_now + x * resolution for x in range(0, (start_relaxation_window - rounded_now) // resolution) ]
+                    ]
+                    self.log("Strategy for soc_maxima: Maxima current_soc until Start of relaxation window (Scenario 2).")
+                else:
+                    # Scenario 1.
+                    soc_maxima_higher_max_soc = []
+                    number_of_steps = (back_to_max_soc - rounded_now) // resolution
+                    if number_of_steps > 0:
+                        step_kwh = (current_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / number_of_steps
+                        soc_maxima_higher_max_soc += [
+                            {
+                                "value": current_soc_kwh - (i * step_kwh),
+                                "datetime": (rounded_now + i * resolution).isoformat()
+                            } for i in range(number_of_steps)
+                        ]
+                    soc_maxima_original_max_soc = [
+                        {
+                            "value": c.CAR_MAX_SOC_IN_KWH,
+                            "datetime": dt.isoformat(),
+                        } for dt in [back_to_max_soc + x * resolution for x in range(0, (start_relaxation_window - back_to_max_soc) // resolution) ]
+                    ]
+                    soc_maxima = soc_maxima_higher_max_soc + soc_maxima_original_max_soc
+                    self.log(f"Strategy for soc_maxima: Gradually decrease SoC to reach {c.CAR_MAX_SOC_IN_KWH}kWh (Scenario 1).")
+            else:
+                # Scenario 0.
+                soc_maxima = [
+                    {
+                        "value": c.CAR_MAX_SOC_IN_KWH,
+                        "datetime": dt.isoformat(),
+                    } for dt in [rounded_now + x * resolution for x in range(0, (start_relaxation_window - rounded_now) // resolution) ]
+                ]
+                self.log(f"Strategy for soc_maxima: Maxima CAR_MAX_SOC_IN_KWH until Start of relaxation window (Scenario 0).")
 
         message = {
             "start": soc_datetime,
             "flex-model": {
                 "soc-at-start": current_soc_kwh,
                 "soc-unit": "kWh",
-                "soc-min": self.CAR_MIN_SOC_IN_KWH,
+                "soc-min": c.CAR_MIN_SOC_IN_KWH,
                 "soc-max": c.CAR_MAX_CAPACITY_IN_KWH,
                 "soc-minima": [
                     {
@@ -368,12 +444,7 @@ class FlexMeasuresClient(hass.Hass):
                         "datetime": target_datetime.isoformat(),
                     }
                 ],
-                "soc-maxima": [
-                    {
-                        "value": self.CAR_MAX_SOC_IN_KWH,
-                        "datetime": dt.isoformat(),
-                    } for dt in [rounded_now + x * resolution for x in range(0, (start_relaxation_window - rounded_now) // resolution)]
-                ],
+                "soc-maxima": soc_maxima,
                 "roundtrip-efficiency": c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
                 "power-capacity": str(c.CHARGER_MAX_CHARGE_POWER) + "W"
             },

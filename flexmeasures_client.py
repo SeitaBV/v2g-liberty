@@ -347,7 +347,7 @@ class FlexMeasuresClient(hass.Hass):
         #        Only relevant for calendar items with a target SoC above the CAR_MAX_SOC_IN_KWH.
         #        Relaxation refers to the fact that in this window the schedule does not get soc-maxima so that
         #        it can charge above the CAR_MAX_SOC_IN_KWH to reach the higher target SoC.
-        #        To keep things simple SRW remains based on CAR_MAX_SOC_IN_KWH if there is B2MS, not the current higher soc.
+        #        To keep things simple, the SRW is always based on CAR_MAX_SOC_IN_KWH, even if the current soc is higher.
         # B2MS = The datetime at which the ALLOWED_DURATION_ABOVE_MAX_SOC ends, it cannot be in the past.
         #        It serves as a target with a maximum SoC (where regular targets have a minimum).
         #        The CTM has a higher priority than the B2MS.
@@ -407,15 +407,12 @@ class FlexMeasuresClient(hass.Hass):
                     number_of_steps = (back_to_max_soc - rounded_now) // resolution
                     if number_of_steps > 0:
                         step_kwh = (current_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / number_of_steps
-                        i = 0
-                        while i < number_of_steps:
-                            d = {
+                        soc_maxima_higher_max_soc += [
+                            {
                                 "value": current_soc_kwh - (i * step_kwh),
                                 "datetime": (rounded_now + i * resolution).isoformat()
-                            }
-                            self.log(f"dict: {d}")
-                            soc_maxima_higher_max_soc.append(d)
-                            i += 1
+                            } for i in range(number_of_steps)
+                        ]
                     soc_maxima_original_max_soc = [
                         {
                             "value": c.CAR_MAX_SOC_IN_KWH,

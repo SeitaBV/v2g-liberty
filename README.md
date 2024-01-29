@@ -315,6 +315,8 @@ car_max_soc_in_percent: 80
 # how long may the schedule take to bring the SoC back to this maximum?
 # A longer duration gives opportunity for higher gains but might have a (minor)
 # degradation effect on the battery.
+# This duration is excluding the (minimum) time it takes to get back to the
+# desired maximum under normal cycling conditions.
 # The setting must be an integer value between 2 and 36, default is 12.
 allowed_duration_above_max_soc_in_hrs: 12
 

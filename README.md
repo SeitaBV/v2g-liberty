@@ -124,35 +124,37 @@ After installation the reference to these resources has to be added through menu
 
 This is not complicated, but you'll need to work precise. The configuration of HA is stored in .yaml files, these can be edited in the HA file editor (in the left main menu).
 
-  > If you have installed V2G Liberty before, please remove any changes made during that installation to the .yaml files.
+  > For version 0.2.0 the folder structure has changed significantly due to AppDaemon requirements, please check carefully.
 
 After completion of this step you'll end up with a these files and folders (others might be there but are not shown here). Some might be already present and only need editing. Others files or folders might need to added. The files you'll have to edit are marked with *.
 
 ```
 . (root = HA config folder)
-├── appdaemon
-│   ├── apps
-│   │   ├── v2g-liberty
-│   │   │   ├── app_config
-│   │   │   │   ├── table_style.yaml
-│   │   │   │   ├── v2g-liberty-dashboard.yaml
-│   │   │   │   ├── v2g-liberty-package.yaml
-│   │   │   │   ├── v2g_liberty_ui_module_stats.yaml
-│   │   │   │   └── wallbox_modbus_registers.yaml
-│   │   │   ├── constants.py
-│   │   │   ├── flexmeasures_client.py
-│   │   │   ├── get_fm_data.py
-│   │   │   ├── LICENSE
-│   │   │   ├── README.md
-│   │   │   ├── set_fm_data.py
-│   │   │   ├── v2g_globals.py
-│   │   │   ├── v2g_liberty.py
-│   │   │   └── wallbox_client.py
-│   │   └ apps.yaml *
-│   ├── logs (possibly this need to be created)
-│   └ appdaemon.yaml *
+├── packages (possibly this need to be created)
+│   └── v2g-liberty
+│       ├── table_style.yaml
+│       ├── v2g-liberty-dashboard.yaml
+│       ├── v2g-liberty-package.yaml
+│       └── v2g_liberty_ui_module_stats.yaml
 ├── configuration.yaml *
 └── secrets.yaml *
+
+. (root = AppDaemon addon_configs folder, usually called a0d7b954_appdaemon)
+├── apps
+│   ├── v2g-liberty
+│   │   ├── constants.py
+│   │   ├── flexmeasures_client.py
+│   │   ├── get_fm_data.py
+│   │   ├── LICENSE
+│   │   ├── README.md
+│   │   ├── set_fm_data.py
+│   │   ├── v2g_globals.py
+│   │   ├── v2g_liberty.py
+│   │   ├── wallbox_client.py
+│   │   └── wallbox_modbus_registers.yaml
+│   └ apps.yaml *
+├── logs (possibly this need to be created)
+└ appdaemon.yaml *
 ```
 
 ### Secrets
@@ -387,7 +389,7 @@ To configure AppDaemon you'll need to add the following to the appdaemon.yaml fi
 
 ```yaml
 ---
-secrets: /config/secrets.yaml
+secrets: /homeassistant/secrets.yaml
 
 appdaemon:
   latitude: !secret ha_latitude
@@ -407,16 +409,6 @@ admin:
 api:
 hadashboard:
 
-# Setting logging is optional but useful. The software is in use for quite some
-# time but not bullet-proof yet. So every now and then you'll need to see what
-# happend.
-# Make sure the "log" folder is created.
-log_thread_actions: 1
-logs:
-  main_log:
-    filename: /config/appdaemon/logs/appdaemon_main.log
-  error_log:
-    filename: /config/appdaemon/logs/appdaemon_error.log
 ```
 
 ### Apps.yaml
@@ -470,7 +462,7 @@ v2g_liberty:
   car_average_wh_per_km: !secret car_average_wh_per_km
 
   fm_car_reservation_calendar: calendar.car_reservation
-  wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
+  wallbox_modbus_registers: !include /config/apps/v2g-liberty/wallbox_modbus_registers.yaml
 
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
@@ -534,7 +526,8 @@ set_fm_data:
 
   wallbox_host: !secret wallbox_host
   wallbox_port: !secret wallbox_port
-  wallbox_modbus_registers: !include /config/appdaemon/apps/v2g-liberty/app_config/wallbox_modbus_registers.yaml
+  wallbox_modbus_registers: !include /config/apps/v2g-liberty/wallbox_modbus_registers.yaml
+
 ```
 
 ## Configure HA to use v2g-liberty
@@ -545,7 +538,8 @@ In your Home Assistant file editor, go to `/config/configuration.yaml` and add t
 ```yaml
 homeassistant:
   packages:
-    v2g_pack: !include appdaemon/apps/v2g-liberty/app_config/v2g_liberty_package.yaml
+    v2g_pack: !include packages/v2g-liberty/v2g_liberty_package.yaml
+
 ```
 
 ### Convenient HA optimisations

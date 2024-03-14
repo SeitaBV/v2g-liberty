@@ -90,8 +90,6 @@ class WallboxModbusMixin:
                 # This is futile, Modbus has stopped so a restart will not work anyhow.
                 # self.set_charger_action("restart")
                 self.busy_getting_charger_state = False
-                if user_wants_to_restart:
-                    self.restart_charger_and_appdaemon()
                 return
             cs = self.client.read_holding_registers(register)
             if cs is None:

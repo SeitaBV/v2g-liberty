@@ -109,6 +109,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
         self.listen_event(self.disconnect_charger, "DISCONNECT_CHARGER")
+        self.listen_event(self.restart_charger_and_appdaemon(), "RESTART_CHARGER")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")

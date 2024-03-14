@@ -213,7 +213,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                     tag: Optional[str] = None,
                     critical: bool = False,
                     send_to_all: bool = False,
-                    ttl: Optional[int] = 0
+                    ttl: Optional[int] = 0,
+                    actions: tuple[dict] = (),
                     ):
         """ Utility function to send notifications to the user
             - critical    : send with high priority to Admin only. Always delivered and sound is play. Use with caution.
@@ -242,6 +243,9 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         # critical trumps send_to_all
         if critical:
             notification_data = self.PRIORITY_NOTIFICATION_CONFIG
+
+        if actions:
+            notification_data["actions"] = list(actions)
 
         if send_to_all and not critical:
             to_notify = self.recipients

@@ -83,7 +83,11 @@ class WallboxModbusMixin:
                     title       = title,
                     tag         = "critical_error",
                     critical    = True,
-                    send_to_all = False
+                    send_to_all = False,
+                    actions     = (
+                        {"title": "Restart charger", "action": self.restart_charger},
+                        {"title": "Restart appdaemon", "action": self.restart_appdaemon},
+                    )
                 )
                 self.turn_on("input_boolean.charger_modbus_communication_fault")
                 self.set_chargemode_in_ui("Stop")

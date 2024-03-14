@@ -90,6 +90,8 @@ class WallboxModbusMixin:
                 # This is futile, Modbus has stopped so a restart will not work anyhow.
                 # self.set_charger_action("restart")
                 self.busy_getting_charger_state = False
+                if user_wants_to_restart:
+                    self.restart_charger_and_appdaemon()
                 return
             cs = self.client.read_holding_registers(register)
             if cs is None:
@@ -186,7 +188,7 @@ class WallboxModbusMixin:
                          f"last {self.minimum_seconds_between_restarts} seconds.")
                 return
             self.log(f"Start RESTARTING charger...")
-            value = self.registers["actions"]["restart_charger"]
+            self.restart_charger_and_appdaemon()
             self.last_restart = self.get_now()
         else:
             raise ValueError(f"Unknown option for action: '{action}'")
@@ -636,6 +638,40 @@ class WallboxModbusMixin:
         self.set_charger_control("take")
         self.set_power_setpoint(c.CHARGER_MAX_CHARGE_POWER)
         self.set_charger_action("start")
+
+    def restart_charger_and_appdaemon(self):
+        """Restart the charger via Wallbox API."""
+        self.restart_charger()
+        self.restart_appdaemon(delay=3 * 60)
+
+    def restart_appdaemon(self, delay: int):
+        """Restart appdaemon in delay seconds."""
+        kwargs = dict(service="app/restart", app="V2Gliberty", namespace="admin")
+        self.run_in(self.call_service, delay, **kwargs)
+
+    def restart_charger(self):
+        """Restart the charger via Wallbox API."""
+        self.log("restart_charger called")
+        from wallbox import Wallbox, Statuses
+
+        user = self.args["wallbox_api_user"]
+        pw = self.args["wallbox_api_pw"]
+        w = Wallbox(user, pw)
+
+        # Authenticate with the credentials above
+        w.authenticate()
+
+        # Verify that the account has a single charger
+        charger_ids = w.getChargersList()
+        assert len(charger_ids) == 1, "Charger restart functionality expects a single charger on your account."
+        charger_id = charger_ids[0]
+
+        # Get charger data for all chargers in the list, then lock and unlock chargers
+        charger_status = w.getChargerStatus(charger_id)
+        self.log(f"Charger Status before sending restart instruction: {charger_status}")
+        w.restartCharger(charger_id)
+        charger_status = w.getChargerStatus(charger_id)
+        self.log(f"Charger Status after sending restart instruction: {charger_status}")
 
 
 class RegisterModule(hass.Hass):

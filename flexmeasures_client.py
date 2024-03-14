@@ -269,9 +269,9 @@ class FlexMeasuresClient(hass.Hass):
         # AJO 2023-03-31:
         # ToDo: Would it be more efficient to determine the target every 15/30/60? minutes instead of at every schedule
         # Set default target_soc to 100% one week from now
-        target_datetime = (time_round(self.get_now(), resolution) + timedelta(days=7))
+        target_start = (time_round(self.get_now(), resolution) + timedelta(days=7))
         # By default, we assume no calendar item so no relaxation window is needed
-        start_relaxation_window = target_datetime
+        start_relaxation_window = target_start
         target_soc = c.CAR_MAX_CAPACITY_IN_KWH
 
         # Check if calendar has a relevant item that is within one week (*) from now.
@@ -286,16 +286,21 @@ class FlexMeasuresClient(hass.Hass):
         else:
             self.log(f"Calender: {car_reservation}")
             calendar_item_start = car_reservation["attributes"].get("start_time", None)
+            calendar_item_end = car_reservation["attributes"].get("end_time", None)
             if calendar_item_start is not None:
                 # Prepare for date parsing
                 TZ = isodate.parse_tzinfo(self.get_timezone())
                 calendar_item_start = calendar_item_start.replace(" ", "T")
                 calendar_item_start = isodate.parse_datetime(calendar_item_start).astimezone(TZ)
                 self.log(f"calendar_item_start: {calendar_item_start}.")
-                if calendar_item_start < target_datetime:
+                calendar_item_end = calendar_item_end.replace(" ", "T")
+                calendar_item_end = isodate.parse_datetime(calendar_item_end).astimezone(TZ)
+                self.log(f"calendar_item_end: {calendar_item_end}.")
+                if calendar_item_start < target_start:
                     # There is a relevant calendar item with a start date less than a week in the future.
                     # Set the calendar_item_start as the target for the schedule
-                    target_datetime = time_round(calendar_item_start, resolution)
+                    target_start = time_round(calendar_item_start, resolution)
+                    target_duration = time_round(calendar_item_end, resolution) - target_start
 
                     # Now try to retrieve target_soc.
                     # Depending on the type of calendar the description or message contains the possible target_soc.
@@ -333,7 +338,7 @@ class FlexMeasuresClient(hass.Hass):
                     # than the CAR_MAX_SOC_IN_KWH.
                     if target_soc > c.CAR_MAX_SOC_IN_KWH:
                         window_duration = math.ceil((target_soc - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK
-                        start_relaxation_window = time_round((target_datetime - timedelta(minutes=window_duration)), resolution)
+                        start_relaxation_window = time_round((target_start - timedelta(minutes=window_duration)), resolution)
 
         ######## Setting the soc_maxima ##########
         # The soc_maxima are used to set the boundaries for the charge schedule. They are set per interval (resolution),
@@ -441,7 +446,8 @@ class FlexMeasuresClient(hass.Hass):
                 "soc-minima": [
                     {
                         "value": target_soc,
-                        "datetime": target_datetime.isoformat(),
+                        "start": target_start.isoformat(),
+                        "duration": target_duration.isoformat(),
                     }
                 ],
                 "soc-maxima": soc_maxima,

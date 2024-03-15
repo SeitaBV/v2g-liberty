@@ -88,6 +88,7 @@ Filtering only the car reservations is also an option.
 The result must be that in Home Assistant only the events meant for the car are present.
 Preferably name the calendar (`car_reservation`). If you name(d) it otherwise, update the calendar name in the 
 configuration of V2G Liberty secrets.yaml.
+[Read more here](#car-reservations) about how car reservations work in practice.
 
 ---
 
@@ -578,3 +579,25 @@ Now the system needs 5 to 10 minutes before it runs nicely. If a car is connecte
     margin: 4em;
   }
 </style> -->
+
+
+### Car reservations
+
+Reserving a car matters when you want to make sure your car has sufficient charge for the trip.
+Depending on when you planned your trip, your car battery may be near its minimum charge (20% by default).
+This is most often the case at the end of the morning and at the end of the evening, but it all depends on the day's market prices.
+The 20% charge should be enough for small trips, but sometimes you'll need more.
+In that case, make a calendar item in your [calendar for car reservations](#get-an-online-calendar).
+
+By default, the car will be fully charged at the start of the calendar item.
+To allow some scheduling flexibility and increase the capability of V2G Liberty to earn money and reduce emissions, simply mention a minimum charge target in the calendar description.
+Such a target must mention the unit (either kWh or %). For example:
+
+- *25 kWh* (not case-sensitive, and tolerates spaces between the numbers and unit)
+- *40%*
+
+In case you need more control, it's possible to add one of the following modifiers: >, < or =. For example:
+
+- *=25 kWh* (indicates that the battery charge should be exactly 25 kWh at the start of the reservation)
+- *<40%* (indicates that the battery charge should be less than 40% at the start of the reservation)
+- *>60%* (same as *60%*, indicating a minimum charge of 60%)

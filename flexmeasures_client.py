@@ -273,6 +273,7 @@ class FlexMeasuresClient(hass.Hass):
         # By default, we assume no calendar item so no relaxation window is needed
         start_relaxation_window = target_datetime
         target_soc = c.CAR_MAX_CAPACITY_IN_KWH
+        target_type = "soc-minima"
 
         # Check if calendar has a relevant item that is within one week (*) from now.
         # (*) 7 days is the setting in v2g_liberty_package.yaml
@@ -305,13 +306,13 @@ class FlexMeasuresClient(hass.Hass):
                     text_to_search_in = " ".join(filter(None, [m, d]))
 
                     # First try searching for a number in kWh
-                    found_target_soc_in_kwh = search_for_soc_target("kWh", text_to_search_in)
+                    found_target_soc_in_kwh, target_type = search_for_soc_target("kWh", text_to_search_in)
                     if found_target_soc_in_kwh is not None:
                         self.log(f"Target SoC from calendar: {found_target_soc_in_kwh} kWh.")
                         target_soc = found_target_soc_in_kwh
                     else:
                         # No kWh number found, try searching for a number in %
-                        found_target_soc_in_percentage = search_for_soc_target("%", text_to_search_in)
+                        found_target_soc_in_percentage, target_type = search_for_soc_target("%", text_to_search_in)
                         if found_target_soc_in_percentage is not None:
                             self.log(f"Target SoC from calendar: {found_target_soc_in_percentage} %.")
                             target_soc = round(float(found_target_soc_in_percentage) / 100 * c.CAR_MAX_CAPACITY_IN_KWH,
@@ -438,7 +439,7 @@ class FlexMeasuresClient(hass.Hass):
                 "soc-unit": "kWh",
                 "soc-min": c.CAR_MIN_SOC_IN_KWH,
                 "soc-max": c.CAR_MAX_CAPACITY_IN_KWH,
-                "soc-minima": [
+                target_type: [
                     {
                         "value": target_soc,
                         "datetime": target_datetime.isoformat(),
@@ -490,23 +491,34 @@ class FlexMeasuresClient(hass.Hass):
 
 
 # TODO AJO 2022-02-26: would it be better to have this in v2g_liberty module?
-def search_for_soc_target(search_unit: str, string_to_search_in: str) -> int:
+def search_for_soc_target(search_unit: str, string_to_search_in: str) -> tuple:
     """Search description for the first occurrence of some (integer) number of the search_unit.
 
     Parameters:
         search_unit (int): The unit to search for, typically % or kWh, found directly following the number
         string_to_search_in (str): The string in which the soc in searched
     Returns:
-        integer number or None if nothing is found
+        integer number and type of SoC target (soc-minima, soc-maxima or soc-targets), or None if nothing is found
 
     Forgives errors in incorrect capitalization of the unit and missing/double spaces.
     """
     if string_to_search_in is None:
         return None
     string_to_search_in = string_to_search_in.lower()
-    pattern = re.compile(rf"(?P<quantity>\d+) *{search_unit.lower()}")
+    pattern = re.compile(rf"(?P<modifier>[>=<]*)(?P<quantity>\d+) *{search_unit.lower()}")
     match = pattern.search(string_to_search_in)
-    if match:
-        return int(float(match.group("quantity")))
+    if not match:
+        return
+    quantity = int(float(match.group("quantity")))
+    modifier = match.group("modifier")
 
-    return None
+    if ">" in modifier:
+        target_type = "soc-minima"
+    elif "<" in modifier:
+        target_type = "soc-maxima"
+    elif "=" in modifier:
+        target_type = "soc-targets"
+    else:
+        target_type = "soc-minima"
+
+    return quantity, target_type

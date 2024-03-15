@@ -109,6 +109,7 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         self.listen_state(self.update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_state(self.handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
         self.listen_event(self.disconnect_charger, "DISCONNECT_CHARGER")
+        self.listen_event(self.restart_charger_and_appdaemon(), "RESTART_CHARGER")
 
         self.listen_state(self.handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         self.listen_state(self.schedule_charge_point, "input_text.chargeschedule", attribute="all")
@@ -212,7 +213,8 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
                     tag: Optional[str] = None,
                     critical: bool = False,
                     send_to_all: bool = False,
-                    ttl: Optional[int] = 0
+                    ttl: Optional[int] = 0,
+                    actions: tuple[dict] = (),
                     ):
         """ Utility function to send notifications to the user
             - critical    : send with high priority to Admin only. Always delivered and sound is play. Use with caution.
@@ -241,6 +243,9 @@ class V2Gliberty(hass.Hass, WallboxModbusMixin):
         # critical trumps send_to_all
         if critical:
             notification_data = self.PRIORITY_NOTIFICATION_CONFIG
+
+        if actions:
+            notification_data["actions"] = list(actions)
 
         if send_to_all and not critical:
             to_notify = self.recipients

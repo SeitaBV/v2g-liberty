@@ -32,33 +32,33 @@ ELECTRICITY_PROVIDER: str = "nl_generic"
 FM_EVENT_RESOLUTION_IN_MINUTES = 5
 
 # CONSTANTS for FM Url's
-FM_BASE_URL = "https://flexmeasures.seita.nl/api/"
+FM_BASE_URL = "https://seita.energy/api/"
 FM_API_VERSION = "v3_0"
 
 # URL for checking if API is alive
-# https://flexmeasures.seita.nl/api/ops/ping
+# https://seita.energy/api/ops/ping
 FM_PING_URL = FM_BASE_URL + "ops/ping"
 
 # URL for authentication on FM
-# https://flexmeasures.seita.nl/api/requestAuthToken
+# https://seita.energy/api/requestAuthToken
 FM_AUTHENTICATION_URL = FM_BASE_URL + "requestAuthToken"
 
 # URL for retrieval of the schedules
-# https://flexmeasures.seita.nl/api/v3_0/sensors/XX/schedules/trigger
-# https://flexmeasures.seita.nl/api/v3_0/sensors/XX/schedules/SI
+# https://seita.energy/api/v3_0/sensors/XX/schedules/trigger
+# https://seita.energy/api/v3_0/sensors/XX/schedules/SI
 # Where XX is the sensor_id and SI is the schedule_id
 FM_SCHEDULE_URL = FM_BASE_URL + FM_API_VERSION + "/sensors/"
 FM_SCHEDULE_SLUG = "/schedules/"
 FM_SCHEDULE_TRIGGER_SLUG = FM_SCHEDULE_SLUG + "trigger"
 
 # URL for getting data for the chart:
-# https://flexmeasures.seita.nl/api/dev/sensor/XX/chart_data/
+# https://seita.energy/api/dev/sensor/XX/chart_data/
 # Where XX is the sensor_id
 FM_GET_DATA_URL = FM_BASE_URL + "dev/sensor/"
 FM_GET_DATA_SLUG = "/chart_data/"
 
 # URL for sending metering data to FM:
-# https://flexmeasures.seita.nl/api/v3_0/sensors/data
+# https://seita.energy/api/v3_0/sensors/data
 FM_SET_DATA_URL = FM_BASE_URL + FM_API_VERSION + "/sensors/data"
 
 # Utility context
